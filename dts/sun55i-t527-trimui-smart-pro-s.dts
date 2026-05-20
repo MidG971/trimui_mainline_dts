@@ -12,7 +12,7 @@
 
 / {
     model = "Trimui Smart Pro S";
-    compatible = "trimui,smart-pro-s", "allwinner,sun55i-t527";
+    compatible = "trimui,smart-pro-s", "allwinner,sun55i-a523";
 
     aliases {
         serial0 = &uart0;

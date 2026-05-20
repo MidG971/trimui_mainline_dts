@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-DTS_NAME="sun55i-t527-trimui-smart-pro-s"
+DTS_NAME="sun55i-a523-trimui-smart-pro-s"
 SRC_DTS="dts/${DTS_NAME}.dts"
 TMP_DTS="build/${DTS_NAME}.tmp.dts"
 OUT_DTB="build/${DTS_NAME}.dtb"

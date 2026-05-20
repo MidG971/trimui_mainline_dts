@@ -7,15 +7,15 @@ TMP_DTS="build/${DTS_NAME}.tmp.dts"
 OUT_DTB="build/${DTS_NAME}.dtb"
 
 if [ ! -f "$SRC_DTS" ]; then
-    echo "❌ Erreur : Place ton fichier ${DTS_NAME}.dts dans le dossier 'dts/'"
+    echo "❌ Erreur : Put your file ${DTS_NAME}.dts in folder 'dts/'"
     exit 1
 fi
 
 echo "🧠 Pre-processing  DTS with GCC"
-# Correction ici : on ajoute l'accès direct au répertoire 'input' et à la racine des bindings pour GCC
+# Correction here :  we add accesss to 'input' folder and root bindings for GCC
 aarch64-linux-gnu-gcc -E -nostdinc -I kernel-source/include -I include -I dts -x assembler-with-cpp -o "$TMP_DTS" "$SRC_DTS"
 
-echo "🔨 Compilation du binaire DTB via DTC..."
+echo "🔨 Binary compilation of DTB via DTC..."
 dtc -I dts -O dtb -p 1024 -o "$OUT_DTB" "$TMP_DTS"
 
 echo "✅ Yatta ! its done : $OUT_DTB"

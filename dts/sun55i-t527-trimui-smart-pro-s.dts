@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
  * Device Tree Source for Trimui Smart Pro S
- * Based on Allwinner T527 (sun55i)
+ * Based on Allwinner A523 (sun55i)
  * Compatible with Linux mainline kernel
  * Copyright (C) 2026 Midgy BALON <midgy971@gmail.com>
  */
  
 /dts-v1/;
 
-#include "sun55i-t527.dtsi"
+#include "sun55i-a523.dtsi"
 
 / {
     model = "Trimui Smart Pro S";

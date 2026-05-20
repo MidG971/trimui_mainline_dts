@@ -1,0 +1,396 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Device Tree Source for Trimui Smart Pro S
+ * Based on Allwinner T527 (sun55i)
+ * Compatible with Linux mainline kernel
+ * Copyright (C) 2026 Midgy BALON <midgy971@gmail.com>
+ */
+
+#include "sun55i-t527.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/input/linux-event-codes.h>
+
+/ {
+	model = "Trimui Smart Pro S";
+	compatible = "trimui,smart-pro-s", "allwinner,sun55i-t527";
+
+	aliases {
+		serial0 = &uart0;
+		mmc0 = &mmc0;
+		mmc1 = &mmc1;
+		mmc2 = &mmc2;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	/* Fixed regulators */
+	reg_vcc_wifi: regulator-vcc-wifi {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc-wifi";
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	/* External audio amplifier (speakers) */
+	speaker_amp: loudspeaker-amplifier {
+		compatible = "simple-audio-amplifier";
+		enable-gpios = <&pio 7 6 GPIO_ACTIVE_HIGH>; /* PH6 */
+		sound-name-prefix = "Speaker Amp";
+	};
+
+	/* Battery */
+	trimui_battery: battery {
+		compatible = "simple-battery";
+		charge-full-design-microamp-hours = <5000000>; /* 5000 mAh */
+		energy-full-design-microwatt-hours = <18500000>;
+		voltage-min-design-microvolt = <3000000>; /* 3.0V */
+		voltage-max-design-microvolt = <4200000>; /* 4.2V */
+		ocv-capacity-table-0 = <
+			4200000 100 4150000 95 4110000 90
+			4060000 85 4010000 80 3960000 75
+			3910000 70 3870000 65 3830000 60
+			3790000 55 3760000 50 3730000 45
+			3700000 40 3680000 35 3650000 30
+			3620000 25 3590000 20 3560000 15
+			3510000 10 3430000 5 3000000 0
+		>;
+	};
+
+	/* LEDs */
+	leds {
+		compatible = "gpio-leds";
+
+		power_led: led-power {
+			label = "trimui:blue:power";
+			gpios = <&pio 3 24 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		charge_led: led-charge {
+			label = "trimui:red:charge";
+			gpios = <&pio 6 8 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
+	/* Sound card */
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "Trimui Smart Pro Audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,widgets =
+			"Headphone", "Headphone Jack",
+			"Speaker", "Internal Speakers",
+			"Microphone", "Internal Microphone";
+		simple-audio-card,routing =
+			"Headphone Jack", "HPOUTL",
+			"Headphone Jack", "HPOUTR",
+			"Internal Speakers", "LINEOUTL",
+			"Internal Speakers", "LINEOUTR",
+			"MIC1", "Internal Microphone";
+
+		simple-audio-card,cpu {
+			sound-dai = <&codec_analog>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&codec_digital>;
+		};
+	};
+};
+
+/* --- PMIC (AXP2202) --- */
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	axp2202: pmic@3a {
+		compatible = "x-powers,axp2202";
+		reg = <0x3a>;
+		interrupt-parent = <&nmi_intc>;
+		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+
+		regulators {
+			reg_dcdc1: dcdc1 {
+				regulator-name = "vdd-cpu";
+				regulator-min-microvolt = <800000>;
+				regulator-max-microvolt = <1500000>;
+				regulator-always-on;
+			};
+
+			reg_dcdc2: dcdc2 {
+				regulator-name = "vdd-gpu";
+				regulator-min-microvolt = <800000>;
+				regulator-max-microvolt = <1500000>;
+				regulator-always-on;
+			};
+
+			reg_dcdc3: dcdc3 {
+				regulator-name = "vdd-sys";
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <1300000>;
+				regulator-always-on;
+			};
+
+			reg_aldo1: aldo1 {
+				regulator-name = "vcc-3v3";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-always-on;
+			};
+
+			reg_bldo2: bldo2 {
+				regulator-name = "vcc-1v8";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-always-on;
+			};
+		};
+	};
+};
+
+/* --- Audio --- */
+&codec_analog {
+	cpvin-supply = <&reg_bldo2>;
+	avcc-supply = <&reg_aldo1>;
+	status = "okay";
+};
+
+&codec_digital {
+	status = "okay";
+};
+
+/* --- UART --- */
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pb_pins>;
+};
+
+/* --- MMC --- */
+&mmc0 {
+	status = "okay";
+	bus-width = <4>;
+	non-removable;
+	cap-mmc-highspeed;
+	disable-wp;
+	vmmc-supply = <&reg_aldo1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc0_pins>;
+};
+
+&mmc2 {
+	status = "okay";
+	bus-width = <8>;
+	non-removable;
+	cap-mmc-highspeed;
+	disable-wp;
+	vmmc-supply = <&reg_aldo1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc2_pins>;
+};
+
+/* --- Display --- */
+&de {
+	status = "okay";
+};
+
+&tcon0 {
+	status = "okay";
+};
+
+&mixer0 {
+	status = "okay";
+};
+
+panel: panel {
+	compatible = "innolux,gc9503";
+	backlight = <&backlight>;
+	enable-gpios = <&pio 3 24 GPIO_ACTIVE_HIGH>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&lcd0_rgb666_pins>;
+
+	port {
+		panel_in: endpoint {
+			remote-endpoint = <&tcon0_out>;
+		};
+	};
+};
+
+&tcon0_out {
+	remote-endpoint = <&panel_in>;
+};
+
+backlight: backlight {
+	compatible = "pwm-backlight";
+	pwms = <&pwm 0 0 PWM_POLARITY_INVERTED>;
+	brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
+	default-brightness-level = <100>;
+	status = "okay";
+};
+
+/* --- GPIO Keys --- */
+gpio-keys {
+	compatible = "gpio-keys";
+	#address-cells = <0>;
+	#size-cells = <0>;
+
+	button-power {
+		label = "Power";
+		linux,code = <KEY_POWER>;
+		gpios = <&pio 6 0 GPIO_ACTIVE_LOW>;
+		wakeup-source;
+	};
+
+	button-up {
+		label = "Up";
+		linux,code = <KEY_UP>;
+		gpios = <&pio 6 9 GPIO_ACTIVE_LOW>;
+	};
+
+	button-down {
+		label = "Down";
+		linux,code = <KEY_DOWN>;
+		gpios = <&pio 6 10 GPIO_ACTIVE_LOW>;
+	};
+
+	button-left {
+		label = "Left";
+		linux,code = <KEY_LEFT>;
+		gpios = <&pio 6 11 GPIO_ACTIVE_LOW>;
+	};
+
+	button-right {
+		label = "Right";
+		linux,code = <KEY_RIGHT>;
+		gpios = <&pio 6 12 GPIO_ACTIVE_LOW>;
+	};
+
+	button-a {
+		label = "A";
+		linux,code = <KEY_A>;
+		gpios = <&pio 6 13 GPIO_ACTIVE_LOW>;
+	};
+
+	button-b {
+		label = "B";
+		linux,code = <KEY_B>;
+		gpios = <&pio 6 14 GPIO_ACTIVE_LOW>;
+	};
+
+	button-x {
+		label = "X";
+		linux,code = <KEY_X>;
+		gpios = <&pio 6 15 GPIO_ACTIVE_LOW>;
+	};
+
+	button-y {
+		label = "Y";
+		linux,code = <KEY_Y>;
+		gpios = <&pio 6 16 GPIO_ACTIVE_LOW>;
+	};
+
+	button-select {
+		label = "Select";
+		linux,code = <KEY_SELECT>;
+		gpios = <&pio 6 17 GPIO_ACTIVE_LOW>;
+	};
+
+	button-start {
+		label = "Start";
+		linux,code = <KEY_START>;
+		gpios = <&pio 6 18 GPIO_ACTIVE_LOW>;
+	};
+
+	button-l {
+		label = "L";
+		linux,code = <KEY_L>;
+		gpios = <&pio 6 19 GPIO_ACTIVE_LOW>;
+	};
+
+	button-r {
+		label = "R";
+		linux,code = <KEY_R>;
+		gpios = <&pio 6 20 GPIO_ACTIVE_LOW>;
+	};
+
+	button-volume-up {
+		label = "Volume Up";
+		linux,code = <KEY_VOLUMEUP>;
+		gpios = <&pio 6 21 GPIO_ACTIVE_LOW>;
+	};
+
+	button-volume-down {
+		label = "Volume Down";
+		linux,code = <KEY_VOLUMEDOWN>;
+		gpios = <&pio 6 22 GPIO_ACTIVE_LOW>;
+	};
+};
+
+/* --- USB --- */
+&usb_otg {
+	status = "okay";
+	dr_mode = "otg";
+};
+
+&ehci0 {
+	status = "okay";
+};
+
+&ohci0 {
+	status = "okay";
+};
+
+&ehci1 {
+	status = "okay";
+};
+
+&ohci1 {
+	status = "okay";
+};
+
+&usbphy {
+	status = "okay";
+	usb0_id_det-gpios = <&pio 6 7 GPIO_ACTIVE_LOW>;
+	usb0_vbus-supply = <&reg_vcc_wifi>;
+	usb1_vbus-supply = <&reg_vcc_wifi>;
+};
+
+/* --- Wi-Fi/Bluetooth (RTL8723DS) --- */
+&spi0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins>;
+
+	wifi: wifi@0 {
+		compatible = "realtek,rtl8723ds";
+		reg = <0>;
+		spi-max-frequency = <40000000>;
+		interrupt-parent = <&pio>;
+		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+		reset-gpios = <&pio 7 1 GPIO_ACTIVE_LOW>;
+		32k-clock = <&rtc CLK_IOSC>;
+	};
+};
+
+/* --- PWM --- */
+&pwm {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm0_pins>;
+};
+
+/* --- RTC --- */
+&rtc {
+	status = "okay";
+};
+
+/* --- Watchdog --- */
+&wdt {
+	status = "okay";
+};

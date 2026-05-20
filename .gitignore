@@ -1,0 +1,3 @@
+build/
+*.dtb
+.DS_Store

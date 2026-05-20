@@ -1,6 +1,6 @@
-# Allwinner T527 / Trimui Smart Pro - Mainline Device Tree (21 KB Unification)
+# Allwinner T527 / Trimui Smart Pro S - Mainline Device Tree (21 KB Unification)
 
-This repository contains a fully unified, cleaned, and production-ready Mainline Device Tree (`.dts`) for the **Trimui Smart Pro** retro-gaming handheld, based on the Allwinner T527 SoC. 
+This repository contains a fully unified, cleaned, and production-ready Mainline Device Tree (`.dts`) for the **Trimui Smart Pro S** retro-gaming handheld, based on the Allwinner A523 SoC. 
 
 The tree successfully compiles with `dtc` against modern mainline inclusion targets without syntax errors or broken phandles.
 

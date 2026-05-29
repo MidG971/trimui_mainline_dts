@@ -1,29 +1,53 @@
-# Allwinner A523 / Trimui Smart Pro S - Mainline Device Tree
+# Allwinner A523 / Trimui Smart Pro S — Mainline Device Tree
 
-This repository contains a fully unified, cleaned, and production-ready Mainline Device Tree (`.dts`) for the **Trimui Smart Pro S** retro-gaming handheld, based on the Allwinner A523 SoC. 
+> ## 🚧 WORK IN PROGRESS — not a working port yet
+> This is an **early bring-up effort**, not production firmware. The device tree
+> here targets what mainline Linux can actually run **today**; large parts of the
+> hardware depend on SoC drivers that **do not exist in mainline yet** (see below).
+> A clean `dtc` compile only proves the syntax and phandles are valid — it does
+> **not** mean the hardware works. Anything not marked 🟢 is unverified or blocked.
 
-The tree successfully compiles with `dtc` against modern mainline inclusion targets without syntax errors or broken phandles.
+Mainline device tree for the **Trimui Smart Pro S** retro-gaming handheld
+(board `A523-PRO2-AXP717C`, model TG5050), based on the Allwinner **A523**
+(`sun55iw3p1`). Built on the upstream `sun55i-a523.dtsi`, modeled on the
+upstream `sun55i-t527-avaota-a1` board (same SoC family).
 
-## 🛠️ Hardware Support Matrix (DTS Status)
+## Status (honest)
 
-| Component | Status | Mainline Driver / Node |
+The current DTS is **Phase 2**: serial console, storage, USB, PMIC + regulators,
+and the WiFi SDIO slot. It **compiles against mainline Linux 6.19** and produces a
+valid DTB. Everything else is on the roadmap in [`PORTING-NOTES.md`](PORTING-NOTES.md).
+
+| Component | Status | Notes |
 | :--- | :---: | :--- |
-| **8x Cortex-A55 Cores** | 🟢 OK | DVFS Dynamic Scaling tied to AXP2202 `dcdc1` |
-| **AXP2202 PMIC** | 🟢 OK | Regulators (`cldo`, `aldo`, `bldo`) un-hardcoded |
-| **5000 mAh Battery** | 🟢 OK | Custom fuel-gauge voltage/capacity discharge curves |
-| **720x1280 MIPI-DSI Display**| 🟢 OK | TCON1 layout + Native panel-init-sequence injected |
-| **PWM Backlight** | 🟢 OK | `pwm-backlight` operational |
-| **Audio Codec** | 🟢 OK | Core ALSA `simple-audio-card` routing (SPK & HP Out) |
-| **Gamepad Buttons** | 🟢 OK | Linux `gpio-keys` EVDEV mapping |
-| **Analog Joysticks** | 🟢 OK | GPADC 12-bit channel calibration |
-| **Wi-Fi / Bluetooth** | 🟢 OK | BRCM SDIO Wi-Fi + Mainline BCM Bluetooth on `uart1` (LPM) |
-| **Vibrator Motor** | 🟢 OK | `pwm-vibrator` on PWM Channel 7 (Inverted) |
-| **Internal Cooling Fan** | 🟢 OK | 32-step `pwm-fan` on PWM Channel 10 (Inverted) |
-| **USB Host / OTG** | 🟢 OK | Dual VBUS controlled via GPIO (`PD8` / `PE6`) |
+| 8x Cortex-A55 (boot) | 🟢 | Boots at bootloader voltage; per-cluster cpufreq/DVFS not wired upstream yet |
+| AXP717 PMIC + regulators | 🟡 | On `r_i2c0`. **Verify chip is axp717 vs axp2202 on HW** (silk says AXP717C) |
+| Storage: microSD / eMMC | 🟡 | Nodes + supplies set; rails tagged VERIFY |
+| USB host / OTG | 🟡 | Controllers enabled; VBUS/ID GPIOs need HW verification |
+| WiFi (SDIO, mmc1) | 🟠 | Slot + rails set; **chip unidentified**, no `wifi@` child yet |
+| Battery / charger | 🟠 | axp717 fuel-gauge; capacity/OCV need HW values |
+| MIPI-DSI display (4-lane) | 🔴 | **No mainline A523 DSI/DE driver** — blocked |
+| PWM backlight | 🔴 | **No mainline A523 PWM** — blocked |
+| Analog joysticks (GPADC) | 🔴 | **No mainline A523 GPADC** — blocked (two controllers: gpadc0+gpadc1) |
+| Audio codec | 🔴 | **No mainline A523 codec** — blocked |
+| Gamepad buttons | 🔴 | No GPIO buttons in vendor DTB — likely a **USB MCU**; needs HW investigation |
+| Vibrator / fan (PWM) | 🔴 | Channels known (ch7 / ch10) but blocked on PWM driver |
+| GPU (Mali) / VPU | 🔴 | Not in mainline |
 
-## 🚀 How to Compile
+Legend: 🟢 works · 🟡 present, needs HW verification · 🟠 partial/stubbed · 🔴 blocked on missing mainline driver.
 
-Simply run the included compilation script to generate the production binary:
+## How to compile
 
 ```bash
 ./compile.sh
+```
+The script preprocesses with the cross GCC and compiles with `dtc`. For a real
+mainline build, drop `dts/sun55i-a523-trimui-smart-pro-s.dts` into
+`arch/arm64/boot/dts/allwinner/`, add it to that directory's `Makefile`, and run
+`make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- dtbs`.
+
+## Reference
+
+- [`PORTING-NOTES.md`](PORTING-NOTES.md) — hardware truth table extracted from the
+  vendor DTB + phased roadmap + the "verify-this-first" checklist.
+</content>

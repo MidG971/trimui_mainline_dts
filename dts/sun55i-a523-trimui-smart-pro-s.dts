@@ -1,0 +1,270 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+/*
+ * Trimui Smart Pro S handheld (board "A523-PRO2-AXP717C").
+ * SoC: Allwinner A523 (sun55iw3p1). Base: mainline sun55i-a523.dtsi.
+ *
+ * WORK IN PROGRESS - Phase 2 (PMIC + regulators + storage + USB + WiFi rails).
+ * Modeled on the upstream sun55i-t527-avaota-a1.dts (same SoC family).
+ *
+ * NOT yet possible on mainline (no SoC driver as of 6.19): MIPI-DSI display,
+ * PWM backlight, GPADC analog sticks, LRADC, audio codec, GPU. Those nodes are
+ * intentionally absent. See PORTING-NOTES.md for the truth table and roadmap.
+ *
+ * "VERIFY" = needs confirmation by i2c/dump on real hardware before trusting.
+ * Rail->consumer map is derived from the vendor DTB where known (WiFi rails) and
+ * otherwise mirrors Avaota A1; the exact Trimui map must be read from the device.
+ */
+
+/dts-v1/;
+
+#include "sun55i-a523.dtsi"
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "Trimui Smart Pro S";
+	/* T527 is the same die as A523; A523 is what mainline carries. */
+	compatible = "trimui,smart-pro-s", "allwinner,sun55i-a523";
+
+	aliases {
+		serial0 = &uart0;
+		mmc0 = &mmc0;	/* microSD */
+		mmc1 = &mmc1;	/* WiFi SDIO */
+		mmc2 = &mmc2;	/* eMMC */
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	/* LiPo pack. VERIFY capacity + OCV table against the device. */
+	battery: battery {
+		compatible = "simple-battery";
+		voltage-min-design-microvolt = <3400000>;
+		voltage-max-design-microvolt = <4350000>;
+		charge-full-design-microamp-hours = <5000000>;	/* VERIFY */
+	};
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pb_pins>;
+	status = "okay";
+};
+
+/*
+ * Reduced-I2C bus: main PMIC lives here (vendor "pmu@34" on s_twi0 = r_i2c0).
+ * Vendor silk says AXP717C and drives it as axp2202; mainline only has an
+ * AXP717 driver and the register maps are close. VERIFY the chip ID before
+ * trusting any voltage below - a wrong PMIC map can mis-set rails.
+ */
+&r_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&r_i2c_pins>;
+	status = "okay";
+
+	axp717: pmic@34 {
+		compatible = "x-powers,axp717";	/* VERIFY: axp717 vs axp2202 */
+		reg = <0x34>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&nmi_intc>;
+		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+
+		axp717_adc: adc {
+			compatible = "x-powers,axp717-adc";
+			#io-channel-cells = <1>;
+		};
+
+		battery-power {
+			compatible = "x-powers,axp717-battery-power-supply";
+			monitored-battery = <&battery>;
+		};
+
+		regulators {
+			/* dcdc1: CPU "little" cluster (vendor cpu-supply = dcdc1). */
+			reg_dcdc1: dcdc1 {
+				regulator-always-on;
+				regulator-min-microvolt = <900000>;
+				regulator-max-microvolt = <1160000>;
+				regulator-name = "vdd-cpu";
+			};
+
+			reg_dcdc2: dcdc2 {
+				regulator-always-on;
+				regulator-min-microvolt = <920000>;
+				regulator-max-microvolt = <920000>;
+				regulator-name = "vdd-gpu-sys";	/* VERIFY */
+			};
+
+			reg_dcdc3: dcdc3 {
+				regulator-always-on;
+				regulator-min-microvolt = <1160000>;
+				regulator-max-microvolt = <1160000>;
+				regulator-name = "vdd-dram";	/* VERIFY */
+			};
+
+			reg_dcdc4: dcdc4 {
+				regulator-always-on;
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-name = "vdd-io";	/* VERIFY */
+			};
+
+			reg_aldo1: aldo1 {
+				/* VERIFY connection */
+			};
+
+			reg_aldo2: aldo2 {
+				/* VERIFY connection */
+			};
+
+			/* aldo3: WiFi 3.3V (vendor wlan_power[0] = aldo3 @ 3.3V). */
+			reg_aldo3: aldo3 {
+				regulator-always-on;
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-name = "vcc-wifi-3v3";	/* VERIFY */
+			};
+
+			reg_aldo4: aldo4 {
+				regulator-always-on;
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-name = "vcc-pll-avcc";	/* VERIFY */
+			};
+
+			/* bldo1: WiFi 1.8V (vendor wlan_power[1] = bldo1 @ 1.8V). */
+			reg_bldo1: bldo1 {
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-name = "vcc-wifi-1v8";	/* VERIFY */
+			};
+
+			/* bldo2: 1.8V, vendor keeps on (wlan_power[2]). */
+			reg_bldo2: bldo2 {
+				regulator-always-on;
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-name = "vcc-1v8";	/* VERIFY */
+			};
+
+			reg_bldo3: bldo3 {
+				/* VERIFY connection */
+			};
+
+			reg_bldo4: bldo4 {
+				/* VERIFY connection */
+			};
+
+			reg_cldo1: cldo1 {
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-name = "vcc-1v8-io";	/* VERIFY (mmc vqmmc) */
+			};
+
+			reg_cldo2: cldo2 {
+				/* VERIFY connection */
+			};
+
+			reg_cldo3: cldo3 {
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-name = "vcc-3v3-io-mmc";	/* VERIFY (mmc vmmc) */
+			};
+
+			reg_cldo4: cldo4 {
+				/* VERIFY connection */
+			};
+
+			reg_cpusldo: cpusldo {
+				regulator-always-on;
+				regulator-min-microvolt = <900000>;
+				regulator-max-microvolt = <900000>;
+				regulator-name = "vdd-cpus";
+			};
+		};
+	};
+
+	/*
+	 * TODO: external "big" cluster CPU regulator tcs4838@0x41 (vendor
+	 * cpu-supply for cluster1). No mainline driver (fan53555 has only
+	 * tcs4525/4526) -> deferred. Boot runs at bootloader-set voltage.
+	 */
+};
+
+/* microSD */
+&mmc0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc0_pins>;
+	bus-width = <4>;
+	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>;	/* PF6 */
+	vmmc-supply = <&reg_cldo3>;	/* VERIFY */
+	vqmmc-supply = <&reg_cldo1>;	/* VERIFY */
+	cap-sd-highspeed;
+	status = "okay";
+};
+
+/* WiFi over SDIO (vendor wlan_busnum = 1). Chip unidentified -> no child yet. */
+&mmc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc1_pins>;
+	bus-width = <4>;
+	non-removable;
+	vmmc-supply = <&reg_aldo3>;	/* 3.3V (vendor) */
+	vqmmc-supply = <&reg_bldo1>;	/* 1.8V (vendor) */
+	/*
+	 * TODO: add wifi@1 child once the chip is identified on hardware
+	 * (lsmod/firmware). Vendor control lines: wlan_regon = PB1,
+	 * wlan_hostwake = PB0. Likely needs an mmc-pwrseq for reset/enable.
+	 */
+	status = "okay";
+};
+
+/* eMMC */
+&mmc2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc2_pins>;
+	bus-width = <8>;
+	non-removable;
+	cap-mmc-highspeed;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	vmmc-supply = <&reg_cldo3>;	/* 3.3V VERIFY */
+	vqmmc-supply = <&reg_cldo1>;	/* 1.8V VERIFY */
+	status = "okay";
+};
+
+/* USB */
+&usb_otg {
+	dr_mode = "otg";	/* external USB-C */
+	status = "okay";
+};
+
+&usbphy {
+	/* VERIFY id/vbus detect GPIOs + drivevbus from PMIC on hardware. */
+	status = "okay";
+};
+
+&ehci0 {
+	status = "okay";
+};
+
+&ohci0 {
+	status = "okay";
+};
+
+/* Internal host bus - one port carries the gamepad MCU (buttons over USB). */
+&ehci1 {
+	status = "okay";
+};
+
+&ohci1 {
+	status = "okay";
+};
+
+&rtc {
+	status = "okay";
+};

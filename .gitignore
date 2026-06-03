@@ -1,0 +1,8 @@
+build/
+*.dtb
+.DS_Store
+*.7z
+kernel-source/
+*.swp
+test_format.dts
+include

@@ -21,20 +21,25 @@ valid DTB. Everything else is on the roadmap in [`PORTING-NOTES.md`](PORTING-NOT
 | Component | Status | Notes |
 | :--- | :---: | :--- |
 | 8x Cortex-A55 (boot) | 🟢 | Boots at bootloader voltage; per-cluster cpufreq/DVFS not wired upstream yet |
-| AXP717 PMIC + regulators | 🟡 | On `r_i2c0`. **Verify chip is axp717 vs axp2202 on HW** (silk says AXP717C) |
+| AXP717 PMIC + regulators | 🟡 | On `r_i2c0`. Vendor fw drives it as **axp2202**; silk says AXP717C — read i2c ID@0x34 on HW to settle |
 | Storage: microSD / eMMC | 🟡 | Nodes + supplies set; rails tagged VERIFY |
 | USB host / OTG | 🟡 | Controllers enabled; VBUS/ID GPIOs need HW verification |
-| WiFi (SDIO, mmc1) | 🟠 | Slot + rails set; **chip unidentified**, no `wifi@` child yet |
-| Battery / charger | 🟠 | axp717 fuel-gauge; capacity/OCV need HW values |
+| WiFi/BT (SDIO, mmc1) | 🟠 | **Chip identified: AICSemi AIC8800** (D80/DC) from vendor fw; out-of-tree module, no `wifi@` child yet |
+| Battery / charger | 🟠 | **5000 mAh design, 1000 mA charge** (from vendor DTB); OCV table still needs porting |
 | MIPI-DSI display (4-lane) | 🔴 | **No mainline A523 DSI/DE driver** — blocked |
 | PWM backlight | 🔴 | **No mainline A523 PWM** — blocked |
 | Analog joysticks (GPADC) | 🔴 | **No mainline A523 GPADC** — blocked (two controllers: gpadc0+gpadc1) |
 | Audio codec | 🔴 | **No mainline A523 codec** — blocked |
-| Gamepad buttons | 🔴 | No GPIO buttons in vendor DTB — likely a **USB MCU**; needs HW investigation |
+| Gamepad / buttons | 🟠 | Refined: power = **AXP2202 PEK**, volume = **LRADC** (`keyboard_1350mv`, 3 keys), main pad via userspace `trimui_inputd` — *not* a pure USB MCU |
 | Vibrator / fan (PWM) | 🔴 | Channels known (ch7 / ch10) but blocked on PWM driver |
 | GPU (Mali) / VPU | 🔴 | Not in mainline |
 
 Legend: 🟢 works · 🟡 present, needs HW verification · 🟠 partial/stubbed · 🔴 blocked on missing mainline driver.
+
+Many of the above were pinned down **before the hardware arrived** by mining the
+stock firmware — see [`FIRMWARE-FINDINGS.md`](FIRMWARE-FINDINGS.md), whose
+*Methodology* section documents exactly how each fact was obtained, plus
+[`recon.sh`](recon.sh), the read-only on-device collector for the remaining facts.
 
 ## How to compile
 
@@ -50,6 +55,12 @@ mainline build, drop `dts/sun55i-a523-trimui-smart-pro-s.dts` into
 
 - [`PORTING-NOTES.md`](PORTING-NOTES.md) — hardware truth table extracted from the
   vendor DTB + phased roadmap + the "verify-this-first" checklist.
+- [`FIRMWARE-FINDINGS.md`](FIRMWARE-FINDINGS.md) — facts mined from the stock
+  firmware before the device arrived (AIC8800 WiFi, 5000 mAh battery, LRADC keys,
+  `adb`/serial shell access), **and a Methodology section on how each was obtained**.
+- [`recon.sh`](recon.sh) — read-only day-1 collector to run on the stock OS
+  (`adb shell`) to capture the residual hardware-only facts (i2c chip IDs, CPU
+  regulator, AIC8800 variant, gamepad source, partition map).
 </content>
 
 ## Star History

@@ -6,3 +6,11 @@ kernel-source/
 *.swp
 test_format.dts
 include
+
+# U-Boot / firmware build artifacts — never commit binaries here
+*.bin
+*.img
+*.awimg
+*.fex
+uboot/vendor-boot0/
+u-boot-sunxi-with-spl*

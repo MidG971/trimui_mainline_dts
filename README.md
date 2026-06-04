@@ -7,6 +7,17 @@
 > A clean `dtc` compile only proves the syntax and phandles are valid — it does
 > **not** mean the hardware works. Anything not marked 🟢 is unverified or blocked.
 
+> ## ⚠️ Disclaimer — experimental, use at your own risk
+> **Everything in this repository is experimental and, as of now, completely untested on
+> real hardware.** The device tree, the U-Boot defconfig, the DRAM parameters extracted
+> from the vendor firmware, and every procedure described here are unverified and may be
+> wrong. Flashing, FEL-booting, or otherwise running custom firmware on your device **can
+> permanently brick it**, corrupt data, or damage hardware. **You use this entirely at your
+> own risk.** The authors and contributors accept **no liability** for any damage, data
+> loss, or bricked devices, and provide everything here **with no warranty of any kind**.
+> Always back up your stock firmware first, and prefer the brick-safe FEL (RAM-only) boot
+> path until things are validated.
+
 Mainline device tree for the **Trimui Smart Pro S** retro-gaming handheld
 (board `A523-PRO2-AXP717C`, model TG5050), based on the Allwinner **A523**
 (`sun55iw3p1`). Built on the upstream `sun55i-a523.dtsi`, modeled on the
@@ -61,7 +72,13 @@ mainline build, drop `dts/sun55i-a523-trimui-smart-pro-s.dts` into
 - [`recon.sh`](recon.sh) — read-only day-1 collector to run on the stock OS
   (`adb shell`) to capture the residual hardware-only facts (i2c chip IDs, CPU
   regulator, AIC8800 variant, gamepad source, partition map).
-</content>
+- [`uboot/`](uboot/) — mainline U-Boot bring-up for the A523:
+  [`trimui-tg5050_defconfig`](uboot/trimui-tg5050_defconfig) (Avaota-A1 base + the
+  DRAM params extracted from this board's vendor boot0 + PMIC@0x34),
+  [`DRAM-PARAMS.md`](uboot/DRAM-PARAMS.md) (how the LPDDR4 timings were decoded), and
+  [`README`](uboot/README.md) (build recipe, FEL boot, and caveats). **Prebuilt binaries
+  are intentionally not committed** — build from the defconfig, or grab a Release once
+  the image is hardware-validated.
 
 ## Star History
 

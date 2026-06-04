@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+// Copyright (C) 2026 Midgy BALON
 /*
  * Trimui Smart Pro S handheld (board "A523-PRO2-AXP717C").
  * SoC: Allwinner A523 (sun55iw3p1). Base: mainline sun55i-a523.dtsi.

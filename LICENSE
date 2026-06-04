@@ -1,0 +1,26 @@
+Trimui Smart Pro S — Mainline Device Tree and bring-up
+Copyright (C) 2026 Midgy BALON
+
+This project is dual-licensed under your choice of EITHER:
+
+  * GNU General Public License, version 2 only   (SPDX: GPL-2.0-only), OR
+  * MIT License                                  (SPDX: MIT)
+
+You may use, modify, and redistribute the files under the terms of either
+license, at your option. Each source file carries an SPDX-License-Identifier
+tag indicating its license; unless a file states otherwise, it is:
+
+    (GPL-2.0-only OR MIT)
+
+Full license texts are in the LICENSES/ directory:
+
+    LICENSES/GPL-2.0-only.txt
+    LICENSES/MIT.txt
+
+See the NOTICE file for provenance, third-party/vendored components, and what
+is original work versus hardware facts observed from the vendor firmware.
+
+NO WARRANTY. This is experimental software that is, as of this writing,
+unverified on real hardware. Flashing or FEL-booting firmware can permanently
+brick your device. You use it entirely at your own risk; the authors accept no
+liability. See the disclaimer in README.md.

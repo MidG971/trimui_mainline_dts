@@ -1,8 +1,39 @@
+<!-- SPDX-License-Identifier: (GPL-2.0-only OR MIT) -->
+<!-- Copyright (C) 2026 Midgy BALON -->
+
 # Trimui Smart Pro S — Mainline Porting Notes
 
 Status board: **A523-PRO2-AXP717C** · SoC **Allwinner A523 (sun55iw3p1)** · model TG5050.
 Authoritative hardware reference: decompiled vendor DTB → `trimui_smart_pro_source.dts`
 (model `sun55iw3`, board `A523\0A523-PRO2-AXP717C`, compatible `allwinner,a523 / arm,sun55iw3p1`).
+
+---
+
+## Progress (updated 2026-06-04, before hardware arrival)
+
+Hardware ordered, in transit. Much of the bring-up groundwork was done up front by
+mining the stock firmware (no device needed) — see [`FIRMWARE-FINDINGS.md`](FIRMWARE-FINDINGS.md).
+
+**Resolved from firmware (was "verify on HW"):**
+- WiFi/BT = **AICSemi AIC8800** (D80/DC), SDIO mmc1 + UART BT — out-of-tree module.
+- Battery = **5000 mAh**, 1000 mA charge.
+- Input = **AXP2202 PEK** (power) + **LRADC** `keyboard_1350mv` 3 keys (volume) +
+  userspace `trimui_inputd` for the main pad — *not* a pure USB MCU as first feared.
+- Shell on stock OS = **`adb` over USB-C** (adbd autostarts); serial console on ttyS0.
+- PMIC driven by vendor as **axp2202** at 0x34 (chip ID still to confirm on HW).
+
+**Boot path built (no device needed):** mainline U-Boot v2025.10+ has full A523 support
+incl. SPL DRAM init. Built `avaota-a1`-based U-Boot + TF-A `sun50i_h616` BL31 stand-in,
+then **extracted this board's LPDDR4 DRAM params from the vendor boot0** and produced
+[`uboot/trimui-tg5050_defconfig`](uboot/trimui-tg5050_defconfig) (see
+[`uboot/DRAM-PARAMS.md`](uboot/DRAM-PARAMS.md)). Image is FEL-bootable (RAM-only, brick-safe).
+
+**Day-1 plan:** back up eMMC → enter FEL → `sunxi-fel -v uboot u-boot-sunxi-with-spl-trimui.bin`
+→ serial console → run [`recon.sh`](recon.sh) for the residual HW-only facts (§3 below).
+
+**Still strictly HW-gated:** PMIC chip ID @0x34, populated CPU regulator (0x36/0x41/0x60),
+AIC8800 variant, gamepad kernel source, eMMC/SD partition map, and whether the mainline
+A523 DRAM driver trains with the extracted params.
 
 ---
 

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: (GPL-2.0-only OR MIT) -->
+<!-- Copyright (C) 2026 Midgy BALON -->
+
 # Trimui Smart Pro S — DRAM parameters extracted from vendor boot0 (2026-06-04)
 
 Source: stock firmware `trimui_tg5050.awimg`. The vendor **boot0** (eGON.BT0, 76 KB)

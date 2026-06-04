@@ -1,0 +1,49 @@
+NOTICE — Trimui Smart Pro S mainline port
+Copyright (C) 2026 Midgy BALON
+
+Dual-licensed (GPL-2.0-only OR MIT) unless a file states otherwise. See LICENSE
+and the LICENSES/ directory for the full texts.
+
+This file documents provenance: what is original work, what is vendored from
+upstream, what is factual hardware data, and what is intentionally excluded.
+
+1. Original work  —  Copyright (C) 2026 Midgy BALON, (GPL-2.0-only OR MIT)
+   - dts/sun55i-a523-trimui-smart-pro-s.dts   board device tree
+   - recon.sh                                  read-only on-device recon script
+   - compile.sh                                local DTB build helper
+   - uboot/trimui-tg5050_defconfig             U-Boot config (see item 4)
+   - PORTING-NOTES.md, FIRMWARE-FINDINGS.md,
+     uboot/README.md, uboot/DRAM-PARAMS.md,
+     README.md                                 documentation
+
+2. Vendored upstream file (unmodified)
+   - dts/sun55i-a523.dtsi
+       Copyright (C) 2023-2024 Arm Ltd., taken from the mainline Linux kernel,
+       licensed (GPL-2.0-only OR MIT). Included only so compile.sh can build
+       the board DTS locally; the authoritative copy lives in the Linux tree.
+
+3. Hardware facts observed from the device and its firmware (not copyrightable)
+   Register addresses, GPIO assignments, DRAM timing parameters
+   (uboot/DRAM-PARAMS.md), battery capacity, and the PMIC / WiFi / SoC
+   identities documented here were observed from the device's own vendor
+   firmware image and its decompiled device tree. These are factual
+   descriptions of the hardware, re-expressed in original form. The proprietary
+   vendor firmware itself, and the decompiled vendor device tree
+   (Copyright their respective owners, e.g. Trimui / Allwinner), are NOT
+   included in or distributed by this repository.
+
+4. Derived configuration
+   uboot/trimui-tg5050_defconfig is adapted from U-Boot's
+   configs/avaota-a1_defconfig (Das U-Boot, GPL-2.0+), with this board's DRAM
+   parameters and PMIC I2C address substituted. It is meant to be built with
+   mainline Das U-Boot; the resulting binary is governed by U-Boot's own
+   license. Das U-Boot and Arm Trusted Firmware-A (the bl31 referenced in
+   uboot/README.md) are separate upstream projects under their own licenses —
+   only our configuration and documentation are kept in this repository, not
+   their source or binaries.
+
+5. No warranty / no liability
+   Everything here is experimental and, as of this writing, untested on real
+   hardware. It is provided "as is", without warranty of any kind. The authors
+   and contributors are not liable for any damage, data loss, or bricked
+   devices. See the disclaimer in README.md.

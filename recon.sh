@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+# Copyright (C) 2026 Midgy BALON
 # ============================================================================
 # Trimui Smart Pro S (TG5050 / Allwinner A523) — Day-1 hardware recon
 # ----------------------------------------------------------------------------

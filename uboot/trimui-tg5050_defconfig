@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+# Copyright (C) 2026 Midgy BALON
+# Mainline U-Boot config for the Trimui Smart Pro S (Allwinner A523).
+# Adapted from configs/avaota-a1_defconfig with this board's DRAM params + PMIC@0x34.
 CONFIG_ARM=y
 CONFIG_ARCH_SUNXI=y
 CONFIG_DEFAULT_DEVICE_TREE="allwinner/sun55i-t527-avaota-a1"

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: (GPL-2.0-only OR MIT) -->
+<!-- Copyright (C) 2026 Midgy BALON -->
+
 # Mainline U-Boot for Allwinner A523 — reference build (2026-06-04)
 
 Built on a cross-build server (`/root/trimui-uboot`) while the

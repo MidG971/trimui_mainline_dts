@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+# Copyright (C) 2026 Midgy BALON
 set -e
 
 DTS_NAME="sun55i-a523-trimui-smart-pro-s"

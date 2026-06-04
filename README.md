@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: (GPL-2.0-only OR MIT) -->
+<!-- Copyright (C) 2026 Midgy BALON -->
+
 # Allwinner A523 / Trimui Smart Pro S — Mainline Device Tree
 
 > ## 🚧 WORK IN PROGRESS — not a working port yet
@@ -79,6 +82,17 @@ mainline build, drop `dts/sun55i-a523-trimui-smart-pro-s.dts` into
   [`README`](uboot/README.md) (build recipe, FEL boot, and caveats). **Prebuilt binaries
   are intentionally not committed** — build from the defconfig, or grab a Release once
   the image is hardware-validated.
+
+## License
+
+Copyright (C) 2026 Midgy BALON. Dual-licensed **`GPL-2.0-only OR MIT`** (your
+choice) — matching the Linux kernel convention for device trees, so the board
+DTS can be upstreamed cleanly while staying permissively reusable. Each file
+carries an SPDX tag; full texts are in [`LICENSES/`](LICENSES/), and
+[`NOTICE`](NOTICE) documents provenance (original work vs. the unmodified
+upstream `sun55i-a523.dtsi` from Arm Ltd, vs. factual hardware data observed
+from the vendor firmware). The proprietary vendor firmware and the decompiled
+vendor device tree are **not** included here.
 
 ## Star History
 

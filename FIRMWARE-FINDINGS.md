@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: (GPL-2.0-only OR MIT) -->
+<!-- Copyright (C) 2026 Midgy BALON -->
+
 # Firmware mining results — pre-arrival (2026-06-04)
 
 Source: stock firmware `trimui_tg5050_20251218_v1.0.1` (`IMAGEWTY` Allwinner image).

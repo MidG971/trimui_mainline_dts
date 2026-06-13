@@ -26,7 +26,7 @@ Mainline device tree for the **Trimui Smart Pro S** retro-gaming handheld
 (`sun55iw3p1`). Built on the upstream `sun55i-a523.dtsi`, modeled on the
 upstream `sun55i-t527-avaota-a1` board (same SoC family).
 
-## Status (honest)
+## Status
 
 The current DTS is **Phase 2**: serial console, storage, USB, PMIC + regulators,
 and the WiFi SDIO slot. It **compiles against mainline Linux 6.19** and produces a

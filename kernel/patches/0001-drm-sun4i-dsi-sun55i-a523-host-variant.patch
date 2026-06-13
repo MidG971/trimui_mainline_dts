@@ -1,0 +1,44 @@
+Subject: [PATCH] drm/sun4i: dsi: add sun55i-a523 MIPI-DSI host variant
+
+The A523 (sun55iw3) MIPI-DSI host is the same instruction-based IP as the
+A31/A64/A100 (dsi_v1 in the BSP); register layout and command engine match.
+Add a variant (mod clock, like A100) and compatible. The high-speed lane
+clock is provided by the new sun55i DSI combo-PHY (separate driver).
+
+Verified: compiles clean against linux 6.19 (drivers/gpu/drm/sun4i/sun6i_mipi_dsi.o).
+Apply with: patch -p1 < this file   (from the kernel source root)
+
+--- a/Documentation/devicetree/bindings/display/allwinner,sun6i-a31-mipi-dsi.yaml
++++ b/Documentation/devicetree/bindings/display/allwinner,sun6i-a31-mipi-dsi.yaml
+@@ -17,6 +17,7 @@
+           - allwinner,sun6i-a31-mipi-dsi
+           - allwinner,sun50i-a64-mipi-dsi
+           - allwinner,sun50i-a100-mipi-dsi
++          - allwinner,sun55i-a523-mipi-dsi
+       - items:
+           - const: allwinner,sun20i-d1-mipi-dsi
+           - const: allwinner,sun50i-a100-mipi-dsi
+--- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
++++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
+@@ -1225,6 +1225,10 @@
+ 	.has_mod_clk	= true,
+ };
+
++static const struct sun6i_dsi_variant sun55i_a523_mipi_dsi_variant = {
++	.has_mod_clk	= true,
++};
++
+ static const struct of_device_id sun6i_dsi_of_table[] = {
+ 	{
+ 		.compatible	= "allwinner,sun6i-a31-mipi-dsi",
+@@ -1238,6 +1242,10 @@
+ 		.compatible	= "allwinner,sun50i-a100-mipi-dsi",
+ 		.data		= &sun50i_a100_mipi_dsi_variant,
+ 	},
++	{
++		.compatible	= "allwinner,sun55i-a523-mipi-dsi",
++		.data		= &sun55i_a523_mipi_dsi_variant,
++	},
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, sun6i_dsi_of_table);

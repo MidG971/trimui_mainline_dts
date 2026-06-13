@@ -3,6 +3,13 @@
 
 # Display bring-up notes — Trimui Smart Pro S (Allwinner A523, sun55iw3p1)
 
+> **Update:** the BSP display source has since been located (official Allwinner
+> AIOT SDK on GitLab) and the DSI host confirmed register-compatible with mainline.
+> Live port status and the driver plan now live in
+> [`DISPLAY-PORT-STATUS.md`](DISPLAY-PORT-STATUS.md). The §1 "greenfield" framing
+> below is superseded for the DSI *host* (it's a mainline variant add); the
+> combo-PHY remains the novel work.
+
 Work stream: **display**. This file captures (1) mainline upstream status, (2) the
 complete vendor panel spec decoded from the board DTB, (3) the clock/power/reset
 dependency map from the A523 User Manual, and (4) a concrete bring-up plan.

@@ -14,3 +14,8 @@ include
 *.fex
 uboot/vendor-boot0/
 u-boot-sunxi-with-spl*
+
+# Allwinner Confidential docs — NEVER commit (datasheet + register user manual)
+*.pdf
+a523_trm.pdf
+A523_User_Manual*

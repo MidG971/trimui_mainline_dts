@@ -1,0 +1,316 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+// Copyright (C) 2026 Midgy BALON
+/*
+ * Trimui Smart Pro S - MIPI-DSI panel + backlight + DSI1 + combo-PHY fragment.
+ *
+ * ============================ NOT BUILDABLE YET ============================
+ * This is a STAGED DRAFT. As of mainline ~6.19 there is NO driver for the
+ * A523 (sun55iw3) display pipeline: no DE3.5 mixer, no sun55i TCON-LCD compat,
+ * no sun55i MIPI-DSI host, and no A523 combo-D-PHY. None of the nodes below
+ * have matching upstream bindings/compatibles. Do NOT #include this from the
+ * board .dts until those drivers + bindings land. It is kept here so the
+ * verified board facts (pins, lanes, rails, reset, the full panel init blob,
+ * and the OF graph) are captured and ready to wire up.
+ *
+ * The compatibles used here are PLACEHOLDERS chosen to mirror the eventual
+ * mainline names; expect them to change when the bindings are written. See
+ * docs/DISPLAY-NOTES.md for upstream status, the clock/power map, and the
+ * bring-up plan.
+ *
+ * Verified board facts encoded below (from the vendor DTB + A523 UM):
+ *   panel : 720x1280 portrait, RGB888, 4-lane MIPI-DSI on DSI1, ~62 MHz pixel
+ *   reset : PD22, vendor "active", 120 ms reset delay
+ *   rails : power0 = AXP2202 cldo4, power1 = AXP2202 cldo1 (VERIFY voltages)
+ *   bl    : pwm0 ch0 on PD23, period 50000 ns, default level 0x32
+ *   dsi1  : dsi1@5508000, lane pins PD10-PD19, combo-PHY @ 5509000
+ * ==========================================================================
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		/* pwm0 (pwm0@2000c00) channel 0, period 50000 ns, normal polarity */
+		pwms = <&pwm0 0 50000 0>;
+		brightness-levels = <
+			  0   1   2   3   4   5   6   7   8   9
+			 10  11  12  13  14  15  16  17  18  19
+			 20  21  22  23  24  25  26  27  28  29
+			 30  31  32  33  34  35  36  37  38  39
+			 40  41  42  43  44  45  46  47  48  49
+			 50  51  52  53  54  55  56  57  58  59
+			 60  61  62  63  64  65  66  67  68  69
+			 70  71  72  73  74  75  76  77  78  79
+			 80  81  82  83  84  85  86  87  88  89
+			 90  91  92  93  94  95  96  97  98  99
+			100 101 102 103 104 105 106 107 108 109
+			110 111 112 113 114 115 116 117 118 119
+			120 121 122 123 124 125 126 127 128 129
+			130 131 132 133 134 135 136 137 138 139
+			140 141 142 143 144 145 146 147 148 149
+			150 151 152 153 154 155 156 157 158 159
+			160 161 162 163 164 165 166 167 168 169
+			170 171 172 173 174 175 176 177 178 179
+			180 181 182 183 184 185 186 187 188 189
+			190 191 192 193 194 195 196 197 198 199
+			200 201 202 203 204 205 206 207 208 209
+			210 211 212 213 214 215 216 217 218 219
+			220 221 222 223 224 225 226 227 228 229
+			230 231 232 233 234 235 236 237 238 239
+			240 241 242 243 244 245 246 247 248 249
+			250 251 252 253 254 255>;
+		default-brightness-level = <50>;	/* 0x32 */
+	};
+};
+
+/*
+ * PWM channel-0 output pin for the backlight: PD23, mux "pwm0_0".
+ * (Pin group lives under the SoC pinctrl; declared here for reference - move it
+ * next to the other pinctrl groups in the board/SoC dtsi when wiring up.)
+ */
+&pio {
+	pwm0_pd23_pin: pwm0-pd23-pin {
+		pins = "PD23";
+		function = "pwm0";	/* vendor: "pwm0_0" */
+		drive-strength = <10>;
+	};
+
+	/* DSI1 4-lane data/clock pins: PD10..PD19, mux "dsi1" */
+	dsi1_4lane_pins: dsi1-4lane-pins {
+		pins = "PD10", "PD11", "PD12", "PD13", "PD14",
+		       "PD15", "PD16", "PD17", "PD18", "PD19";
+		function = "dsi1";
+		drive-strength = <30>;
+		bias-disable;
+	};
+};
+
+&pwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm0_pd23_pin>;
+	status = "okay";
+};
+
+/*
+ * MIPI-DSI host 1 @ 0x05508000 (sun55iw3). PLACEHOLDER compatible.
+ * Clocks/resets shown as the *intended* mainline shape; the actual CCU indices
+ * must come from the in-tree sun55iw3 CCU bindings once the gates below are
+ * exported (see DISPLAY-NOTES.md CCU map: DSI1_CLK 0x0B28, DSI_BGR 0x0B4C).
+ */
+&dsi1 {
+	/* compatible = "allwinner,sun55i-a523-mipi-dsi"; (TBD when driver lands) */
+	pinctrl-names = "default";
+	pinctrl-0 = <&dsi1_4lane_pins>;
+	status = "okay";
+
+	/*
+	 * Combo D-PHY @ 0x05509000 feeds the high-/low-speed lane clocks back to
+	 * this host (vendor: phys = <&dsi1_combo_phy>; phy-names = "combophy").
+	 * phys = <&dsi1_combo_phy>;
+	 * phy-names = "dphy";
+	 */
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* input from TCON-LCD1 */
+		port@0 {
+			reg = <0>;
+			dsi1_in_tcon1: endpoint {
+				remote-endpoint = <&tcon1_out_dsi1>;
+			};
+		};
+	};
+
+	panel@0 {
+		/*
+		 * Ilitek/Fitipower-class DSI DDIC (0xFF MCS-unlock signature
+		 * 87 56 01). PLACEHOLDER compatible - a small dedicated panel
+		 * driver (or a generic init-sequence panel) will own this.
+		 */
+		compatible = "trimui,smart-pro-s-panel";
+		reg = <0>;
+
+		/* Panel reset: PD22, asserted active per vendor flag, 120 ms */
+		reset-gpios = <&pio 3 22 GPIO_ACTIVE_HIGH>;	/* PD22 */
+		/* reset-delay-ms equivalent handled by the panel driver: 120 ms */
+
+		/*
+		 * Power rails resolved from the vendor DTB phandles:
+		 *   power0-supply (0xc9) = AXP2202 cldo4
+		 *   power1-supply (0x53) = AXP2202 cldo1
+		 * VERIFY the actual voltages on real hardware before relying on
+		 * fixed constraints; cldo1 may be shared with MMC VQMMC (1.8 V).
+		 */
+		power0-supply = <&reg_cldo4>;
+		power1-supply = <&reg_cldo1>;
+
+		backlight = <&backlight>;
+
+		dsi-lanes = <4>;		/* 4 data lanes */
+		/* format = RGB888 (vendor dsi,format = 0); video burst mode */
+
+		/*
+		 * MIPI init sequence, verbatim from the vendor DTB
+		 * (panel_0@0 / panel-init-sequence). Allwinner packing:
+		 *   <dsi_type> <wait_ms> <payload_len> <payload...>
+		 *   0x15 = DCS short write (1 param), 0x39 = DCS/long write.
+		 * Ends with SLPOUT(0x11) + DSPON(0x29) in the tail.
+		 * Replayed as-is once a DSI host can transport LP commands.
+		 */
+		panel-init-sequence = [
+			15 00 02 00 00 39 00 04 ff 87 56 01 15 00 02 00 80 39 00 03 ff 87 56
+			15 00 02 00 a1 39 00 07 b3 02 d0 05 00 20 fc
+			15 00 02 00 80 39 00 07 c0 00 f6 00 10 00 24
+			15 00 02 00 90 39 00 07 c0 00 f6 00 10 00 24
+			15 00 02 00 a0 39 00 07 c0 02 14 00 10 00 24
+			15 00 02 00 b0 39 00 06 c0 00 f6 00 10 24
+			15 00 02 00 c1 39 00 09 c0 01 27 00 ea 00 c5 01 5f
+			15 00 02 00 d7 39 00 07 c0 00 c5 00 10 00 24
+			15 00 02 00 a3 39 00 07 c1 00 20 00 20 00 02
+			15 00 02 00 80 39 00 11 ce 01 81 09 13 00 78 00 78 00 50 00 50 00 78 00 78
+			15 00 02 00 90 39 00 10 ce 00 8e 0e b6 00 8e 80 09 13 00 04 00 1c 1f 16
+			15 00 02 00 a0 39 00 04 ce 20 00 00
+			15 00 02 00 b0 39 00 04 ce 22 00 00
+			15 00 02 00 d1 39 00 08 ce 00 00 01 00 00 00 00
+			15 00 02 00 e1 39 00 0c ce 08 02 4d 02 4d 02 4d 00 00 00 00
+			15 00 02 00 f1 39 00 0a ce 0c 06 0a 00 e9 00 e9 00 f8
+			15 00 02 00 b0 39 00 05 cf 00 00 6e 72
+			15 00 02 00 b5 39 00 05 cf 02 02 94 98
+			15 00 02 00 c0 39 00 05 cf 04 04 d8 dc
+			15 00 02 00 c5 39 00 05 cf 00 00 08 0c
+			15 00 02 00 e8 15 00 02 c0 40
+			15 00 02 00 80 39 00 09 c2 84 00 05 89 83 00 05 89
+			15 00 02 00 a0 39 00 10 c2 82 04 00 05 89 81 04 00 05 89 00 04 00 05 89
+			15 00 02 00 b0 39 00 10 c2 01 04 00 05 89 02 04 00 05 89 03 04 00 05 89
+			15 00 02 00 c0 39 00 0b c2 04 04 00 05 89 05 04 00 05 89
+			15 00 02 00 e0 39 00 05 c2 77 77 77 77
+			15 00 02 00 c0 39 00 05 c3 99 99 99 99
+			15 00 02 00 80 39 00 11 cb 00 c5 00 00 05 05 00 05 0a 05 c5 00 05 05 00 c0
+			15 00 02 00 90 39 00 11 cb 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+			15 00 02 00 a0 39 00 05 cb 00 00 00 00
+			15 00 02 00 b0 39 00 05 cb 10 51 94 50
+			15 00 02 00 c0 39 00 05 cb 10 51 94 50
+			15 00 02 00 80 39 00 11 cc 2d 2d 2d 2d 07 09 0b 0d 25 25 03 2d 22 2d 24 2d
+			15 00 02 00 90 39 00 09 cc 29 16 17 18 19 1a 1b 26
+			15 00 02 00 80 39 00 11 cd 2d 2d 2d 2d 06 08 0a 0c 25 00 02 2d 22 2d 24 2d
+			15 00 02 00 90 39 00 09 cd 29 16 17 18 19 1a 1b 26
+			15 00 02 00 a0 39 00 11 cc 2d 2d 2d 2d 08 06 0c 0a 25 25 02 2d 24 2d 23 2d
+			15 00 02 00 b0 39 00 09 cc 29 16 17 18 19 1a 1b 26
+			15 00 02 00 a0 39 00 11 cd 2d 2d 2d 2d 09 07 0d 0b 25 00 03 2d 24 2d 23 2d
+			15 00 02 00 b0 39 00 09 cd 29 16 17 18 19 1a 1b 26
+			15 00 02 00 80 15 00 02 a7 13
+			15 00 02 00 82 39 00 03 a7 22 02
+			15 00 02 00 85 15 00 02 c4 1c
+			15 00 02 00 a0 39 00 04 c4 8d d8 8d
+			15 00 02 00 93 15 00 02 c5 37
+			15 00 02 00 97 15 00 02 c5 37
+			15 00 02 00 b6 39 00 03 c5 2d 2d
+			15 00 02 00 9a 15 00 02 c5 19
+			15 00 02 00 9c 15 00 02 c5 19
+			15 00 02 00 97 15 00 02 c4 01
+			15 00 02 00 9b 15 00 02 f5 4b
+			15 00 02 00 93 39 00 03 f5 00 00
+			15 00 02 00 9d 15 00 02 f5 49
+			15 00 02 00 82 39 00 03 f5 00 00
+			15 00 02 00 8c 39 00 04 c3 00 00 00
+			15 00 02 00 84 39 00 03 c5 28 28
+			15 00 02 00 a4 15 00 02 d7 00
+			15 00 02 00 80 39 00 03 f5 59 59
+			15 00 02 00 84 39 00 04 f5 59 59 59
+			15 00 02 00 96 15 00 02 f5 59
+			15 00 02 00 a6 15 00 02 f5 59
+			15 00 02 00 ca 15 00 02 c0 80
+			15 00 02 00 b1 15 00 02 f5 1f
+			15 00 02 00 00 39 00 03 d8 29 2d
+			15 00 02 00 00 39 00 03 d9 20 20
+			15 00 02 00 86 39 00 07 c0 01 04 01 01 22 03
+			15 00 02 00 96 39 00 07 c0 01 04 01 01 1b 03
+			15 00 02 00 a6 39 00 07 c0 01 04 01 01 3e 03
+			15 00 02 00 e9 39 00 07 c0 01 04 01 01 1b 03
+			15 00 02 00 a3 39 00 07 ce 01 04 01 01 1b 03
+			15 00 02 00 b3 39 00 07 ce 01 04 01 01 1b 03
+			15 00 02 00 00 39 00 29 e1 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
+			15 00 02 00 00 39 00 29 e2 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
+			15 00 02 00 00 39 00 29 e3 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
+			15 00 02 00 00 39 00 29 e4 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
+			15 00 02 00 00 39 00 29 e5 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
+			15 00 02 00 00 39 00 29 e6 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
+			15 00 02 00 cc 15 00 02 c0 13
+			15 00 02 00 82 15 00 02 c5 35
+			15 00 02 00 94 39 00 04 c5 02 01 01
+			15 00 02 00 98 39 00 03 c5 25 01
+			15 00 02 00 9b 15 00 02 c5 21
+			15 00 02 00 9d 15 00 02 c5 25
+			15 00 02 00 00 15 00 02 d0 56
+			05 78 01 11			/* SLPOUT, wait 120 ms */
+			05 14 01 29			/* DSPON,  wait  20 ms */
+			05 14 01 35
+		];
+
+		/*
+		 * Exit sequence (vendor panel-exit-sequence, decoded):
+		 *   05 00 01 28  -> DSPOFF
+		 *   05 78 01 10  -> SLPIN, wait 120 ms
+		 */
+		panel-exit-sequence = [
+			05 00 01 28
+			05 78 01 10
+		];
+
+		port {
+			panel_in_dsi1: endpoint {
+				remote-endpoint = <&dsi1_out_panel>;
+			};
+		};
+
+		/*
+		 * Native timing: 720x1280 @ ~60 Hz, 62 MHz pixel clock.
+		 * Porches are discrete (mainline convention):
+		 *   H: hactive 720, hfp 32, hsync 6, hbp 18  (Ht = 776)
+		 *   V: vactive 1280, vfp 16, vsync 2, vbp 34 (Vt = 1332)
+		 * A panel driver may carry this as a drm_display_mode instead of
+		 * display-timings; kept here for completeness.
+		 */
+		display-timings {
+			native-mode = <&panel_timing0>;
+			panel_timing0: timing0 {
+				clock-frequency = <62000000>;
+				hactive = <720>;
+				hfront-porch = <32>;
+				hsync-len = <6>;
+				hback-porch = <18>;
+				vactive = <1280>;
+				vfront-porch = <16>;
+				vsync-len = <2>;
+				vback-porch = <34>;
+			};
+		};
+	};
+};
+
+/*
+ * TCON-LCD1 @ 0x05502000 - timing controller feeding DSI1 (single link).
+ * PLACEHOLDER: needs a sun55i tcon-lcd compatible + the DISPLAY0_TOP glue.
+ * Shown only to express the OF graph endpoint the panel/DSI expect.
+ *
+ * &tcon1 {
+ *	status = "okay";
+ *	ports {
+ *		tcon1_out: port@1 {
+ *			tcon1_out_dsi1: endpoint {
+ *				remote-endpoint = <&dsi1_in_tcon1>;
+ *			};
+ *		};
+ *	};
+ * };
+ *
+ * Combo D-PHY @ 0x05509000 (allwinner,sunxi-dsi-combo-phy1 in vendor DTB):
+ * &dsi1_combo_phy {
+ *	status = "okay";
+ * };
+ *
+ * Pipeline OF graph:  de@5000000 -> tcon1@5502000 -> dsi1@5508000 -> panel
+ */

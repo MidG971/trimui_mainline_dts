@@ -99,11 +99,18 @@
 				regulator-name = "vdd-gpu-sys";	/* VERIFY */
 			};
 
+			/*
+			 * LPDDR4 VCC-DRAM. Datasheet Table 6-2 (Recommended
+			 * Operating Conditions): 1.06 / 1.10 / 1.17 V. Use 1.10 V
+			 * typ — earlier 1.16 V was wrong (copied from the CPU rail,
+			 * no margin). Confirm via AXP2202 DCDC3 i2c read on HW.
+			 * See uboot/DRAM-VALIDATION.md.
+			 */
 			reg_dcdc3: dcdc3 {
 				regulator-always-on;
-				regulator-min-microvolt = <1160000>;
-				regulator-max-microvolt = <1160000>;
-				regulator-name = "vdd-dram";	/* VERIFY */
+				regulator-min-microvolt = <1100000>;
+				regulator-max-microvolt = <1100000>;
+				regulator-name = "vdd-dram";
 			};
 
 			reg_dcdc4: dcdc4 {
@@ -216,9 +223,10 @@
 	vmmc-supply = <&reg_aldo3>;	/* 3.3V (vendor) */
 	vqmmc-supply = <&reg_bldo1>;	/* 1.8V (vendor) */
 	/*
-	 * TODO: add wifi@1 child once the chip is identified on hardware
-	 * (lsmod/firmware). Vendor control lines: wlan_regon = PB1,
-	 * wlan_hostwake = PB0. Likely needs an mmc-pwrseq for reset/enable.
+	 * TODO: add wifi@1 child (chip = AIC8800, firmware-confirmed; out-of-tree
+	 * module). Vendor control lines are on R_PIO Port M (NOT PB): wlan_regon =
+	 * PM1, wlan_hostwake = PM0, chip_en = PM5. Needs an mmc-pwrseq for
+	 * reset/enable. BT (same chip) over UART1 (PG6-9), bt_rst_n = PM2.
 	 */
 	status = "okay";
 };

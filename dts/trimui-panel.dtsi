@@ -3,21 +3,23 @@
 /*
  * Trimui Smart Pro S - MIPI-DSI panel + backlight + DSI1 + combo-PHY fragment.
  *
- * ============================ NOT BUILDABLE YET ============================
- * This is a STAGED DRAFT. Progress (see docs/DISPLAY-PORT-STATUS.md):
+ * Progress (see docs/DISPLAY-PORT-STATUS.md):
  *   DONE  - MIPI-DSI host:  allwinner,sun55i-a523-mipi-dsi variant added to
  *           drm/sun4i sun6i_mipi_dsi (kernel/patches/0001), compiles.
  *   DONE  - combo-D-PHY:    phy-sun55i-dsi-combo driver (kernel/drivers/),
  *           compatible allwinner,sun55i-a523-dsi-combo-phy, compiles.
- *   TODO  - SoC dtsi nodes: dsi1/combophy/tcon1/de must be added to
- *           sun55i-a523.dtsi (these &labels don't exist upstream yet).
- *   TODO  - TCON-LCD sun55i compat + DE3.5 mixer drivers.
- * So this fragment can't be #included from the board .dts until the SoC dtsi
- * display nodes + the TCON/DE drivers land. It captures the verified board
- * facts (pins, lanes, rails, reset, the full panel init blob, OF graph).
- *
- * The DSI host + combo-PHY compatibles are now real; tcon1/panel compatibles
- * remain PLACEHOLDERS. See docs/DISPLAY-PORT-STATUS.md for the ordered plan.
+ *   DONE  - SoC dtsi nodes: dsi1/dsi1_combo_phy/tcon1 (+ de/dpss_top skeletons)
+ *           added to sun55i-a523.dtsi (kernel/patches/0003); these &labels now
+ *           exist and the board DTS can #include this fragment.
+ *   DONE  - TCON-LCD sun55i compat: allwinner,sun55i-a523-tcon-lcd added to
+ *           drm/sun4i sun4i_tcon (kernel/patches/0004), compiles.
+ *   TODO  - DE3.5 mixer/CRTC driver: no mainline driver exists, so there is no
+ *           CRTC to feed the TCON yet -> nothing lights up. The de@5000000 /
+ *           display-top@5500000 nodes are disabled skeletons until then.
+ * This fragment captures the verified board facts (pins, lanes, rails, reset,
+ * the full panel init blob, OF graph). The DSI host, combo-PHY and TCON-LCD1
+ * compatibles are real; only the panel compatible remains a PLACEHOLDER that a
+ * small dedicated panel driver will own. See docs/DISPLAY-PORT-STATUS.md.
  *
  * Verified board facts encoded below (from the vendor DTB + A523 UM):
  *   panel : 720x1280 portrait, RGB888, 4-lane MIPI-DSI on DSI1, ~62 MHz pixel
@@ -95,37 +97,20 @@
 };
 
 /*
- * MIPI-DSI host 1 @ 0x05508000 (sun55iw3). PLACEHOLDER compatible.
- * Clocks/resets shown as the *intended* mainline shape; the actual CCU indices
- * must come from the in-tree sun55iw3 CCU bindings once the gates below are
- * exported (see DISPLAY-NOTES.md CCU map: DSI1_CLK 0x0B28, DSI_BGR 0x0B4C).
+ * MIPI-DSI host 1 @ 0x05508000 (sun55iw3). The node, its clocks/resets and the
+ * input port now live in sun55i-a523.dtsi (kernel/patches/0003); this fragment
+ * only enables it and attaches the board pinmux + panel child. Driver:
+ * drm/sun4i sun6i_mipi_dsi, compatible allwinner,sun55i-a523-mipi-dsi.
  */
 &dsi1 {
-	compatible = "allwinner,sun55i-a523-mipi-dsi";
 	pinctrl-names = "default";
 	pinctrl-0 = <&dsi1_4lane_pins>;
 	/*
-	 * Combo D-PHY @ 0x05509000 owns the integrated DISPLL that generates the
-	 * lane clock; the host hands it the rate via phy_configure(). Driver:
-	 * phy-sun55i-dsi-combo (PHY_SUN55I_DSI_COMBO). The host's own clocks are
-	 * the CCU bus + mod gates (CLK_BUS_MIPI_DSI1 / CLK_MIPI_DSI1).
+	 * Combo D-PHY @ 0x05509000 (declared in the SoC dtsi) owns the integrated
+	 * DISPLL that generates the lane clock; the host hands it the rate via
+	 * phy_configure(). Driver: phy-sun55i-dsi-combo (PHY_SUN55I_DSI_COMBO).
 	 */
-	phys = <&dsi1_combo_phy>;
-	phy-names = "dphy";
 	status = "okay";
-
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		/* input from TCON-LCD1 */
-		port@0 {
-			reg = <0>;
-			dsi1_in_tcon1: endpoint {
-				remote-endpoint = <&tcon1_out_dsi1>;
-			};
-		};
-	};
 
 	panel@0 {
 		/*
@@ -263,13 +248,12 @@
 			05 78 01 10
 		];
 
-		port {
-			panel_in_dsi1: endpoint {
-				remote-endpoint = <&dsi1_out_panel>;
-			};
-		};
-
 		/*
+		 * No OF-graph port here: a DSI peripheral attaches to its host
+		 * over the DSI bus (it is a child of &dsi1), not via an
+		 * of-graph endpoint. The host has a single input port (from
+		 * TCON-LCD1) declared in the SoC dtsi.
+		 *
 		 * Native timing: 720x1280 @ ~60 Hz, 62 MHz pixel clock.
 		 * Porches are discrete (mainline convention):
 		 *   H: hactive 720, hfp 32, hsync 6, hbp 18  (Ht = 776)
@@ -296,32 +280,25 @@
 
 /*
  * TCON-LCD1 @ 0x05502000 - timing controller feeding DSI1 (single link).
- * PLACEHOLDER: needs a sun55i tcon-lcd compatible + the DISPLAY0_TOP glue.
- * Shown only to express the OF graph endpoint the panel/DSI expect.
+ * Node + clocks/resets/ports live in sun55i-a523.dtsi (kernel/patches/0003),
+ * compatible allwinner,sun55i-a523-tcon-lcd (kernel/patches/0004). The OF graph
+ * (de -> tcon1 -> dsi1) is wired there; here we only enable it.
  *
- * &tcon1 {
- *	status = "okay";
- *	ports {
- *		tcon1_out: port@1 {
- *			tcon1_out_dsi1: endpoint {
- *				remote-endpoint = <&dsi1_in_tcon1>;
- *			};
- *		};
- *	};
- * };
- *
- * Combo D-PHY @ 0x05509000. Driver: phy-sun55i-dsi-combo (this repo,
- * kernel/drivers/). This node belongs in the SoC dtsi (sun55i-a523.dtsi)
- * once the display block is added there; final shape:
- *
- * dsi1_combo_phy: phy@5509000 {
- *	compatible = "allwinner,sun55i-a523-dsi-combo-phy";
- *	reg = <0x05509000 0x1000>;
- *	clocks = <&ccu CLK_COMBOPHY_DSI1>;
- *	clock-names = "bus";
- *	resets = <&ccu RST_BUS_MIPI_DSI1>;	// shared with the DSI host
- *	#phy-cells = <0>;
- * };
+ * NOTE: tcon1 has no usable CRTC upstream of it yet - the DE3.5 mixer/CRTC
+ * driver does not exist in mainline. The TCON-LCD and DSI/PHY can probe, but
+ * with no CRTC there is no source to drive a scanout, so nothing lights up yet.
+ */
+&tcon1 {
+	status = "okay";
+};
+
+/*
+ * Combo D-PHY @ 0x05509000. Node lives in the SoC dtsi (sun55i-a523.dtsi),
+ * compatible allwinner,sun55i-a523-dsi-combo-phy; driver phy-sun55i-dsi-combo.
+ * Enable it so the DSI host can request the HS lane clock.
  *
  * Pipeline OF graph:  de@5000000 -> tcon1@5502000 -> dsi1@5508000 -> panel
  */
+&dsi1_combo_phy {
+	status = "okay";
+};

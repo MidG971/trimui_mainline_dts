@@ -70,20 +70,34 @@ host port is a **variant add**, not a rewrite. The novel work is the **combo-PHY
       (W=1) as a module against 6.19. Clock = `CLK_COMBOPHY_DSI1`, reset
       `RST_BUS_MIPI_DSI1` (shared with the host). *Unverified until hardware:* PLL
       band math + analog trim are faithfully ported but untested on silicon.
-- [ ] **TCON-LCD** sun55i compat in `sun4i_tcon.c` (DSI single-link), BSP ref
-      `sunxi_device/sunxi_tcon.c`; wire TCON-TOP (`vo0@5500000`).
+- [x] **TCON-LCD** sun55i compat — `allwinner,sun55i-a523-tcon-lcd` added to
+      `sun4i_tcon.c` (reuses the D1 LCD quirk: channel-0, `dclk_min_div=1`, r40
+      mux) + binding. `kernel/patches/0004-…`. Builds clean.
+- [x] **SoC dtsi nodes** — `dsi1`/`dsi1_combo_phy`/`tcon1` (real, default-disabled)
+      + `de`/`display-top` (disabled skeletons, **no** compatible so they can't
+      mis-bind until a DE driver exists) added to `sun55i-a523.dtsi`, OF graph
+      de→tcon1→dsi1→panel. `kernel/patches/0003-…`. `make dtbs` clean; `dt-validate`
+      passes. The board can now `#include trimui-panel.dtsi` (labels resolve).
+- [ ] **PWM** — `pwm-backlight` needs a sun55i PWM node/driver; without it the
+      board+panel DTB won't resolve `&pwm0`. (Blocks the full board DTB build.)
 - [ ] **Panel** — small DSI panel driver carrying the decoded init/exit blob from
       [`../dts/trimui-panel.dtsi`](../dts/trimui-panel.dtsi) (or panel-mipi-dsi + blob).
-- [ ] **DE3.5 mixer** (`display-engine-v350`, 0x05000000) — largest piece; base on
-      the in-flight DE33 series, diff register layout for v350.
-- [ ] DT: assemble OF graph `de → tcon1 → dsi1 → panel`; `modetest` 720×1280.
+- [ ] **DE3.5 mixer/CRTC** (`display-engine-v350`, 0x05000000) — **the remaining
+      blocker for any lit pixel**: DSI host + combo-PHY + TCON can all probe, but
+      there is no CRTC/scanout source to feed the TCON. Largest piece; base on the
+      in-flight DE33 series, diff register layout for v350.
 
-**Recommended milestone order:** combo-PHY → TCON → push a solid-colour test pattern
-through TCON before the full DE mixer (isolates the novel DSI/PHY work).
+**Status:** the DSI host, combo-PHY, TCON-LCD and the pipeline DT are done and
+build clean. Next leverage is PWM (small) then the DE3.5 mixer (large) — nothing
+scans out until the mixer/CRTC exists.
 
 ## Build / test
 
-Mainline tree on `compiler-rock3b:/root/rock3b-build/linux-mainline` (6.19);
-`CONFIG_DRM_SUN4I/SUN6I_DSI/PHY_SUN6I_MIPI_DPHY=m`. Compile-check a single TU:
-`make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- drivers/gpu/drm/sun4i/sun6i_mipi_dsi.o`.
-The host can't probe until the combo-PHY + DT land (it requires its `phys=<&...>`).
+**Canonical tree: `compiler-rock3b:/root/trimui-display/linux-rc` = Linux v7.1-rc7.**
+All four patches (`0001`–`0004`) + `phy-sun55i-dsi-combo.c` apply cleanly and build
+clean (W=1) there with zero source changes — no 6.19→7.1-rc7 API churn.
+`CONFIG_DRM_SUN4I/SUN6I_DSI/PHY_SUN6I_MIPI_DPHY/PHY_SUN55I_DSI_COMBO=m`. Checks:
+`make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- drivers/gpu/drm/sun4i/sun6i_mipi_dsi.o`,
+`… drivers/phy/allwinner/phy-sun55i-dsi-combo.o`, `… drivers/gpu/drm/sun4i/sun4i_tcon.o`,
+and `… dtbs`. (Older tree `/root/rock3b-build/linux-mainline` = 6.19-rc5, kept as ref.)
+The board+panel combined DTB additionally needs a `&pwm0` node (see PWM item).

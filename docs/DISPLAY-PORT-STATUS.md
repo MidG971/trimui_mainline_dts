@@ -96,11 +96,17 @@ host port is a **variant add**, not a rewrite. The novel work is the **combo-PHY
       blocker for any lit pixel (DSI+PHY+TCON probe, but nothing feeds the TCON).
       **De-risked:** v7.1-rc7 mainline now has DE33 support in `sun8i_mixer.c`
       (`SUN8I_MIXER_DE33` + the H616 cfg), and the A523 DE3.5 is DE33-class — so this
-      is a **mixer-cfg + DT extension**, not a greenfield port. Plan + topology in
-      [`../kernel/DE35-NOTES.md`](../kernel/DE35-NOTES.md) (A523 = 6 ch / 3 VI + 3 UI;
-      needs the blender `map[]`, the layers/top/display reg offsets, and the DT
-      display-engine glue). Goal of the next chunk: compiling cfg + complete DT so the
-      whole pipeline forms one DRM device; pixel bring-up is a HW task.
+      is a **mixer-cfg + DT extension**, not a greenfield port.
+      **Mixer cfg DONE** (`kernel/patches/0008`, builds clean on v7.1-rc7):
+      `sun55i_a523_mixer0_cfg` (DE33, 3 VI + 3 UI, map `{0,1,2,6,7,8}`, scaler 0x3f) +
+      `allwinner,sun55i-a523-de33-mixer-0` + binding; reg sub-ranges resolved
+      (layers `0x05100000` / top `0x05000000` / display `0x05280000`).
+      **Remaining = the DT assembly** (display-engine + bus@ + display_clocks reusing
+      `sun50i-h616-de33-clk` + mixer node) — genuinely pioneering since *even H616 has no
+      in-tree DE33 DT*; open unknowns (bus compatible, display_clocks offset/SRAM,
+      `display-engine` compatible) tracked in
+      [`../kernel/DE35-NOTES.md`](../kernel/DE35-NOTES.md). Until then `de@5000000`
+      stays a disabled skeleton; pixel bring-up is a HW task.
 
 **Status:** the DSI host, combo-PHY, TCON-LCD and the pipeline DT are done and
 build clean. Next leverage is PWM (small) then the DE3.5 mixer (large) — nothing

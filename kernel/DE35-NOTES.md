@@ -63,3 +63,39 @@ device on v7.1-rc7; pixel bring-up is a HW task.
 
 Build host: `compiler-rock3b:/root/trimui-display/linux-rc` (v7.1-rc7, canonical);
 BSP DE source: `…/aw-bsp-drivers/drivers/video/sunxi/disp2/disp/de/lowlevel_v35x/`.
+
+---
+
+## Progress + resolved data (2026-06-14)
+
+**DONE — mixer cfg + compatible (kernel/patches/0008, builds clean):**
+`sun55i_a523_mixer0_cfg` in `sun8i_mixer.c` — DE33, `vi_num=3`, `ui_num=3`,
+`map={0,1,2,6,7,8}`, `scaler_mask=0x3f` (BSP de350 `is_support_scale` = all 1),
+`scanline_yuv=4096`, `mod_rate=600000000` (VERIFY) + compatible
+`allwinner,sun55i-a523-de33-mixer-0` + binding enum. `sun8i_mixer.o` builds.
+
+**Resolved register/DT data:**
+- DE base `0x05000000` (4 MB). Sub-ranges (BSP `lowlevel_v35x` offsets):
+  `top` = `0x05000000` (DE top), `layers` = `0x05100000` (RTMX, +0x100000),
+  `display` = `0x05280000` (DISP0, +0x280000, size 0x20000). reg-names order in DT =
+  **layers, top, display**.
+- map / topology from BSP `de350_feat.c` `chn_id_lut = {0,1,2 video, 6,7,8,9 ui}`.
+- DE clock: vendor DTB clocks DE off the **main CCU** (CLK_BUS_DE/CLK_DE, RST_BUS_DE).
+
+**Mainline DE33 model (the DT to build):** mirrors `sun50i-h6.dtsi` DE3 block but DE33:
+`display-engine` aggregator (needs `allwinner,sun55i-a523-display-engine` added to
+`sun4i_drv.c` of_table + the display-engine binding) → `bus@5000000` (simple-bus +
+ranges) → `display_clocks: clock@…` (reuse `allwinner,sun50i-h616-de33-clk`, which is in
+`ccu-sun8i-de2.c` and does the DE33 magic writes at reg+0x24/0x28) → `mixer@100000`
+(our compatible, 3 regs, clocks from display_clocks `CLK_BUS_MIXER0`/`CLK_MIXER0`,
+RST_MIXER0, ports out→tcon1).
+
+**Open unknowns for the DT chunk (pioneering — even H616 has NO in-tree DE33 DT):**
+1. The `bus@` compatible — does a `allwinner,sun50i-h616-de33` (or similar) bus binding
+   exist, or must one be added? (h6 used `allwinner,sun50i-h6-de3`.)
+2. The `display_clocks` (de33-clk) reg offset within the DE block + its reg size, and
+   whether it needs an SRAM phandle (h6-de3 did: `allwinner,sram`).
+3. Whether `sun4i_drv` needs the new `display-engine` compatible (yes — list ends at h6/
+   d1/a64; no h616/de33 entry).
+These need confirming from the H616 DE33 patch series / BSP before writing the DT, so the
+`de@5000000` node stays a disabled skeleton until then.

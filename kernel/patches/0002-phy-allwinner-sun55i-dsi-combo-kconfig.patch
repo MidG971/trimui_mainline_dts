@@ -1,0 +1,33 @@
+Subject: [PATCH] phy: allwinner: add sun55i DSI combo D-PHY
+
+Wire the new sun55i DSI/LVDS combo D-PHY driver into the build.
+The driver source is kernel/drivers/phy-sun55i-dsi-combo.c in this repo;
+drop it into drivers/phy/allwinner/ before applying this patch.
+
+Apply with: patch -p1 < this file   (from the kernel source root)
+
+--- a/drivers/phy/allwinner/Kconfig
++++ b/drivers/phy/allwinner/Kconfig
+@@ -57,3 +57,15 @@
+ 	  part of Allwinner H6 SoC.
+
+ 	  This driver controls each individual USB 2+3 host PHY combo.
++
++config PHY_SUN55I_DSI_COMBO
++	tristate "Allwinner sun55i DSI/LVDS combo D-PHY Support"
++	depends on ARCH_SUNXI || COMPILE_TEST
++	depends on HAS_IOMEM && COMMON_CLK
++	depends on RESET_CONTROLLER
++	select GENERIC_PHY
++	select GENERIC_PHY_MIPI_DPHY
++	help
++	  Choose this option to support the MIPI-DSI/LVDS combo D-PHY found
++	  on Allwinner sun55i SoCs (A523/A527/T527), used to drive a
++	  MIPI-DSI display panel.
+--- a/drivers/phy/allwinner/Makefile
++++ b/drivers/phy/allwinner/Makefile
+@@ -3,3 +3,4 @@
+ obj-$(CONFIG_PHY_SUN6I_MIPI_DPHY)	+= phy-sun6i-mipi-dphy.o
+ obj-$(CONFIG_PHY_SUN9I_USB)		+= phy-sun9i-usb.o
+ obj-$(CONFIG_PHY_SUN50I_USB3)		+= phy-sun50i-usb3.o
++obj-$(CONFIG_PHY_SUN55I_DSI_COMBO)	+= phy-sun55i-dsi-combo.o

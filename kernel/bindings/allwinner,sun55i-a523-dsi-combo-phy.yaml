@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/phy/allwinner,sun55i-a523-dsi-combo-phy.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Allwinner sun55i DSI/LVDS combo D-PHY
+
+maintainers:
+  - Midgy BALON <midgy971@gmail.com>
+
+description:
+  The Allwinner A523/A527/T527 (sun55iw3) SoCs embed a MIPI-DSI / LVDS combo
+  D-PHY with an integrated display PLL (DISPLL) that generates the high-speed
+  lane clock. It is paired with the sun6i-compatible MIPI-DSI host controller.
+
+properties:
+  compatible:
+    const: allwinner,sun55i-a523-dsi-combo-phy
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: Combo-PHY bus/gating clock
+
+  clock-names:
+    items:
+      - const: bus
+
+  resets:
+    maxItems: 1
+
+  "#phy-cells":
+    const: 0
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - resets
+  - "#phy-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/sun55i-a523-ccu.h>
+    #include <dt-bindings/reset/sun55i-a523-ccu.h>
+
+    dsi-phy@5509000 {
+        compatible = "allwinner,sun55i-a523-dsi-combo-phy";
+        reg = <0x05509000 0x1000>;
+        clocks = <&ccu CLK_COMBOPHY_DSI1>;
+        clock-names = "bus";
+        /* shared with the DSI host (no dedicated combo-phy reset) */
+        resets = <&ccu RST_BUS_MIPI_DSI1>;
+        #phy-cells = <0>;
+    };

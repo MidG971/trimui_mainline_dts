@@ -61,9 +61,15 @@ host port is a **variant add**, not a rewrite. The novel work is the **combo-PHY
 - [x] **DSI host: `allwinner,sun55i-a523-mipi-dsi` variant added** to `sun6i_mipi_dsi.c`
       + DT binding — compiles clean (linux 6.19). See
       [`../kernel/patches/0001-drm-sun4i-dsi-sun55i-a523-host-variant.patch`](../kernel/patches/0001-drm-sun4i-dsi-sun55i-a523-host-variant.patch).
-- [ ] **Combo-D-PHY driver** (new) — `allwinner,sun55i-a523-dsi-combo-phy`, base
-      0x05509000. Port from BSP `phy/sunxi_dsi_combophy.c`; it also provides the
-      high-speed lane clock to the host. *This is the critical path.*
+- [x] **Combo-D-PHY driver** — `allwinner,sun55i-a523-dsi-combo-phy`, base
+      0x05509000. New driver `kernel/drivers/phy-sun55i-dsi-combo.c` (ported from
+      BSP `phy/sunxi_dsi_combophy.c`); integrated DISPLL PLL programmed from the
+      `hs_clk_rate` passed via `phy_configure()` (so no separate clock provider).
+      Kconfig/Makefile patch: `kernel/patches/0002-…`; binding:
+      `kernel/bindings/allwinner,sun55i-a523-dsi-combo-phy.yaml`. Builds clean
+      (W=1) as a module against 6.19. Clock = `CLK_COMBOPHY_DSI1`, reset
+      `RST_BUS_MIPI_DSI1` (shared with the host). *Unverified until hardware:* PLL
+      band math + analog trim are faithfully ported but untested on silicon.
 - [ ] **TCON-LCD** sun55i compat in `sun4i_tcon.c` (DSI single-link), BSP ref
       `sunxi_device/sunxi_tcon.c`; wire TCON-TOP (`vo0@5500000`).
 - [ ] **Panel** — small DSI panel driver carrying the decoded init/exit blob from

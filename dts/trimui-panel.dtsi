@@ -133,7 +133,7 @@
 		power1-supply = <&reg_cldo1>;
 
 		backlight = <&backlight>;
-	}
+	};
 };
 
 /*

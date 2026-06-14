@@ -1,0 +1,66 @@
+Subject: [PATCH] drm/sun4i: sun8i-mixer: add sun55i-a523 DE3.5 (DE33) mixer
+
+The A523 (sun55iw3) DE3.5 is a DE33-class display engine. Add a mixer
+cfg and compatible: 6 channels (3 VI + 3 UI), blender map {0,1,2,6,7,8}
+(from the BSP de350 chn_id_lut: 0-2 video, 6+ ui), all channels scale
+(scaler_mask 0x3f). mod_rate/scaler details VERIFY on hardware.
+
+Apply with: patch -p1 < this file
+
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+@@ -879,6 +879,24 @@
+ 	.map		= {0, 6, 7, 8},
+ };
+ 
++/*
++ * A523 (sun55iw3) DE3.5 - DE33-class. 6 channels = 3 VI + 3 UI (BSP de350).
++ * map[] from BSP chn_id_lut {0,1,2 video, 6,7,8 ui}. scaler_mask/mod_rate
++ * VERIFY on hardware.
++ */
++static const struct sun8i_mixer_cfg sun55i_a523_mixer0_cfg = {
++	.lay_cfg = {
++		.de_type	= SUN8I_MIXER_DE33,
++		.scaler_mask	= 0x3f,
++		.scanline_yuv	= 4096,
++	},
++	.de_type	= SUN8I_MIXER_DE33,
++	.mod_rate	= 600000000,
++	.ui_num		= 3,
++	.vi_num		= 3,
++	.map		= {0, 1, 2, 6, 7, 8},
++};
++
+ static const struct of_device_id sun8i_mixer_of_table[] = {
+ 	{
+ 		.compatible = "allwinner,sun8i-a83t-de2-mixer-0",
+@@ -928,6 +946,10 @@
+ 		.compatible = "allwinner,sun50i-h616-de33-mixer-0",
+ 		.data = &sun50i_h616_mixer0_cfg,
+ 	},
++	{
++		.compatible = "allwinner,sun55i-a523-de33-mixer-0",
++		.data = &sun55i_a523_mixer0_cfg,
++	},
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, sun8i_mixer_of_table);
+--- a/Documentation/devicetree/bindings/display/allwinner,sun8i-a83t-de2-mixer.yaml
++++ b/Documentation/devicetree/bindings/display/allwinner,sun8i-a83t-de2-mixer.yaml
+@@ -25,6 +25,7 @@
+       - allwinner,sun50i-a64-de2-mixer-1
+       - allwinner,sun50i-h6-de3-mixer-0
+       - allwinner,sun50i-h616-de33-mixer-0
++      - allwinner,sun55i-a523-de33-mixer-0
+ 
+   reg: true
+ 
+@@ -70,6 +71,8 @@
+           contains:
+             enum:
+               - allwinner,sun50i-h616-de33-mixer-0
++      - allwinner,sun55i-a523-de33-mixer-0
++              - allwinner,sun55i-a523-de33-mixer-0
+     then:
+       properties:
+         reg:

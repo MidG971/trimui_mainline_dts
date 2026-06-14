@@ -92,10 +92,15 @@ host port is a **variant add**, not a rewrite. The novel work is the **combo-PHY
       on v7.1-rc7. `kernel/patches/0007` (Kconfig/Makefile) + binding. The DT panel
       node was slimmed to standard properties (driver owns mode/lanes/init) — this
       also dropped a stray `0x20` byte that had corrupted the init blob in the DTS.
-- [ ] **DE3.5 mixer/CRTC** (`display-engine-v350`, 0x05000000) — **the remaining
-      blocker for any lit pixel**: DSI host + combo-PHY + TCON can all probe, but
-      there is no CRTC/scanout source to feed the TCON. Largest piece; base on the
-      in-flight DE33 series, diff register layout for v350.
+- [ ] **DE3.5 mixer/CRTC** (`display-engine-v350`, 0x05000000) — the remaining
+      blocker for any lit pixel (DSI+PHY+TCON probe, but nothing feeds the TCON).
+      **De-risked:** v7.1-rc7 mainline now has DE33 support in `sun8i_mixer.c`
+      (`SUN8I_MIXER_DE33` + the H616 cfg), and the A523 DE3.5 is DE33-class — so this
+      is a **mixer-cfg + DT extension**, not a greenfield port. Plan + topology in
+      [`../kernel/DE35-NOTES.md`](../kernel/DE35-NOTES.md) (A523 = 6 ch / 3 VI + 3 UI;
+      needs the blender `map[]`, the layers/top/display reg offsets, and the DT
+      display-engine glue). Goal of the next chunk: compiling cfg + complete DT so the
+      whole pipeline forms one DRM device; pixel bring-up is a HW task.
 
 **Status:** the DSI host, combo-PHY, TCON-LCD and the pipeline DT are done and
 build clean. Next leverage is PWM (small) then the DE3.5 mixer (large) — nothing

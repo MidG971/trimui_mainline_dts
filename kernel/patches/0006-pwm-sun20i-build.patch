@@ -1,0 +1,38 @@
+Subject: [PATCH] pwm: sun20i: wire up the D1/A523 PWM driver
+
+Add the pwm-sun20i driver (PWM v2 IP; D1/T113/R329/A523) to the build,
+with an allwinner,sun55i-a523-pwm compatible. Driver source is
+kernel/drivers/pwm-sun20i.c in this repo; drop it into drivers/pwm/.
+
+Apply with: patch -p1 < this file
+
+--- a/drivers/pwm/Kconfig
++++ b/drivers/pwm/Kconfig
+@@ -736,6 +736,17 @@
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called pwm-sun4i.
+ 
++config PWM_SUN20I
++	tristate "Allwinner D1/T113s/R329/A523 PWM support"
++	depends on ARCH_SUNXI || COMPILE_TEST
++	depends on HAS_IOMEM && COMMON_CLK
++	help
++	  Generic PWM framework driver for the PWM controller (PWM v2) found on
++	  Allwinner D1, T113-S3, R329 and A523 (sun55iw3) SoCs.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called pwm-sun20i.
++
+ config PWM_SUNPLUS
+ 	tristate "Sunplus PWM support"
+ 	depends on ARCH_SUNPLUS || COMPILE_TEST
+--- a/drivers/pwm/Makefile
++++ b/drivers/pwm/Makefile
+@@ -67,6 +67,7 @@
+ obj-$(CONFIG_PWM_STM32_LP)	+= pwm-stm32-lp.o
+ obj-$(CONFIG_PWM_STMPE)		+= pwm-stmpe.o
+ obj-$(CONFIG_PWM_SUN4I)		+= pwm-sun4i.o
++obj-$(CONFIG_PWM_SUN20I)	+= pwm-sun20i.o
+ obj-$(CONFIG_PWM_SUNPLUS)	+= pwm-sunplus.o
+ obj-$(CONFIG_PWM_TEGRA)		+= pwm-tegra.o
+ obj-$(CONFIG_PWM_TH1520)	+= pwm_th1520.o

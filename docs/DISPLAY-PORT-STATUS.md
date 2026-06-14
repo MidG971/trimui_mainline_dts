@@ -78,8 +78,12 @@ host port is a **variant add**, not a rewrite. The novel work is the **combo-PHY
       mis-bind until a DE driver exists) added to `sun55i-a523.dtsi`, OF graph
       de→tcon1→dsi1→panel. `kernel/patches/0003-…`. `make dtbs` clean; `dt-validate`
       passes. The board can now `#include trimui-panel.dtsi` (labels resolve).
-- [ ] **PWM** — `pwm-backlight` needs a sun55i PWM node/driver; without it the
-      board+panel DTB won't resolve `&pwm0`. (Blocks the full board DTB build.)
+- [x] **PWM** — `pwm-sun20i` driver (PWM v2 IP; ported from A. Shubin's D1 driver
+      + `allwinner,sun55i-a523-pwm` compatible) in `kernel/drivers/pwm-sun20i.c`;
+      `pwm0@2000c00` node added to the SoC dtsi (clocks bus/hosc/apb0 = CLK_BUS_PWM0/
+      osc24M/CLK_APB0, reset RST_BUS_PWM0). `kernel/patches/0005` (node) + `0006`
+      (Kconfig/Makefile). Builds clean on v7.1-rc7; the full **board+panel+pwm DTB
+      now builds** (`make dtbs`, all of pwm/dsi/phy/panel nodes resolve).
 - [ ] **Panel** — small DSI panel driver carrying the decoded init/exit blob from
       [`../dts/trimui-panel.dtsi`](../dts/trimui-panel.dtsi) (or panel-mipi-dsi + blob).
 - [ ] **DE3.5 mixer/CRTC** (`display-engine-v350`, 0x05000000) — **the remaining

@@ -4,18 +4,20 @@
  * Trimui Smart Pro S - MIPI-DSI panel + backlight + DSI1 + combo-PHY fragment.
  *
  * ============================ NOT BUILDABLE YET ============================
- * This is a STAGED DRAFT. As of mainline ~6.19 there is NO driver for the
- * A523 (sun55iw3) display pipeline: no DE3.5 mixer, no sun55i TCON-LCD compat,
- * no sun55i MIPI-DSI host, and no A523 combo-D-PHY. None of the nodes below
- * have matching upstream bindings/compatibles. Do NOT #include this from the
- * board .dts until those drivers + bindings land. It is kept here so the
- * verified board facts (pins, lanes, rails, reset, the full panel init blob,
- * and the OF graph) are captured and ready to wire up.
+ * This is a STAGED DRAFT. Progress (see docs/DISPLAY-PORT-STATUS.md):
+ *   DONE  - MIPI-DSI host:  allwinner,sun55i-a523-mipi-dsi variant added to
+ *           drm/sun4i sun6i_mipi_dsi (kernel/patches/0001), compiles.
+ *   DONE  - combo-D-PHY:    phy-sun55i-dsi-combo driver (kernel/drivers/),
+ *           compatible allwinner,sun55i-a523-dsi-combo-phy, compiles.
+ *   TODO  - SoC dtsi nodes: dsi1/combophy/tcon1/de must be added to
+ *           sun55i-a523.dtsi (these &labels don't exist upstream yet).
+ *   TODO  - TCON-LCD sun55i compat + DE3.5 mixer drivers.
+ * So this fragment can't be #included from the board .dts until the SoC dtsi
+ * display nodes + the TCON/DE drivers land. It captures the verified board
+ * facts (pins, lanes, rails, reset, the full panel init blob, OF graph).
  *
- * The compatibles used here are PLACEHOLDERS chosen to mirror the eventual
- * mainline names; expect them to change when the bindings are written. See
- * docs/DISPLAY-NOTES.md for upstream status, the clock/power map, and the
- * bring-up plan.
+ * The DSI host + combo-PHY compatibles are now real; tcon1/panel compatibles
+ * remain PLACEHOLDERS. See docs/DISPLAY-PORT-STATUS.md for the ordered plan.
  *
  * Verified board facts encoded below (from the vendor DTB + A523 UM):
  *   panel : 720x1280 portrait, RGB888, 4-lane MIPI-DSI on DSI1, ~62 MHz pixel
@@ -99,17 +101,18 @@
  * exported (see DISPLAY-NOTES.md CCU map: DSI1_CLK 0x0B28, DSI_BGR 0x0B4C).
  */
 &dsi1 {
-	/* compatible = "allwinner,sun55i-a523-mipi-dsi"; (TBD when driver lands) */
+	compatible = "allwinner,sun55i-a523-mipi-dsi";
 	pinctrl-names = "default";
 	pinctrl-0 = <&dsi1_4lane_pins>;
-	status = "okay";
-
 	/*
-	 * Combo D-PHY @ 0x05509000 feeds the high-/low-speed lane clocks back to
-	 * this host (vendor: phys = <&dsi1_combo_phy>; phy-names = "combophy").
-	 * phys = <&dsi1_combo_phy>;
-	 * phy-names = "dphy";
+	 * Combo D-PHY @ 0x05509000 owns the integrated DISPLL that generates the
+	 * lane clock; the host hands it the rate via phy_configure(). Driver:
+	 * phy-sun55i-dsi-combo (PHY_SUN55I_DSI_COMBO). The host's own clocks are
+	 * the CCU bus + mod gates (CLK_BUS_MIPI_DSI1 / CLK_MIPI_DSI1).
 	 */
+	phys = <&dsi1_combo_phy>;
+	phy-names = "dphy";
+	status = "okay";
 
 	ports {
 		#address-cells = <1>;
@@ -307,9 +310,17 @@
  *	};
  * };
  *
- * Combo D-PHY @ 0x05509000 (allwinner,sunxi-dsi-combo-phy1 in vendor DTB):
- * &dsi1_combo_phy {
- *	status = "okay";
+ * Combo D-PHY @ 0x05509000. Driver: phy-sun55i-dsi-combo (this repo,
+ * kernel/drivers/). This node belongs in the SoC dtsi (sun55i-a523.dtsi)
+ * once the display block is added there; final shape:
+ *
+ * dsi1_combo_phy: phy@5509000 {
+ *	compatible = "allwinner,sun55i-a523-dsi-combo-phy";
+ *	reg = <0x05509000 0x1000>;
+ *	clocks = <&ccu CLK_COMBOPHY_DSI1>;
+ *	clock-names = "bus";
+ *	resets = <&ccu RST_BUS_MIPI_DSI1>;	// shared with the DSI host
+ *	#phy-cells = <0>;
  * };
  *
  * Pipeline OF graph:  de@5000000 -> tcon1@5502000 -> dsi1@5508000 -> panel

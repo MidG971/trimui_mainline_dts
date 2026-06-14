@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/panel/trimui,smart-pro-s-panel.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Trimui Smart Pro S MIPI-DSI panel
+
+maintainers:
+  - Midgy BALON <midgy971@gmail.com>
+
+description:
+  The 720x1280 4-lane MIPI-DSI video-mode panel on the Trimui Smart Pro S
+  handheld (Ilitek/Fitipower-class DDIC). The init/exit DCS sequences and the
+  display mode are carried by the driver.
+
+allOf:
+  - $ref: panel-common.yaml#
+
+properties:
+  compatible:
+    const: trimui,smart-pro-s-panel
+
+  reg:
+    maxItems: 1
+
+  reset-gpios: true
+  backlight: true
+
+  power0-supply:
+    description: First panel supply (vendor cldo4).
+
+  power1-supply:
+    description: Second panel supply (vendor cldo1).
+
+  port: true
+
+required:
+  - compatible
+  - reg
+  - reset-gpios
+  - power0-supply
+  - power1-supply
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    dsi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        panel@0 {
+            compatible = "trimui,smart-pro-s-panel";
+            reg = <0>;
+            reset-gpios = <&pio 3 22 GPIO_ACTIVE_HIGH>;
+            power0-supply = <&reg_cldo4>;
+            power1-supply = <&reg_cldo1>;
+            backlight = <&backlight>;
+        };
+    };

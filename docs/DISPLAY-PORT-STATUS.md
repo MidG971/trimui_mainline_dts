@@ -84,8 +84,14 @@ host port is a **variant add**, not a rewrite. The novel work is the **combo-PHY
       osc24M/CLK_APB0, reset RST_BUS_PWM0). `kernel/patches/0005` (node) + `0006`
       (Kconfig/Makefile). Builds clean on v7.1-rc7; the full **board+panel+pwm DTB
       now builds** (`make dtbs`, all of pwm/dsi/phy/panel nodes resolve).
-- [ ] **Panel** — small DSI panel driver carrying the decoded init/exit blob from
-      [`../dts/trimui-panel.dtsi`](../dts/trimui-panel.dtsi) (or panel-mipi-dsi + blob).
+- [x] **Panel** — `panel-trimui-smart-pro-s` DRM DSI driver
+      (`kernel/drivers/panel-trimui-smart-pro-s.c`, compatible
+      `trimui,smart-pro-s-panel`): 720x1280@60, 4-lane RGB888, reset PD22 (120 ms),
+      power0/power1 supplies, backlight; replays the vendor init/exit DCS blobs in
+      prepare()/unprepare() (modern `mipi_dsi_multi_context` API). Builds clean (W=1)
+      on v7.1-rc7. `kernel/patches/0007` (Kconfig/Makefile) + binding. The DT panel
+      node was slimmed to standard properties (driver owns mode/lanes/init) — this
+      also dropped a stray `0x20` byte that had corrupted the init blob in the DTS.
 - [ ] **DE3.5 mixer/CRTC** (`display-engine-v350`, 0x05000000) — **the remaining
       blocker for any lit pixel**: DSI host + combo-PHY + TCON can all probe, but
       there is no CRTC/scanout source to feed the TCON. Largest piece; base on the

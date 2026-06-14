@@ -115,167 +115,25 @@
 	panel@0 {
 		/*
 		 * Ilitek/Fitipower-class DSI DDIC (0xFF MCS-unlock signature
-		 * 87 56 01). PLACEHOLDER compatible - a small dedicated panel
-		 * driver (or a generic init-sequence panel) will own this.
+		 * 87 56 01). Driver: panel-trimui-smart-pro-s, which carries the
+		 * mode (720x1280@60), 4 lanes, RGB888 and the init/exit DCS blobs.
 		 */
 		compatible = "trimui,smart-pro-s-panel";
 		reg = <0>;
 
-		/* Panel reset: PD22, asserted active per vendor flag, 120 ms */
+		/* Panel reset PD22; 120 ms settle handled by the driver. */
 		reset-gpios = <&pio 3 22 GPIO_ACTIVE_HIGH>;	/* PD22 */
-		/* reset-delay-ms equivalent handled by the panel driver: 120 ms */
 
 		/*
-		 * Power rails resolved from the vendor DTB phandles:
-		 *   power0-supply (0xc9) = AXP2202 cldo4
-		 *   power1-supply (0x53) = AXP2202 cldo1
-		 * VERIFY the actual voltages on real hardware before relying on
-		 * fixed constraints; cldo1 may be shared with MMC VQMMC (1.8 V).
+		 * Power rails (vendor DTB): power0 = AXP2202 cldo4,
+		 * power1 = AXP2202 cldo1. VERIFY voltages on HW (cldo1 may be
+		 * the shared 1.8 V also used for MMC VQMMC).
 		 */
 		power0-supply = <&reg_cldo4>;
 		power1-supply = <&reg_cldo1>;
 
 		backlight = <&backlight>;
-
-		dsi-lanes = <4>;		/* 4 data lanes */
-		/* format = RGB888 (vendor dsi,format = 0); video burst mode */
-
-		/*
-		 * MIPI init sequence, verbatim from the vendor DTB
-		 * (panel_0@0 / panel-init-sequence). Allwinner packing:
-		 *   <dsi_type> <wait_ms> <payload_len> <payload...>
-		 *   0x15 = DCS short write (1 param), 0x39 = DCS/long write.
-		 * Ends with SLPOUT(0x11) + DSPON(0x29) in the tail.
-		 * Replayed as-is once a DSI host can transport LP commands.
-		 */
-		panel-init-sequence = [
-			15 00 02 00 00 39 00 04 ff 87 56 01 15 00 02 00 80 39 00 03 ff 87 56
-			15 00 02 00 a1 39 00 07 b3 02 d0 05 00 20 fc
-			15 00 02 00 80 39 00 07 c0 00 f6 00 10 00 24
-			15 00 02 00 90 39 00 07 c0 00 f6 00 10 00 24
-			15 00 02 00 a0 39 00 07 c0 02 14 00 10 00 24
-			15 00 02 00 b0 39 00 06 c0 00 f6 00 10 24
-			15 00 02 00 c1 39 00 09 c0 01 27 00 ea 00 c5 01 5f
-			15 00 02 00 d7 39 00 07 c0 00 c5 00 10 00 24
-			15 00 02 00 a3 39 00 07 c1 00 20 00 20 00 02
-			15 00 02 00 80 39 00 11 ce 01 81 09 13 00 78 00 78 00 50 00 50 00 78 00 78
-			15 00 02 00 90 39 00 10 ce 00 8e 0e b6 00 8e 80 09 13 00 04 00 1c 1f 16
-			15 00 02 00 a0 39 00 04 ce 20 00 00
-			15 00 02 00 b0 39 00 04 ce 22 00 00
-			15 00 02 00 d1 39 00 08 ce 00 00 01 00 00 00 00
-			15 00 02 00 e1 39 00 0c ce 08 02 4d 02 4d 02 4d 00 00 00 00
-			15 00 02 00 f1 39 00 0a ce 0c 06 0a 00 e9 00 e9 00 f8
-			15 00 02 00 b0 39 00 05 cf 00 00 6e 72
-			15 00 02 00 b5 39 00 05 cf 02 02 94 98
-			15 00 02 00 c0 39 00 05 cf 04 04 d8 dc
-			15 00 02 00 c5 39 00 05 cf 00 00 08 0c
-			15 00 02 00 e8 15 00 02 c0 40
-			15 00 02 00 80 39 00 09 c2 84 00 05 89 83 00 05 89
-			15 00 02 00 a0 39 00 10 c2 82 04 00 05 89 81 04 00 05 89 00 04 00 05 89
-			15 00 02 00 b0 39 00 10 c2 01 04 00 05 89 02 04 00 05 89 03 04 00 05 89
-			15 00 02 00 c0 39 00 0b c2 04 04 00 05 89 05 04 00 05 89
-			15 00 02 00 e0 39 00 05 c2 77 77 77 77
-			15 00 02 00 c0 39 00 05 c3 99 99 99 99
-			15 00 02 00 80 39 00 11 cb 00 c5 00 00 05 05 00 05 0a 05 c5 00 05 05 00 c0
-			15 00 02 00 90 39 00 11 cb 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-			15 00 02 00 a0 39 00 05 cb 00 00 00 00
-			15 00 02 00 b0 39 00 05 cb 10 51 94 50
-			15 00 02 00 c0 39 00 05 cb 10 51 94 50
-			15 00 02 00 80 39 00 11 cc 2d 2d 2d 2d 07 09 0b 0d 25 25 03 2d 22 2d 24 2d
-			15 00 02 00 90 39 00 09 cc 29 16 17 18 19 1a 1b 26
-			15 00 02 00 80 39 00 11 cd 2d 2d 2d 2d 06 08 0a 0c 25 00 02 2d 22 2d 24 2d
-			15 00 02 00 90 39 00 09 cd 29 16 17 18 19 1a 1b 26
-			15 00 02 00 a0 39 00 11 cc 2d 2d 2d 2d 08 06 0c 0a 25 25 02 2d 24 2d 23 2d
-			15 00 02 00 b0 39 00 09 cc 29 16 17 18 19 1a 1b 26
-			15 00 02 00 a0 39 00 11 cd 2d 2d 2d 2d 09 07 0d 0b 25 00 03 2d 24 2d 23 2d
-			15 00 02 00 b0 39 00 09 cd 29 16 17 18 19 1a 1b 26
-			15 00 02 00 80 15 00 02 a7 13
-			15 00 02 00 82 39 00 03 a7 22 02
-			15 00 02 00 85 15 00 02 c4 1c
-			15 00 02 00 a0 39 00 04 c4 8d d8 8d
-			15 00 02 00 93 15 00 02 c5 37
-			15 00 02 00 97 15 00 02 c5 37
-			15 00 02 00 b6 39 00 03 c5 2d 2d
-			15 00 02 00 9a 15 00 02 c5 19
-			15 00 02 00 9c 15 00 02 c5 19
-			15 00 02 00 97 15 00 02 c4 01
-			15 00 02 00 9b 15 00 02 f5 4b
-			15 00 02 00 93 39 00 03 f5 00 00
-			15 00 02 00 9d 15 00 02 f5 49
-			15 00 02 00 82 39 00 03 f5 00 00
-			15 00 02 00 8c 39 00 04 c3 00 00 00
-			15 00 02 00 84 39 00 03 c5 28 28
-			15 00 02 00 a4 15 00 02 d7 00
-			15 00 02 00 80 39 00 03 f5 59 59
-			15 00 02 00 84 39 00 04 f5 59 59 59
-			15 00 02 00 96 15 00 02 f5 59
-			15 00 02 00 a6 15 00 02 f5 59
-			15 00 02 00 ca 15 00 02 c0 80
-			15 00 02 00 b1 15 00 02 f5 1f
-			15 00 02 00 00 39 00 03 d8 29 2d
-			15 00 02 00 00 39 00 03 d9 20 20
-			15 00 02 00 86 39 00 07 c0 01 04 01 01 22 03
-			15 00 02 00 96 39 00 07 c0 01 04 01 01 1b 03
-			15 00 02 00 a6 39 00 07 c0 01 04 01 01 3e 03
-			15 00 02 00 e9 39 00 07 c0 01 04 01 01 1b 03
-			15 00 02 00 a3 39 00 07 ce 01 04 01 01 1b 03
-			15 00 02 00 b3 39 00 07 ce 01 04 01 01 1b 03
-			15 00 02 00 00 39 00 29 e1 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
-			15 00 02 00 00 39 00 29 e2 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
-			15 00 02 00 00 39 00 29 e3 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
-			15 00 02 00 00 39 00 29 e4 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
-			15 00 02 00 00 39 00 29 e5 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
-			15 00 02 00 00 39 00 29 e6 05 06 09 10 69 1a 22 28 33 98 3a 41 47 4c e5 51 59 60 67 05 6e 75 7c 85 08 8f 94 9b a2 22 ab b6 c4 ce 9e da ea f7 ff 7b
-			15 00 02 00 cc 15 00 02 c0 13
-			15 00 02 00 82 15 00 02 c5 35
-			15 00 02 00 94 39 00 04 c5 02 01 01
-			15 00 02 00 98 39 00 03 c5 25 01
-			15 00 02 00 9b 15 00 02 c5 21
-			15 00 02 00 9d 15 00 02 c5 25
-			15 00 02 00 00 15 00 02 d0 56
-			05 78 01 11			/* SLPOUT, wait 120 ms */
-			05 14 01 29			/* DSPON,  wait  20 ms */
-			05 14 01 35
-		];
-
-		/*
-		 * Exit sequence (vendor panel-exit-sequence, decoded):
-		 *   05 00 01 28  -> DSPOFF
-		 *   05 78 01 10  -> SLPIN, wait 120 ms
-		 */
-		panel-exit-sequence = [
-			05 00 01 28
-			05 78 01 10
-		];
-
-		/*
-		 * No OF-graph port here: a DSI peripheral attaches to its host
-		 * over the DSI bus (it is a child of &dsi1), not via an
-		 * of-graph endpoint. The host has a single input port (from
-		 * TCON-LCD1) declared in the SoC dtsi.
-		 *
-		 * Native timing: 720x1280 @ ~60 Hz, 62 MHz pixel clock.
-		 * Porches are discrete (mainline convention):
-		 *   H: hactive 720, hfp 32, hsync 6, hbp 18  (Ht = 776)
-		 *   V: vactive 1280, vfp 16, vsync 2, vbp 34 (Vt = 1332)
-		 * A panel driver may carry this as a drm_display_mode instead of
-		 * display-timings; kept here for completeness.
-		 */
-		display-timings {
-			native-mode = <&panel_timing0>;
-			panel_timing0: timing0 {
-				clock-frequency = <62000000>;
-				hactive = <720>;
-				hfront-porch = <32>;
-				hsync-len = <6>;
-				hback-porch = <18>;
-				vactive = <1280>;
-				vfront-porch = <16>;
-				vsync-len = <2>;
-				vback-porch = <34>;
-			};
-		};
-	};
+	}
 };
 
 /*

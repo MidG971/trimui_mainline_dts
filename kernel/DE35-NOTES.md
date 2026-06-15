@@ -7,7 +7,7 @@ The last piece for a lit panel: a CRTC/scanout source feeding TCON-LCD1.
 
 ## Key finding (big de-risk)
 
-Linux **v7.1-rc7 already has DE33 support** in `drivers/gpu/drm/sun4i/sun8i_mixer.c`
+Linux **v7.1 already has DE33 support** in `drivers/gpu/drm/sun4i/sun8i_mixer.c`
 (`SUN8I_MIXER_DE33` type, `sun50i-h616-de33-mixer-0` cfg, the top/disp regmap split,
 the blender `map[]`). The A523 **"DE3.5" is the same DE3.x generation as the H616
 DE33** — so this is a **mixer-cfg + DT extension**, NOT a greenfield mixer/CRTC
@@ -59,9 +59,9 @@ the DT must be built from the binding + DE2/DE3 DT patterns (no copy-paste examp
 Even compiling + binding, a lit pixel needs HW iteration (clock rates, the map, RCQ/
 register-control-queue if DE33 uses it). Goal of the next chunk: a **compiling DE33
 mixer cfg + complete DT** so the whole pipeline (DE→TCON→DSI→panel) forms one DRM
-device on v7.1-rc7; pixel bring-up is a HW task.
+device on v7.1; pixel bring-up is a HW task.
 
-Build host: `compiler-rock3b:/root/trimui-display/linux-rc` (v7.1-rc7, canonical);
+Build host: `compiler-rock3b:/root/trimui-display/linux-rc` (v7.1, canonical);
 BSP DE source: `…/aw-bsp-drivers/drivers/video/sunxi/disp2/disp/de/lowlevel_v35x/`.
 
 ---

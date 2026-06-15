@@ -11,7 +11,7 @@
 # Example:
 #   ./build-trimui-kernel.sh /root/trimui-display/linux-rc /root/trimui_mainline_dts
 #
-# Assumes a clean-ish v7.1-rc7+ tree. Re-running is safe (patches/copies are
+# Assumes a clean-ish v7.1+ tree. Re-running is safe (patches/copies are
 # idempotent: it skips a patch that's already applied).
 set -euo pipefail
 

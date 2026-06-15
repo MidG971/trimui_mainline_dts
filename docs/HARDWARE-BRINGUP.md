@@ -3,7 +3,7 @@
 
 # Trimui Smart Pro S — hardware bring-up runbook
 
-Everything in the port is written and builds clean against Linux **v7.1-rc7**
+Everything in the port is written and builds clean against Linux **v7.1**
 (no-hardware phase complete). This is the step-by-step plan to run when the
 device arrives, with the exact tools for each step.
 
@@ -117,7 +117,7 @@ This validates the U-Boot + the **DRAM retarget** without writing storage.
 
 1. **Build** (on `compiler-rock3b`):
    ```bash
-   git clone --depth 1 -b v7.1-rc7 \
+   git clone --depth 1 -b v7.1 \
      https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-trimui
    ./kernel/build-trimui-kernel.sh /root/trimui-display/linux-trimui /path/to/repo
    # → arch/arm64/boot/Image  +  …/allwinner/sun55i-a523-trimui-smart-pro-s.dtb  + modules
@@ -196,6 +196,6 @@ HW tuning. See `kernel/DE35-NOTES.md`.
 ## Quick reference — what's already done (so you don't redo it)
 DSI host, combo-D-PHY, TCON-LCD, PWM, panel driver, SoC display DT nodes, the board
 DTS, U-Boot (DRAM-retargeted, FEL-bootable), and the DE3.5 mixer cfg are all written
-and build clean on v7.1-rc7. Patches: `kernel/patches/0001–0008`; drivers:
+and build clean on v7.1. Patches: `kernel/patches/0001–0008`; drivers:
 `kernel/drivers/`. The single remaining code/DT task is the DE DT assembly (Phase 6.1),
 best finished against the device's live DTB.

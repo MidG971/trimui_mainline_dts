@@ -3,7 +3,7 @@
 
 # A523 Documentation Index (local reference)
 
-Two Allwinner A523 documents are in `docs/`. **Both are Allwinner "Confidential"**
+The Allwinner A523 reference docs are in `docs/`. **All are Allwinner "Confidential"**
 (footer on every page; the datasheet is additionally RC4-encrypted). They are kept
 **local only — do NOT commit them or verbatim copies to the public repo.** Derived
 functional facts (pin functions, base addresses, timings) are fine to use in our
@@ -12,7 +12,16 @@ own DTS/notes; those values are also visible in public sunxi/T527 sources.
 | File | What it is | Pages | Use |
 |---|---|---|---|
 | `a523_trm.pdf` | **A523 Datasheet** (mislabeled "trm"). Overview, pinout, **GPIO mux tables**, **electrical characteristics**, pin assignment, thermal. No registers. | 137 | Pin mux (ports B,C,D,E,F,G,H,K,L,M), electrical (DRAM/GPADC/LRADC/codec/power). |
-| `A523_User_Manual_V1.1_merged_cleaned.pdf` | **Full register-level User Manual** (the real TRM). Per-peripheral register maps. Merged from module manuals → each module has its own sub-TOC. | 1909 | Driver bring-up: CCU, DSI/TCON/DE, GPADC, LRADC, codec, SMHC, TWI, PWM, DRAMC. |
+| `A523_User_Manual_V1.4.pdf` | **Newest register-level User Manual** (use this one). Same modules as v1.1; revision history is mostly minor/eDP corrections. | 1725 | Preferred reference. NOTE: page numbers differ from v1.1 (e.g. CCU §2.5 p113, DE §5.1 p755, MIPI-DSI §6.2 p792). |
+| `A523_User_Manual_V1.1_merged_cleaned.pdf` | Older User Manual revision (the page→chapter map below is keyed to this one). | 1909 | Superseded by v1.4; keep for the existing page index. |
+
+⚠️ **The Display Engine (DE) chapter is overview-only in BOTH v1.1 and v1.4** — there is
+NO DE register map in the UM. The DE3.5 driver/DT work therefore relies on the BSP source
+(`…/disp2/disp/de/lowlevel_v35x/`) + the device's live DTB, not the UM. v1.4 adds an eDP1.3
+register section (§6.1) but this board uses MIPI-DSI, not eDP, so it's not relevant.
+
+Datasheet omits GPIO **Port I** and **Port J** — those came from the BSP pinctrl
+driver (see `BOARD-PINMAP.md`).
 
 Datasheet omits GPIO **Port I** and **Port J** — those came from the BSP pinctrl
 driver (see `BOARD-PINMAP.md`).

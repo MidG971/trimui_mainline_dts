@@ -22,6 +22,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/leds/common.h>
 
 / {
 	model = "Trimui Smart Pro S";
@@ -276,4 +277,120 @@
 
 &rtc {
 	status = "okay";
+};
+
+/*
+ * Addressable RGB LED array (17 LEDs, WS2812-style) on the LEDC controller,
+ * data on PH19. The LEDC node + driver landed in mainline v7.1
+ * (allwinner,sun55i-a523-ledc -> sun50i-a100-ledc). Vendor DTB: led_count=17,
+ * output_mode="RGB". pixel-format defaults to grb (WS2812); flip on HW if colours
+ * are swapped. VERIFY count/order against the device.
+ */
+&ledc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ledc_ph_pin>;
+	status = "okay";
+
+	multi-led@0 {
+		reg = <0x0>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <0>;
+	};
+	multi-led@1 {
+		reg = <0x1>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <1>;
+	};
+	multi-led@2 {
+		reg = <0x2>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <2>;
+	};
+	multi-led@3 {
+		reg = <0x3>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <3>;
+	};
+	multi-led@4 {
+		reg = <0x4>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <4>;
+	};
+	multi-led@5 {
+		reg = <0x5>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <5>;
+	};
+	multi-led@6 {
+		reg = <0x6>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <6>;
+	};
+	multi-led@7 {
+		reg = <0x7>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <7>;
+	};
+	multi-led@8 {
+		reg = <0x8>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <8>;
+	};
+	multi-led@9 {
+		reg = <0x9>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <9>;
+	};
+	multi-led@a {
+		reg = <0xa>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <10>;
+	};
+	multi-led@b {
+		reg = <0xb>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <11>;
+	};
+	multi-led@c {
+		reg = <0xc>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <12>;
+	};
+	multi-led@d {
+		reg = <0xd>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <13>;
+	};
+	multi-led@e {
+		reg = <0xe>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <14>;
+	};
+	multi-led@f {
+		reg = <0xf>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <15>;
+	};
+	multi-led@10 {
+		reg = <0x10>;
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_INDICATOR;
+		function-enumerator = <16>;
+	};
 };

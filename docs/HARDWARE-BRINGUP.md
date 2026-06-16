@@ -188,6 +188,10 @@ HW tuning. See `kernel/DE35-NOTES.md`.
 - **Input**: `evtest` → LRADC keys (vol/side, `lradc@2009800`), the gamepad
   (D-pad/ABXY — kernel source TBD from recon), AXP2202 power key.
 - **Analog sticks**: GPADC (`adc-joystick`) — UM §8.4.
+- **RGB LEDs**: already wired — `&ledc` enabled in the board DTS with 17 RGB LEDs
+  (the LEDC node + driver landed in mainline v7.1; `allwinner,sun55i-a523-ledc`). Check
+  `/sys/class/leds/` and test a channel; if colours are swapped, set
+  `allwinner,pixel-format` (default grb). Confirm the count (vendor said 17).
 - **Audio**: the A523 codec (UM §4.1) — separate driver effort.
 - Then thermal, cpufreq/OPP, GPU (Mali, Panthor/Bifrost) as desired.
 

@@ -192,8 +192,17 @@ HW tuning. See `kernel/DE35-NOTES.md`.
   (the LEDC node + driver landed in mainline v7.1; `allwinner,sun55i-a523-ledc`). Check
   `/sys/class/leds/` and test a channel; if colours are swapped, set
   `allwinner,pixel-format` (default grb). Confirm the count (vendor said 17).
+- **Thermal + fan**: adopt M. Kalashnikov's A523 THS series (linux-sunxi, msgid
+  `20250411003827…` / respin `20260504050245…`; not yet mainline) — it adds the THS0/1
+  driver (`sun8i_thermal.c`, needs a "gpadc" clock + shared reset), a `sid@` node, and
+  `ths@`/`thermal-zones` to `sun55i-a523.dtsi` + the binding. It's all SoC-level — apply
+  his series (via `b4 am`), don't re-author. **Our board add-on** = the Trimui fan: a
+  `pwm-fan` on **pwm0 ch10 / pin PB6** (vendor: 40000 ns period, **inverted**, 32 levels)
+  plus a `cooling-map` in his `cpu` thermal-zone, so the THS sensors auto-throttle cpufreq
+  and drive the fan. (Fan params from the vendor DTB; wire once his zones land + a build
+  host is up.)
 - **Audio**: the A523 codec (UM §4.1) — separate driver effort.
-- Then thermal, cpufreq/OPP, GPU (Mali, Panthor/Bifrost) as desired.
+- **cpufreq/OPP, GPU** (Mali, Panthor/Bifrost) as desired.
 
 ---
 

@@ -18,6 +18,14 @@ Apply with: patch -p1 < this file   (from the kernel source root)
        - items:
            - const: allwinner,sun20i-d1-mipi-dsi
            - const: allwinner,sun50i-a100-mipi-dsi
+@@ -75,6 +76,7 @@ allOf:
+             enum:
+               - allwinner,sun6i-a31-mipi-dsi
+               - allwinner,sun50i-a100-mipi-dsi
++              - allwinner,sun55i-a523-mipi-dsi
+
+     then:
+       properties:
 --- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
 +++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
 @@ -1225,6 +1225,10 @@

@@ -55,11 +55,10 @@ Apply with: patch -p1 < this file
  
    reg: true
  
-@@ -70,6 +71,8 @@
+@@ -70,6 +71,7 @@
            contains:
              enum:
                - allwinner,sun50i-h616-de33-mixer-0
-+      - allwinner,sun55i-a523-de33-mixer-0
 +              - allwinner,sun55i-a523-de33-mixer-0
      then:
        properties:

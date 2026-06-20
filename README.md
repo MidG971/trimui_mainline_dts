@@ -46,7 +46,8 @@ valid DTB. Everything else is on the roadmap in [`PORTING-NOTES.md`](PORTING-NOT
 | Audio codec | 🔴 | **No mainline A523 codec** — blocked |
 | Gamepad / buttons | 🟠 | Refined: power = **AXP2202 PEK**, volume = **LRADC** (`keyboard_1350mv`, 3 keys), main pad via userspace `trimui_inputd` — *not* a pure USB MCU |
 | Vibrator / fan (PWM) | 🔴 | Channels known (ch7 / ch10) but blocked on PWM driver |
-| GPU (Mali) / VPU | 🔴 | Not in mainline |
+| GPU (Mali-G57) | 🟡 | **In mainline** (Panfrost; `gpu@1800000` in `sun55i-a523.dtsi`, Valhall-JM). Board needs `&gpu` enable + `mali-supply` rail (HW) — see [`docs/GPU-NOTES.md`](docs/GPU-NOTES.md) |
+| VPU | 🔴 | Not in mainline |
 
 Legend: 🟢 works · 🟡 present, needs HW verification · 🟠 partial/stubbed · 🔴 blocked on missing mainline driver.
 

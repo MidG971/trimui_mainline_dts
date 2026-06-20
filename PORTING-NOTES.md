@@ -190,7 +190,12 @@ buildable state is `sun55i-a523-trimui-smart-pro-s.dts` here (phase 1-2 only).
   write a panel driver (or panel-mipi-dsi with the init blob) directly from them.
 
 **Phase 5 — audio, GPU (Mali), VPU**
-- A523 audio codec driver; Mali (Panthor/Bifrost) + VPU when mainline support matures.
+- A523 audio codec driver; GPU = **Mali-G57 (Valhall, Job-Manager)** → driver is
+  **Panfrost** (kernel `drm/panfrost` + Mesa Panfrost/PanVK), NOT Panthor (Panthor is
+  CSF-only). The GPU is **already fully upstream** (v7.1): node + binding + driver all
+  present — `gpu@1800000` in `sun55i-a523.dtsi` (status=disabled). Board work is just
+  `&gpu { mali-supply = <…>; status = "okay"; }`, like cubie-a5e / avaota-a1. See
+  `docs/GPU-NOTES.md`. Plus VPU when mainline support matures.
 
 ---
 

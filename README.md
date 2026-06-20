@@ -38,15 +38,15 @@ valid DTB. Everything else is on the roadmap in [`PORTING-NOTES.md`](PORTING-NOT
 | AXP717 PMIC + regulators | 🟡 | On `r_i2c0`. Vendor fw drives it as **axp2202**; silk says AXP717C — read i2c ID@0x34 on HW to settle |
 | Storage: microSD / eMMC | 🟡 | Nodes + supplies set; rails tagged VERIFY |
 | USB host / OTG | 🟡 | Controllers enabled; VBUS/ID GPIOs need HW verification |
-| WiFi/BT (SDIO, mmc1) | 🟠 | **Chip identified: AICSemi AIC8800** (D80/DC) from vendor fw; out-of-tree module, no `wifi@` child yet |
+| WiFi/BT (SDIO, mmc1) | 🟠 | **Chip = AICSemi AIC8800** (D80/DC); power/reset sequencing wired (`wifi_pwrseq`, BT on UART1 w/ RTS-CTS). Needs the out-of-tree aic8800 module |
 | Battery / charger | 🟠 | **5000 mAh design, 1000 mA charge** (from vendor DTB); OCV table still needs porting |
 | MIPI-DSI display (4-lane) | 🔴 | **No mainline A523 DSI/DE driver** — blocked |
-| PWM backlight | 🔴 | **No mainline A523 PWM** — blocked |
-| Analog joysticks (GPADC) | 🔴 | **No mainline A523 GPADC** — blocked (two controllers: gpadc0+gpadc1) |
+| PWM backlight | 🟡 | PWM driver ported (`kernel/patches/`, `pwm-sun20i`); `pwm-backlight` wired. Builds + dt-validates; needs HW |
+| Analog joysticks (GPADC) | 🟠 | GPADC lands **mainline v7.2**; `adc-joystick` nodes drafted in [`dts/staging/`](dts/staging/) (vendor: gpadc0+gpadc1, 2 ch each) |
 | Audio codec | 🔴 | **No mainline A523 codec** — blocked |
 | Gamepad / buttons | 🟠 | Refined: power = **AXP2202 PEK**, volume = **LRADC** (`keyboard_1350mv`, 3 keys), main pad via userspace `trimui_inputd` — *not* a pure USB MCU |
-| Vibrator / fan (PWM) | 🔴 | Channels known (ch7 / ch10) but blocked on PWM driver |
-| GPU (Mali-G57) | 🟡 | **In mainline** (Panfrost; `gpu@1800000` in `sun55i-a523.dtsi`, Valhall-JM). Board needs `&gpu` enable + `mali-supply` rail (HW) — see [`docs/GPU-NOTES.md`](docs/GPU-NOTES.md) |
+| Vibrator / fan (PWM) | 🟡 | `pwm-vibrator` (ch7) + `pwm-fan` (ch10, inverted, cooling-device) nodes added; needs HW |
+| GPU (Mali-G57) | 🟡 | **Upstream** (Panfrost, Valhall-JM); `&gpu` **enabled** in board DTS (`mali-supply` = AXP2202 dcdc2). Needs HW — see [`docs/GPU-NOTES.md`](docs/GPU-NOTES.md) |
 | VPU | 🔴 | Not in mainline |
 
 Legend: 🟢 works · 🟡 present, needs HW verification · 🟠 partial/stubbed · 🔴 blocked on missing mainline driver.

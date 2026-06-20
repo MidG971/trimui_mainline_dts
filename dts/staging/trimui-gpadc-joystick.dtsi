@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+// Copyright (C) 2026 Midgy BALON
+/*
+ * STAGING — analog sticks via GPADC. NOT wired into the build; see dts/staging/README.md.
+ *
+ * Depends on mainline v7.2, which adds A523 GPADC support:
+ *   - driver: drivers/iio/adc/sun20i-gpadc-iio.c  (allwinner,sun55i-a523-gpadc)
+ *   - node:   adc@2009000 in sun55i-a523.dtsi     (sunxi/dt-for-7.2)
+ * When v7.2 is the baseline, fold this into the board DTS.
+ *
+ * Vendor DTB facts: TWO GPADC controllers, 2 channels each (4 axes = 2 sticks):
+ *   gpadc0@2009000  ch0/ch1   (left stick X/Y, by convention)
+ *   gpadc1@2009c00  ch0/ch1   (right stick X/Y)
+ * CAVEATS to resolve before this is final:
+ *   1. v7.2 mainline appears to add only ONE node (adc@2009000). If the second
+ *      controller (adc@2009c00) is not upstream, add it (clone the node, reg
+ *      0x2009c00, irq 0x40, clk/reset = the gpadc1 lines) for the right stick.
+ *   2. Channel->axis mapping and ABS ranges below are BEST-GUESS. Calibrate on
+ *      HW: read raw min/max/centre per axis, then set abs-range + abs-fuzz/flat
+ *      (deadzone). Vendor compare thresholds hint ~0.46-1.7 V swing.
+ *   3. Confirm the io-channel cell index matches the driver's channel numbering.
+ */
+
+#include <dt-bindings/input/input.h>
+
+&gpadc {			/* adc@2009000 — left stick */
+	status = "okay";
+};
+
+/ {
+	joystick-left {
+		compatible = "adc-joystick";
+		io-channels = <&gpadc 0>, <&gpadc 1>;
+		poll-interval = <16>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		axis@0 {	/* X */
+			reg = <0>;
+			linux,code = <ABS_X>;
+			abs-range = <0 4095>;	/* HW-calibrate */
+			abs-fuzz = <16>;
+			abs-flat = <128>;
+		};
+		axis@1 {	/* Y */
+			reg = <1>;
+			linux,code = <ABS_Y>;
+			abs-range = <0 4095>;	/* HW-calibrate */
+			abs-fuzz = <16>;
+			abs-flat = <128>;
+		};
+	};
+
+	/*
+	 * Right stick — needs the second controller (adc@2009c00). Enable it and
+	 * point io-channels at it once that node exists upstream or is added:
+	 *
+	 * joystick-right {
+	 *	compatible = "adc-joystick";
+	 *	io-channels = <&gpadc1 0>, <&gpadc1 1>;
+	 *	...
+	 *	axis@0 { reg = <0>; linux,code = <ABS_RX>; ... };
+	 *	axis@1 { reg = <1>; linux,code = <ABS_RY>; ... };
+	 * };
+	 */
+};

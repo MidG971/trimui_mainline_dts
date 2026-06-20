@@ -60,7 +60,7 @@ host port is a **variant add**, not a rewrite. The novel work is the **combo-PHY
 - [x] BSP source located + cloned; DSI host IP confirmed == mainline.
 - [x] **DSI host: `allwinner,sun55i-a523-mipi-dsi` variant added** to `sun6i_mipi_dsi.c`
       + DT binding — compiles clean (linux 6.19). See
-      [`../kernel/patches/0001-drm-sun4i-dsi-sun55i-a523-host-variant.patch`](../kernel/patches/0001-drm-sun4i-dsi-sun55i-a523-host-variant.patch).
+      [`../kernel/patches/0001-drm-sun4i-dsi-add-sun55i-a523-MIPI-DSI-host-variant.patch`](../kernel/patches/0001-drm-sun4i-dsi-add-sun55i-a523-MIPI-DSI-host-variant.patch).
 - [x] **Combo-D-PHY driver** — `allwinner,sun55i-a523-dsi-combo-phy`, base
       0x05509000. New driver `kernel/drivers/phy-sun55i-dsi-combo.c` (ported from
       BSP `phy/sunxi_dsi_combophy.c`); integrated DISPLL PLL programmed from the

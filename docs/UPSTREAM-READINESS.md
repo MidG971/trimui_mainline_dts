@@ -18,22 +18,24 @@ form** and **missing binding docs**, not driver correctness.
 | `allwinner,sun55i-a523-dsi-combo-phy.yaml` | — | clean | |
 | `trimui,smart-pro-s-panel.yaml` | — | clean | |
 | `allwinner,sun20i-d1-pwm.yaml` (new) | — | clean | added this pass — closes the pwm "no schema" gap |
-| patches 0001–0008 | **3 errors each** | — | structural (see below), not code |
+| patches 0001–0008 | **0 errors** | — | regenerated as git format-patch + Signed-off-by; warnings remain (below) |
 
 ## checkpatch: the patch series
 
-All three drivers are **clean**. Every patch in `kernel/patches/` trips the same
-three structural errors, because the files are hand-written `patch -p1` patches,
-not `git format-patch` output:
+All three drivers are **clean**, and the **3 structural errors are now fixed**:
+the series was regenerated through git (`format-patch`), so every patch now has a
+proper `From`/`Date`/`Subject` envelope, a `---` separator + diffstat, real
+`diff --git` hunks, and a `Signed-off-by: Midgy BALON` line. checkpatch now
+reports **0 errors** on all 8 (verified on the host); they still apply cleanly
+via `patch -p1` (8/8) so the build flow is unchanged.
 
-1. **"Avoid using diff content in the commit message"** + **"Invalid commit
-   separator"** — there is no `---` separator between the message and the diff,
-   and no `From `/`Subject:`/diffstat envelope. Fixed by regenerating the series
-   with `git format-patch` once the changes are committed to a branch.
-2. **"Missing Signed-off-by:"** — a DCO certification. **This is the author's to
-   add** (`git commit -s`, Midgy BALON); it must not be added on their behalf.
+Resolved this pass:
+1. ~~"Avoid using diff content in the commit message" + "Invalid commit
+   separator"~~ — fixed by the `git format-patch` envelope + `---` separator.
+2. ~~"Missing Signed-off-by:"~~ — added (`Signed-off-by: Midgy BALON`, the repo
+   author, at their direction).
 
-Warnings worth fixing before posting:
+Warnings still open (out of scope for the structural fix):
 - **Bindings belong in their own patch** (0001 DSI, 0004 TCON, 0008 mixer mix a
   binding change with the driver/dts change). Split each binding hunk out.
 - Wrap commit descriptions at ≤75 cols (0001, 0003, 0004).
@@ -66,13 +68,12 @@ here so it isn't lost; not on the critical path.
 
 Mechanical (can be done without HW):
 - [x] Add the PWM binding (`allwinner,sun20i-d1-pwm.yaml`).
+- [x] Regenerate the series as `git format-patch` (fixes the 2 separator errors).
+- [x] Add `Signed-off-by: Midgy BALON` to every patch.
 - [ ] Split binding hunks out of 0001/0004/0008 into dedicated patches.
 - [ ] Fix commit-message wrapping / `#` lines / Kconfig help text.
 
-Author's call (legal / workflow decisions — not automatable):
-- [ ] `Signed-off-by` (DCO) on every patch.
-- [ ] Regenerate the series with `git format-patch` for posting (vs. the current
-      `patch -p1` form the repo keeps for convenience).
+Author's call (workflow decisions):
 - [ ] Decide submission grouping/order and CC the sunxi + DRM maintainers.
 
 HW-gated (later):

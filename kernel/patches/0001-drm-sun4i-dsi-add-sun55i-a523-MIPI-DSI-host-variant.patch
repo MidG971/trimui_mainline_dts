@@ -1,4 +1,7 @@
-Subject: [PATCH] drm/sun4i: dsi: add sun55i-a523 MIPI-DSI host variant
+From 7cbb894138ad7db22039d7a27e839ef1cc66d943 Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Sat, 20 Jun 2026 23:43:04 +0000
+Subject: [PATCH 1/8] drm/sun4i: dsi: add sun55i-a523 MIPI-DSI host variant
 
 The A523 (sun55iw3) MIPI-DSI host is the same instruction-based IP as the
 A31/A64/A100 (dsi_v1 in the BSP); register layout and command engine match.
@@ -6,11 +9,17 @@ Add a variant (mod clock, like A100) and compatible. The high-speed lane
 clock is provided by the new sun55i DSI combo-PHY (separate driver).
 
 Verified: compiles clean against linux 6.19 (drivers/gpu/drm/sun4i/sun6i_mipi_dsi.o).
-Apply with: patch -p1 < this file   (from the kernel source root)
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ .../bindings/display/allwinner,sun6i-a31-mipi-dsi.yaml    | 2 ++
+ drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c                    | 8 ++++++++
+ 2 files changed, 10 insertions(+)
 
+diff --git a/Documentation/devicetree/bindings/display/allwinner,sun6i-a31-mipi-dsi.yaml b/Documentation/devicetree/bindings/display/allwinner,sun6i-a31-mipi-dsi.yaml
+index c731fbdc2..b46546cb7 100644
 --- a/Documentation/devicetree/bindings/display/allwinner,sun6i-a31-mipi-dsi.yaml
 +++ b/Documentation/devicetree/bindings/display/allwinner,sun6i-a31-mipi-dsi.yaml
-@@ -17,6 +17,7 @@
+@@ -17,6 +17,7 @@ properties:
            - allwinner,sun6i-a31-mipi-dsi
            - allwinner,sun50i-a64-mipi-dsi
            - allwinner,sun50i-a100-mipi-dsi
@@ -23,15 +32,17 @@ Apply with: patch -p1 < this file   (from the kernel source root)
                - allwinner,sun6i-a31-mipi-dsi
                - allwinner,sun50i-a100-mipi-dsi
 +              - allwinner,sun55i-a523-mipi-dsi
-
+ 
      then:
        properties:
+diff --git a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
+index c35b70d83..c98160c39 100644
 --- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
 +++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
-@@ -1225,6 +1225,10 @@
+@@ -1225,6 +1225,10 @@ static const struct sun6i_dsi_variant sun50i_a100_mipi_dsi_variant = {
  	.has_mod_clk	= true,
  };
-
+ 
 +static const struct sun6i_dsi_variant sun55i_a523_mipi_dsi_variant = {
 +	.has_mod_clk	= true,
 +};
@@ -39,7 +50,7 @@ Apply with: patch -p1 < this file   (from the kernel source root)
  static const struct of_device_id sun6i_dsi_of_table[] = {
  	{
  		.compatible	= "allwinner,sun6i-a31-mipi-dsi",
-@@ -1238,6 +1242,10 @@
+@@ -1238,6 +1242,10 @@ static const struct of_device_id sun6i_dsi_of_table[] = {
  		.compatible	= "allwinner,sun50i-a100-mipi-dsi",
  		.data		= &sun50i_a100_mipi_dsi_variant,
  	},
@@ -50,3 +61,6 @@ Apply with: patch -p1 < this file   (from the kernel source root)
  	{ }
  };
  MODULE_DEVICE_TABLE(of, sun6i_dsi_of_table);
+-- 
+2.39.5
+

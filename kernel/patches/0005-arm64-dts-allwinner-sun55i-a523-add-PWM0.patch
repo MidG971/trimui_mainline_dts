@@ -1,14 +1,22 @@
-Subject: [PATCH] arm64: dts: allwinner: sun55i-a523: add PWM0
+From c606cead217e5e170744f6e41845a923e839783d Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Sat, 20 Jun 2026 23:43:06 +0000
+Subject: [PATCH 5/8] arm64: dts: allwinner: sun55i-a523: add PWM0
 
 Add the PWM0 controller (PWMCTRL0 @ 0x02000c00, PWM v2 IP) used for the
 panel backlight (channel 0 / PD23). Driver: pwm-sun20i. Disabled by
 default, enabled per board.
 
-Apply with: patch -p1 < this file
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+index b07cd4a54..498b535eb 100644
 --- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
 +++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
-@@ -858,6 +858,17 @@
+@@ -858,6 +858,17 @@ gmac1_mtl_tx_setup: tx-queues-config {
  			};
  		};
  
@@ -26,3 +34,6 @@ Apply with: patch -p1 < this file
  		/*
  		 * Display pipeline (DE3.5 -> TCON-LCD1 -> MIPI-DSI1 -> panel).
  		 *
+-- 
+2.39.5
+

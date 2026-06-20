@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+// Copyright (C) 2026 Midgy BALON
+/*
+ * STAGING — USB3 host + Type-C SuperSpeed mux. NOT wired into the build;
+ * see dts/staging/README.md.
+ *
+ * Depends on the Allwinner A523 USB3 series (Kalashnikov, "a523: add USB3.0
+ * support" on lore) being in our baseline. That series is NOT in v7.1 or the
+ * v7.2 queue and needs a v2, so the controller/PHY nodes and their labels do
+ * not exist yet. It adds: CCU USB3 clocks, a 3rd USB2 PHY (pmu2@0x4e00000),
+ * phy-sun55i-usb3-pcie.c combo-PHY (@0x4f00000), and dwc3@0x4d00000.
+ *
+ * Trimui-specific board facts (from the vendor DTB) that his dev-board series
+ * does NOT carry — these are ours to add on top:
+ *   - USB-C path is USB2 OTG + USB3 host (vendor usbc2@12 = allwinner,sunxi-plat-dwc3
+ *     -> snps,dwc3 @0x04d00000, dr_mode=host, maximum-speed=super-speed).
+ *   - GMA340 SuperSpeed redriver/mux: sel = PH7, oe = PH8 (&pio bank 7 pins 7/8).
+ *   - husb311 Type-C PD/orientation chip on S-TWI2 (PL12/PL13) drives plug
+ *     orientation; it already has a board node on the relevant i2c bus.
+ *
+ * When the series lands, replace the placeholders below with his real labels:
+ *
+ * &usb3phy   { status = "okay"; };          // pmu2 / combo-PHY enable
+ * &dwc3      {                              // snps,dwc3 host @0x4d00000
+ *	dr_mode = "host";
+ *	maximum-speed = "super-speed";
+ *	status = "okay";
+ * };
+ *
+ * GMA340 SuperSpeed mux enable. For a fixed host port the output-enable (oe)
+ * is asserted; orientation (sel) is normally driven by the husb311 Type-C
+ * controller. Simplest static bring-up = hog the two pins:
+ *
+ * &pio {
+ *	usb_gma340_hog: usb-gma340-hog {
+ *		gpio-hog;
+ *		gpios = <8 GPIO_ACTIVE_HIGH>,	// PH8 oe  (enable SS mux)
+ *			<7 GPIO_ACTIVE_HIGH>;	// PH7 sel (orientation; verify on HW)
+ *		output-high;
+ *	};
+ * };
+ *
+ * NOTE: PH7/PH8 polarity + whether sel should be hogged or left to husb311 must
+ * be verified on hardware. USB2 (charge/adb/OTG) already works without any of this.
+ */

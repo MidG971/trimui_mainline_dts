@@ -202,7 +202,10 @@ HW tuning. See `kernel/DE35-NOTES.md`.
   and drive the fan. (Fan params from the vendor DTB; wire once his zones land + a build
   host is up.)
 - **Audio**: the A523 codec (UM §4.1) — separate driver effort.
-- **cpufreq/OPP, GPU** (Mali, Panthor/Bifrost) as desired.
+- **cpufreq/OPP, GPU** — Mali-G57 (Valhall JM) via **Panfrost** (NOT Panthor), already
+  fully upstream (node+binding+driver). Board work = `&gpu { mali-supply = <…>; status =
+  "okay"; }` once the GPU rail is confirmed on HW (vendor `mali-supply` phandle 0x20). See
+  `GPU-NOTES.md`.
 
 ---
 

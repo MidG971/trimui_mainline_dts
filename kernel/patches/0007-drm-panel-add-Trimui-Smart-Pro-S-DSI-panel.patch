@@ -1,14 +1,23 @@
-Subject: [PATCH] drm/panel: add Trimui Smart Pro S DSI panel
+From 7c5e01d693a79260a8e2e113bf2d7b0d34e6b2ab Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Sat, 20 Jun 2026 23:43:07 +0000
+Subject: [PATCH 7/8] drm/panel: add Trimui Smart Pro S DSI panel
 
 Wire up the Trimui Smart Pro S MIPI-DSI panel driver. Driver source is
 kernel/drivers/panel-trimui-smart-pro-s.c in this repo; drop it into
 drivers/gpu/drm/panel/ before applying.
 
-Apply with: patch -p1 < this file
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ drivers/gpu/drm/panel/Kconfig  | 9 +++++++++
+ drivers/gpu/drm/panel/Makefile | 1 +
+ 2 files changed, 10 insertions(+)
 
+diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
+index d592f4f4b..7030ae947 100644
 --- a/drivers/gpu/drm/panel/Kconfig
 +++ b/drivers/gpu/drm/panel/Kconfig
-@@ -1297,4 +1297,13 @@
+@@ -1297,4 +1297,13 @@ config DRM_PANEL_XINPENG_XPP055C272
  	  Say Y here if you want to enable support for the Xinpeng
  	  XPP055C272 controller for 720x1280 LCD panels with MIPI/RGB/SPI
  	  system interfaces.
@@ -22,10 +31,15 @@ Apply with: patch -p1 < this file
 +	  handheld (720x1280, 4-lane RGB888, Ilitek/Fitipower-class DDIC).
 +
  endmenu
+diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
+index a4291dc39..6cd1cfe7f 100644
 --- a/drivers/gpu/drm/panel/Makefile
 +++ b/drivers/gpu/drm/panel/Makefile
-@@ -128,3 +128,4 @@
+@@ -128,3 +128,4 @@ obj-$(CONFIG_DRM_PANEL_VISIONOX_VTDR6130) += panel-visionox-vtdr6130.o
  obj-$(CONFIG_DRM_PANEL_VISIONOX_R66451) += panel-visionox-r66451.o
  obj-$(CONFIG_DRM_PANEL_WIDECHIPS_WS2401) += panel-widechips-ws2401.o
  obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
 +obj-$(CONFIG_DRM_PANEL_TRIMUI_SMART_PRO_S) += panel-trimui-smart-pro-s.o
+-- 
+2.39.5
+

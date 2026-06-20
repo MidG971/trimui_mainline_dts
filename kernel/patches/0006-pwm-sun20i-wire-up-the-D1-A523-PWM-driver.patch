@@ -1,14 +1,23 @@
-Subject: [PATCH] pwm: sun20i: wire up the D1/A523 PWM driver
+From fd36229f18136bf478dea88f91b4b097ce7be283 Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Sat, 20 Jun 2026 23:43:07 +0000
+Subject: [PATCH 6/8] pwm: sun20i: wire up the D1/A523 PWM driver
 
 Add the pwm-sun20i driver (PWM v2 IP; D1/T113/R329/A523) to the build,
 with an allwinner,sun55i-a523-pwm compatible. Driver source is
 kernel/drivers/pwm-sun20i.c in this repo; drop it into drivers/pwm/.
 
-Apply with: patch -p1 < this file
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ drivers/pwm/Kconfig  | 11 +++++++++++
+ drivers/pwm/Makefile |  1 +
+ 2 files changed, 12 insertions(+)
 
+diff --git a/drivers/pwm/Kconfig b/drivers/pwm/Kconfig
+index 6f3147518..c5390b879 100644
 --- a/drivers/pwm/Kconfig
 +++ b/drivers/pwm/Kconfig
-@@ -736,6 +736,17 @@
+@@ -736,6 +736,17 @@ config PWM_SUN4I
  	  To compile this driver as a module, choose M here: the module
  	  will be called pwm-sun4i.
  
@@ -26,9 +35,11 @@ Apply with: patch -p1 < this file
  config PWM_SUNPLUS
  	tristate "Sunplus PWM support"
  	depends on ARCH_SUNPLUS || COMPILE_TEST
+diff --git a/drivers/pwm/Makefile b/drivers/pwm/Makefile
+index 0dc0d2b69..12f370aac 100644
 --- a/drivers/pwm/Makefile
 +++ b/drivers/pwm/Makefile
-@@ -67,6 +67,7 @@
+@@ -67,6 +67,7 @@ obj-$(CONFIG_PWM_STM32)		+= pwm-stm32.o
  obj-$(CONFIG_PWM_STM32_LP)	+= pwm-stm32-lp.o
  obj-$(CONFIG_PWM_STMPE)		+= pwm-stmpe.o
  obj-$(CONFIG_PWM_SUN4I)		+= pwm-sun4i.o
@@ -36,3 +47,6 @@ Apply with: patch -p1 < this file
  obj-$(CONFIG_PWM_SUNPLUS)	+= pwm-sunplus.o
  obj-$(CONFIG_PWM_TEGRA)		+= pwm-tegra.o
  obj-$(CONFIG_PWM_TH1520)	+= pwm_th1520.o
+-- 
+2.39.5
+

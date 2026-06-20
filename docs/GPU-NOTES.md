@@ -50,13 +50,21 @@ Midgard/Bifrost/Valhall-JM signature; CSF parts have a different layout and need
 A board override, mirroring the siblings:
 ```dts
 &gpu {
-    mali-supply = <&reg_dcdcX>;   /* the GPU rail — RESOLVE on HW */
+    mali-supply = <&reg_dcdc2>;   /* AXP2202 DCDC2 — resolved from vendor DTB */
     status = "okay";
 };
 ```
-- The siblings use `reg_dcdc2`. The Trimui rail is **not yet confirmed**: the vendor DTB sets
-  `mali-supply` via phandle `0x20` — resolve which axp2202 DCDC that is once the board is here
-  (it's a dedicated GPU/VDD-SYS rail; do not assume it equals the CPU or DRAM rail).
+- **GPU rail resolved = AXP2202 `dcdc2`** (`regulator-name = "axp2202-dcdc2"`, vendor phandle
+  `0x20`). This matches what the upstream siblings use (`cubie-a5e`, `avaota-a1`:
+  `mali-supply = <&reg_dcdc2>`). Vendor DCDC map: dcdc1 → CPU cluster0; **dcdc2 → GPU+VE**;
+  dcdc3 → DRAM (1.10 V); CPU cluster1 → external tcs4838.
+- It is a **shared GPU/VE rail** (`regulator-always-on`): vendor phandle `0x20` is referenced
+  by `mali-supply` (GPU), `ve-supply` (VPU) and `vdd-edp-supply` (eDP, unused here). So treat
+  it as a static system rail — don't expect per-GPU voltage DVFS on it (siblings ship no GPU
+  OPP table either). OPP voltage sits at 0.9 V; the node's 0.5–3.4 V is a loose vendor range.
+- **Only residual unknown = the regulator *label*, not the rail:** the board PMIC is the
+  long-standing axp2202-vs-axp717 question (mainline has the axp717 driver). DCDC2 is
+  definitive; `reg_dcdc2` is whatever our board PMIC node names it.
 - `power-domains = <&pck600 PD_GPU>`, clocks and reset are already wired in the SoC dtsi —
   nothing to add there.
 - Kernel: `CONFIG_DRM_PANFROST=m`. Userspace: Mesa with Panfrost + PanVK.

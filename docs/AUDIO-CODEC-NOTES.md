@@ -3,9 +3,14 @@
 
 # Audio codec — port plan (A523 / sun55iw3)
 
-Plan for a **new mainline ASoC driver** for the A523 internal audio codec. This is
-the largest greenfield item left (BSP driver `snd_sun55iw3_codec.c` is ~3115 lines).
-**Status: planned, not started** — coding begins next session.
+Plan + status for the **new mainline ASoC driver** for the A523 internal audio codec
+(BSP `snd_sun55iw3_codec.c` is ~3115 lines).
+
+**Status: driver written — `kernel/drivers/sun55i-codec.c` (playback + capture, 14
+mixer controls, DAPM, clocking, init, ref-counted mic-bias). Builds clean against
+v7.1; binding `dt_binding_check`-clean. NOT YET HW-verified.** Deferred: jack/HMIC
+detect, DAP DRC/HPF, SID-efuse bias calibration, tx-hub/rx-sync, suspend/resume, and
+the SoC dtsi `codec@7110000` node + board `simple-audio-card`.
 
 ## 1. Hardware
 
@@ -63,25 +68,30 @@ Keep for a minimal mainline driver:
   **audio PLL parent** for the 44.1k vs 48k families (`pll_audio0_4x` and/or
   `pll_audio1_div2`/`div5`). Drop the **DSP** clocks (`dsp_src`, `dsp_core`) and
   likely `pll_peri0_2x` — those serve the BSP DSP-offload path we won’t port.
-- **DEPENDENCY TO CHECK FIRST:** confirm the mainline `sun55i-a523` CCU (and/or the
-  audio CCU referenced as the second clock provider in the vendor node) actually
-  exposes the codec DAC/ADC + audio-PLL clocks with usable IDs. If the CCU lacks
-  them, that’s a prerequisite CCU change before the codec can probe. (Vendor node
-  pulls clocks from two providers — main `&ccu` and a second one.)
+- **PREREQUISITE CLEARED (verified on v7.1):** the vendor's 2nd clock provider is the
+  **MCU CCU** (`mcu_ccu@7102000`, already in mainline dtsi), which exposes everything:
+  `CLK_BUS_MCU_AUDIO_CODEC`(21), `CLK_MCU_AUDIO_CODEC_DAC`(19),
+  `CLK_MCU_AUDIO_CODEC_ADC`(20), `CLK_MCU_PLL_AUDIO1_DIV2/DIV5`(1/2),
+  `RST_BUS_MCU_AUDIO_CODEC`(6); the 48 kHz-family PLL `CLK_PLL_AUDIO0_4X` is in the
+  main CCU. No CCU change needed. The driver uses clock-names
+  bus/dac/adc/pll-audio0-4x/pll-audio1-div5.
 
-## 5. Step-ordered plan (implement in this order)
+## 5. Step-ordered plan / progress
 
-1. **Prereq:** verify CCU clock IDs (DAC/ADC/bus/audio-PLL) + reset exist in mainline
-   `sun55i-a523` headers; if not, note/stage the CCU addition.
-2. **Skeleton:** platform driver, regmap_mmio, clocks/reset, component + DAI register,
-   dmaengine PCM. No widgets yet → just probes.
-3. **Playback:** DAC FIFO/DPC + DAC_AN/HP_AN analog, the DAC→LINEOUT/HP route,
-   volume TLVs, ramp/pop event widgets. Target: `aplay` to line-out/HP.
-4. **Capture:** ADC FIFO/DIG_CTL + ADCn_AN_CTL, MIC/LINE→ADC routes, ADC gains.
-5. **Jack/HP detect** + the DT tuning props (apply `*-vol`/`*-gain` defaults).
-6. **Niceties:** DRC/HPF mode enums, swaps, ADDA loopback, tx-hub/rx-sync.
-7. **Binding** `allwinner,sun55i-a523-codec.yaml` + `dt_binding_check`; **board**
-   `sound` (`simple-audio-card`) + `&codec` node; build clean + dt-validate.
+1. [x] **Prereq:** CCU clock IDs verified (§4 — all in the MCU CCU + main CCU).
+2. [x] **Skeleton:** platform driver, regmap_mmio, clocks/reset, component + DAI,
+   dmaengine PCM. Builds.
+3. [x] **Playback:** DAC FIFO/DPC, DAC_AN line-out/HP analog, DAC→LINEOUT/HP routes,
+   volume TLVs, line-out/HP/playback event widgets, init sequence.
+4. [x] **Capture:** ADC FIFO/DIG_CTL + ADCn_AN_CTL, MIC→ADC routes, ADC gains, the
+   ref-counted mic-bias settle (`msleep(240)`).
+5. [x] **Binding** `allwinner,sun55i-a523-codec.yaml` + `dt_binding_check` (clean);
+   Kconfig/Makefile patch 0009.
+6. [ ] **DT integration (NEXT):** add SoC `codec@7110000` node to `sun55i-a523.dtsi`
+   (mcu_ccu clocks/reset, dmas, IRQ) + board `simple-audio-card` (`audio-routing`
+   wiring HPOUT/LINEOUTL/R/MIC to pins + jack) + `avcc`/`vdd`/`cpvin` supplies.
+7. [ ] **Then:** jack/HMIC detect, DT `*-vol`/`*-gain` defaults, DRC/HPF, SID-efuse
+   bias cal, tx-hub/rx-sync, suspend/resume. Real verification is HW-gated.
 
 ## 6. How to tackle it (next session)
 

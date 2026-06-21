@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/allwinner,sun55i-a523-codec.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Allwinner A523 internal audio codec
+
+maintainers:
+  - Midgy BALON <midgy971@gmail.com>
+
+description:
+  The Allwinner A523/A527/T527 (sun55iw3) SoCs embed a self-contained audio
+  codec (digital DAC/ADC plus the analog line-out, headphone and microphone
+  paths) at 0x07110000. Clocks and reset come from the MCU CCU; the audio PLLs
+  feed the DAC/ADC module clocks.
+
+properties:
+  compatible:
+    const: allwinner,sun55i-a523-codec
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: Bus/gating clock
+      - description: DAC module clock
+      - description: ADC module clock
+      - description: PLL-Audio0 4x (48 kHz sample-rate family)
+      - description: PLL-Audio1 div5 (44.1 kHz sample-rate family)
+
+  clock-names:
+    items:
+      - const: bus
+      - const: dac
+      - const: adc
+      - const: pll-audio0-4x
+      - const: pll-audio1-div5
+
+  resets:
+    maxItems: 1
+
+  dmas:
+    items:
+      - description: TX DMA channel
+      - description: RX DMA channel
+
+  dma-names:
+    items:
+      - const: tx
+      - const: rx
+
+  "#sound-dai-cells":
+    const: 0
+
+  avcc-supply:
+    description: Analog 1.8 V supply.
+
+  vdd-supply:
+    description: Charge-pump 3.3 V supply (headphone).
+
+  cpvin-supply:
+    description: Charge-pump 1.8 V input supply.
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - resets
+  - dmas
+  - dma-names
+  - "#sound-dai-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/sun55i-a523-ccu.h>
+    #include <dt-bindings/clock/sun55i-a523-mcu-ccu.h>
+    #include <dt-bindings/reset/sun55i-a523-mcu-ccu.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    audio-codec@7110000 {
+        compatible = "allwinner,sun55i-a523-codec";
+        reg = <0x07110000 0x348>;
+        interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>;
+        clocks = <&mcu_ccu CLK_BUS_MCU_AUDIO_CODEC>,
+                 <&mcu_ccu CLK_MCU_AUDIO_CODEC_DAC>,
+                 <&mcu_ccu CLK_MCU_AUDIO_CODEC_ADC>,
+                 <&ccu CLK_PLL_AUDIO0_4X>,
+                 <&mcu_ccu CLK_MCU_PLL_AUDIO1_DIV5>;
+        clock-names = "bus", "dac", "adc", "pll-audio0-4x", "pll-audio1-div5";
+        resets = <&mcu_ccu RST_BUS_MCU_AUDIO_CODEC>;
+        dmas = <&dma 7>, <&dma 7>;
+        dma-names = "tx", "rx";
+        #sound-dai-cells = <0>;
+        avcc-supply = <&reg_avcc>;
+    };
+...

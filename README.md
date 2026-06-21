@@ -28,9 +28,13 @@ upstream `sun55i-t527-avaota-a1` board (same SoC family).
 
 ## Status
 
-The current DTS is **Phase 2**: serial console, storage, USB, PMIC + regulators,
-and the WiFi SDIO slot. It **compiles against mainline Linux 6.19** and produces a
-valid DTB. Everything else is on the roadmap in [`PORTING-NOTES.md`](PORTING-NOTES.md).
+The board DTS targets **mainline Linux v7.1**. The base — serial console, storage
+(microSD/eMMC), USB2, PMIC + regulators, RTC, the LEDC RGB array, the WiFi SDIO slot
+(power/reset sequencing) + BT UART, the Mali GPU (Panfrost, already upstream), and the
+PWM fan/vibrator — builds against mainline and produces a valid, `dt-validate`-clean
+DTB. The MIPI-DSI display, PWM backlight and audio rely on **drivers not yet upstream**;
+those ship as a patch series + driver sources under [`kernel/`](kernel/) (build +
+dt-validate clean, **unverified on hardware**). Roadmap in [`PORTING-NOTES.md`](PORTING-NOTES.md).
 
 | Component | Status | Notes |
 | :--- | :---: | :--- |
@@ -40,10 +44,10 @@ valid DTB. Everything else is on the roadmap in [`PORTING-NOTES.md`](PORTING-NOT
 | USB host / OTG | 🟡 | Controllers enabled; VBUS/ID GPIOs need HW verification |
 | WiFi/BT (SDIO, mmc1) | 🟠 | **Chip = AICSemi AIC8800** (D80/DC); power/reset sequencing wired (`wifi_pwrseq`, BT on UART1 w/ RTS-CTS). Needs the out-of-tree aic8800 module |
 | Battery / charger | 🟠 | **5000 mAh design, 1000 mA charge** (from vendor DTB); OCV table still needs porting |
-| MIPI-DSI display (4-lane) | 🔴 | **No mainline A523 DSI/DE driver** — blocked |
+| MIPI-DSI display (4-lane) | 🟡 | DSI host + combo-PHY + TCON-LCD + panel drivers written (`kernel/`), dt-validate clean; the **DE3.5 mixer/CRTC** (lit pixel) is the remaining blocker. Not upstream; needs HW — see [`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md) |
 | PWM backlight | 🟡 | PWM driver ported (`kernel/patches/`, `pwm-sun20i`); `pwm-backlight` wired. Builds + dt-validates; needs HW |
 | Analog joysticks (GPADC) | 🟠 | GPADC lands **mainline v7.2**; `adc-joystick` nodes drafted in [`dts/staging/`](dts/staging/) (vendor: gpadc0+gpadc1, 2 ch each) |
-| Audio codec | 🔴 | **No mainline A523 codec** — blocked |
+| Audio codec | 🔴 | No mainline A523 codec; **greenfield ASoC port planned** (BSP-based) — see [`docs/AUDIO-CODEC-NOTES.md`](docs/AUDIO-CODEC-NOTES.md) |
 | Gamepad / buttons | 🟠 | Refined: power = **AXP2202 PEK**, volume = **LRADC** (`keyboard_1350mv`, 3 keys), main pad via userspace `trimui_inputd` — *not* a pure USB MCU |
 | Vibrator / fan (PWM) | 🟡 | `pwm-vibrator` (ch7) + `pwm-fan` (ch10, inverted, cooling-device) nodes added; needs HW |
 | GPU (Mali-G57) | 🟡 | **Upstream** (Panfrost, Valhall-JM); `&gpu` **enabled** in board DTS (`mali-supply` = AXP2202 dcdc2). Needs HW — see [`docs/GPU-NOTES.md`](docs/GPU-NOTES.md) |
@@ -56,15 +60,30 @@ stock firmware — see [`FIRMWARE-FINDINGS.md`](FIRMWARE-FINDINGS.md), whose
 *Methodology* section documents exactly how each fact was obtained, plus
 [`recon.sh`](recon.sh), the read-only on-device collector for the remaining facts.
 
+## Kernel side (out-of-tree, not upstream)
+
+The display/PWM bring-up that mainline lacks lives under [`kernel/`](kernel/):
+- [`kernel/patches/`](kernel/patches/) — the `0001`–`0008` series (git-format-patch,
+  checkpatch-clean, `Signed-off-by`): DSI host variant, combo-PHY Kconfig, SoC display
+  nodes, TCON-LCD compat, PWM node, PWM driver wiring, panel, DE33 mixer cfg.
+- [`kernel/drivers/`](kernel/drivers/) — new sources: `phy-sun55i-dsi-combo.c`,
+  `pwm-sun20i.c`, `panel-trimui-smart-pro-s.c`.
+- [`kernel/bindings/`](kernel/bindings/) — DT bindings (combo-PHY, panel, PWM).
+- [`kernel/build-trimui-kernel.sh`](kernel/build-trimui-kernel.sh) — one-shot: apply the
+  series + drop the drivers + build Image/dtbs/modules on a v7.1 tree.
+
+Submission status in [`docs/UPSTREAM-READINESS.md`](docs/UPSTREAM-READINESS.md).
+Drafts gated on upstream work (GPADC sticks, USB3) live in [`dts/staging/`](dts/staging/).
+
 ## How to compile
 
 ```bash
 ./compile.sh
 ```
-The script preprocesses with the cross GCC and compiles with `dtc`. For a real
-mainline build, drop `dts/sun55i-a523-trimui-smart-pro-s.dts` into
-`arch/arm64/boot/dts/allwinner/`, add it to that directory's `Makefile`, and run
-`make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- dtbs`.
+The script preprocesses with the cross GCC and compiles with `dtc` (DTB only). For
+the full kernel build — apply the `kernel/patches/` series, drop in the driver
+sources, wire the board DTS + panel, and build `Image`/`dtbs`/modules on a v7.1
+tree — use [`kernel/build-trimui-kernel.sh`](kernel/build-trimui-kernel.sh).
 
 ## Reference
 
@@ -76,6 +95,11 @@ mainline build, drop `dts/sun55i-a523-trimui-smart-pro-s.dts` into
 - [`recon.sh`](recon.sh) — read-only day-1 collector to run on the stock OS
   (`adb shell`) to capture the residual hardware-only facts (i2c chip IDs, CPU
   regulator, AIC8800 variant, gamepad source, partition map).
+- [`docs/`](docs/) — deep-dives: [`GPU-NOTES.md`](docs/GPU-NOTES.md) (Mali-G57 /
+  Panfrost), [`DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md),
+  [`DE35-NOTES.md`](kernel/DE35-NOTES.md), [`UPSTREAM-READINESS.md`](docs/UPSTREAM-READINESS.md),
+  [`HARDWARE-BRINGUP.md`](docs/HARDWARE-BRINGUP.md) (day-1 runbook), and the
+  [`A523-DOCS-INDEX.md`](docs/A523-DOCS-INDEX.md) / [`BOARD-PINMAP.md`](docs/BOARD-PINMAP.md).
 - [`uboot/`](uboot/) — mainline U-Boot bring-up for the A523:
   [`trimui-tg5050_defconfig`](uboot/trimui-tg5050_defconfig) (Avaota-A1 base + the
   DRAM params extracted from this board's vendor boot0 + PMIC@0x34),

@@ -31,6 +31,7 @@ echo "== drop in driver sources =="
 cp -v "$D/phy-sun55i-dsi-combo.c"        "$KSRC/drivers/phy/allwinner/"
 cp -v "$D/pwm-sun20i.c"                  "$KSRC/drivers/pwm/"
 cp -v "$D/panel-trimui-smart-pro-s.c"    "$KSRC/drivers/gpu/drm/panel/"
+cp -v "$D/sun55i-codec.c"                "$KSRC/sound/soc/sunxi/"
 
 echo "== apply patch series (0001..0008) =="
 for p in "$P"/0*.patch; do

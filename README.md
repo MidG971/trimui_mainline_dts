@@ -47,7 +47,7 @@ dt-validate clean, **unverified on hardware**). Roadmap in [`PORTING-NOTES.md`](
 | MIPI-DSI display (4-lane) | 🟡 | DSI host + combo-PHY + TCON-LCD + panel drivers written (`kernel/`), dt-validate clean; the **DE3.5 mixer/CRTC** (lit pixel) is the remaining blocker. Not upstream; needs HW — see [`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md) |
 | PWM backlight | 🟡 | PWM driver ported (`kernel/patches/`, `pwm-sun20i`); `pwm-backlight` wired. Builds + dt-validates; needs HW |
 | Analog joysticks (GPADC) | 🟠 | GPADC lands **mainline v7.2**; `adc-joystick` nodes drafted in [`dts/staging/`](dts/staging/) (vendor: gpadc0+gpadc1, 2 ch each) |
-| Audio codec | 🔴 | No mainline A523 codec; **greenfield ASoC port planned** (BSP-based) — see [`docs/AUDIO-CODEC-NOTES.md`](docs/AUDIO-CODEC-NOTES.md) |
+| Audio codec | 🟡 | ASoC driver written (`kernel/`, `sun55i-codec`): playback + capture, mixer controls, DAPM, clocking; builds + binding `dt_binding_check` clean. DT node/card + jack pending; needs HW — see [`docs/AUDIO-CODEC-NOTES.md`](docs/AUDIO-CODEC-NOTES.md) |
 | Gamepad / buttons | 🟠 | Refined: power = **AXP2202 PEK**, volume = **LRADC** (`keyboard_1350mv`, 3 keys), main pad via userspace `trimui_inputd` — *not* a pure USB MCU |
 | Vibrator / fan (PWM) | 🟡 | `pwm-vibrator` (ch7) + `pwm-fan` (ch10, inverted, cooling-device) nodes added; needs HW |
 | GPU (Mali-G57) | 🟡 | **Upstream** (Panfrost, Valhall-JM); `&gpu` **enabled** in board DTS (`mali-supply` = AXP2202 dcdc2). Needs HW — see [`docs/GPU-NOTES.md`](docs/GPU-NOTES.md) |
@@ -63,12 +63,12 @@ stock firmware — see [`FIRMWARE-FINDINGS.md`](FIRMWARE-FINDINGS.md), whose
 ## Kernel side (out-of-tree, not upstream)
 
 The display/PWM bring-up that mainline lacks lives under [`kernel/`](kernel/):
-- [`kernel/patches/`](kernel/patches/) — the `0001`–`0008` series (git-format-patch,
+- [`kernel/patches/`](kernel/patches/) — the `0001`–`0009` series (git-format-patch,
   checkpatch-clean, `Signed-off-by`): DSI host variant, combo-PHY Kconfig, SoC display
-  nodes, TCON-LCD compat, PWM node, PWM driver wiring, panel, DE33 mixer cfg.
+  nodes, TCON-LCD compat, PWM node, PWM driver wiring, panel, DE33 mixer cfg, codec wiring.
 - [`kernel/drivers/`](kernel/drivers/) — new sources: `phy-sun55i-dsi-combo.c`,
-  `pwm-sun20i.c`, `panel-trimui-smart-pro-s.c`.
-- [`kernel/bindings/`](kernel/bindings/) — DT bindings (combo-PHY, panel, PWM).
+  `pwm-sun20i.c`, `panel-trimui-smart-pro-s.c`, `sun55i-codec.c`.
+- [`kernel/bindings/`](kernel/bindings/) — DT bindings (combo-PHY, panel, PWM, codec).
 - [`kernel/build-trimui-kernel.sh`](kernel/build-trimui-kernel.sh) — one-shot: apply the
   series + drop the drivers + build Image/dtbs/modules on a v7.1 tree.
 

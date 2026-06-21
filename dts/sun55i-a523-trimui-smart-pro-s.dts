@@ -338,6 +338,17 @@
 	status = "okay";
 };
 
+/*
+ * Internal audio codec (driver sun55i-codec; node in sun55i-a523.dtsi). avcc =
+ * analog 1.8 V = AXP2202 aldo4 (vendor avcc-supply). The codec component + DAI
+ * probe here; the sound card (DAPM routing HPOUT/LINEOUT/MIC + speaker amp PH6 +
+ * headphone jack) is driver-side WIP (see docs/AUDIO-CODEC-NOTES.md).
+ */
+&codec {
+	avcc-supply = <&reg_aldo4>;
+	status = "okay";
+};
+
 &rtc {
 	status = "okay";
 };

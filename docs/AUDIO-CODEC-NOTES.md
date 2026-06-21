@@ -87,10 +87,16 @@ Keep for a minimal mainline driver:
    ref-counted mic-bias settle (`msleep(240)`).
 5. [x] **Binding** `allwinner,sun55i-a523-codec.yaml` + `dt_binding_check` (clean);
    Kconfig/Makefile patch 0009.
-6. [ ] **DT integration (NEXT):** add SoC `codec@7110000` node to `sun55i-a523.dtsi`
-   (mcu_ccu clocks/reset, dmas, IRQ) + board `simple-audio-card` (`audio-routing`
-   wiring HPOUT/LINEOUTL/R/MIC to pins + jack) + `avcc`/`vdd`/`cpvin` supplies.
-7. [ ] **Then:** jack/HMIC detect, DT `*-vol`/`*-gain` defaults, DRC/HPF, SID-efuse
+6. [x] **DT node (patch 0010):** `audio-codec@7110000` in `sun55i-a523.dtsi`
+   (mcu_ccu bus/dac/adc clocks + audio PLLs, mcu_ccu reset, `mcu_dma` DRQ 7, IRQ 190),
+   disabled; board `&codec` enable + `avcc = aldo4`. Board DTB dt-validates clean.
+7. [ ] **Sound card (NEXT — driver-side):** integrated sunxi codecs self-register a card
+   via a **two-component split** (sun4i model: a cpu-DAI component owning hw_params +
+   dmaengine, plus the codec component owning the analog DAPM). Refactor the single
+   component into that, add `create_link`/`create_card` + `snd_soc_register_card`,
+   parse `allwinner,audio-routing`, add a **Speaker** widget (amp GPIO **PH6**) + a
+   Headphone jack. Then board adds `allwinner,audio-routing` + the speaker GPIO.
+8. [ ] **Then:** jack/HMIC detect, DT `*-vol`/`*-gain` defaults, DRC/HPF, SID-efuse
    bias cal, tx-hub/rx-sync, suspend/resume. Real verification is HW-gated.
 
 ## 6. How to tackle it (next session)

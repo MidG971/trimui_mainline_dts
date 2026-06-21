@@ -96,7 +96,7 @@ examples:
                  <&mcu_ccu CLK_MCU_PLL_AUDIO1_DIV5>;
         clock-names = "bus", "dac", "adc", "pll-audio0-4x", "pll-audio1-div5";
         resets = <&mcu_ccu RST_BUS_MCU_AUDIO_CODEC>;
-        dmas = <&dma 7>, <&dma 7>;
+        dmas = <&mcu_dma 7>, <&mcu_dma 7>;
         dma-names = "tx", "rx";
         #sound-dai-cells = <0>;
         avcc-supply = <&reg_avcc>;

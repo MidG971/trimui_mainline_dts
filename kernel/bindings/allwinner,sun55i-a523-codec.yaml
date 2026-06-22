@@ -57,6 +57,17 @@ properties:
   "#sound-dai-cells":
     const: 0
 
+  allwinner,audio-routing:
+    $ref: /schemas/types.yaml#/definitions/non-unique-string-array
+    description: |
+      A list of the connections between audio components. Each entry is a
+      pair of strings, the first being the connection's sink, the second
+      being the connection's source.
+
+  allwinner,pa-gpios:
+    maxItems: 1
+    description: GPIO that enables the external speaker amplifier.
+
   avcc-supply:
     description: Analog 1.8 V supply.
 

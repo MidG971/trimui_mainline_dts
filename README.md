@@ -41,7 +41,8 @@ dt-validate clean, **unverified on hardware**). Roadmap in [`PORTING-NOTES.md`](
 | 8x Cortex-A55 (boot) | 🟢 | Boots at bootloader voltage; per-cluster cpufreq/DVFS not wired upstream yet |
 | AXP717 PMIC + regulators | 🟡 | On `r_i2c0`. Vendor fw drives it as **axp2202**; silk says AXP717C — read i2c ID@0x34 on HW to settle |
 | Storage: microSD / eMMC | 🟡 | Nodes + supplies set; rails tagged VERIFY |
-| USB host / OTG | 🟡 | Controllers enabled; VBUS/ID GPIOs need HW verification |
+| USB2 host / OTG | 🟡 | Controllers enabled; VBUS/ID GPIOs need HW verification |
+| USB3 (Type-C SS) | 🟠 | Board has USB3 host (vendor dwc3 + GMA340 SuperSpeed mux); drafted in [`dts/staging/`](dts/staging/) pending the in-flight A523 USB3 series upstream |
 | WiFi/BT (SDIO, mmc1) | 🟠 | **Chip = AICSemi AIC8800** (D80/DC); power/reset sequencing wired (`wifi_pwrseq`, BT on UART1 w/ RTS-CTS). Needs the out-of-tree aic8800 module |
 | Battery / charger | 🟠 | **5000 mAh design, 1000 mA charge** (from vendor DTB); OCV table still needs porting |
 | MIPI-DSI display (4-lane) | 🟡 | DSI host + combo-PHY + TCON-LCD + panel drivers written (`kernel/`), dt-validate clean; the **DE3.5 mixer/CRTC** (lit pixel) is the remaining blocker. Not upstream; needs HW — see [`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md) |
@@ -50,6 +51,7 @@ dt-validate clean, **unverified on hardware**). Roadmap in [`PORTING-NOTES.md`](
 | Audio codec | 🟡 | ASoC driver + DT integration done (`kernel/`, `sun55i-codec`): playback + capture, mixer controls, DAPM, self-registered card, `audio-routing` + speaker amp (PH6). Builds + dt-validates clean; jack/HMIC detect pending, needs HW — see [`docs/AUDIO-CODEC-NOTES.md`](docs/AUDIO-CODEC-NOTES.md) |
 | Gamepad / buttons | 🟠 | Refined: power = **AXP2202 PEK**, volume = **LRADC** (`keyboard_1350mv`, 3 keys), main pad via userspace `trimui_inputd` — *not* a pure USB MCU |
 | Vibrator / fan (PWM) | 🟡 | `pwm-vibrator` (ch7) + `pwm-fan` (ch10, inverted, cooling-device) nodes added; needs HW |
+| Thermal (THS) | 🔴 | In-flight upstream (A523 THS series, not yet merged); the `pwm-fan` cooling-map hooks the zones once it lands |
 | GPU (Mali-G57) | 🟡 | **Upstream** (Panfrost, Valhall-JM); `&gpu` **enabled** in board DTS (`mali-supply` = AXP2202 dcdc2). Needs HW — see [`docs/GPU-NOTES.md`](docs/GPU-NOTES.md) |
 | VPU | 🔴 | Not in mainline |
 

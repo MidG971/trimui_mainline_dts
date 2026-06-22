@@ -49,7 +49,8 @@ dt-validate clean, **unverified on hardware**). Roadmap in [`PORTING-NOTES.md`](
 | PWM backlight | 🟡 | PWM driver ported (`kernel/patches/`, `pwm-sun20i`); `pwm-backlight` wired. Builds + dt-validates; needs HW |
 | Analog joysticks (GPADC) | 🟠 | GPADC lands **mainline v7.2**; `adc-joystick` nodes drafted in [`dts/staging/`](dts/staging/) (vendor: gpadc0+gpadc1, 2 ch each) |
 | Audio codec | 🟡 | ASoC driver + DT integration done (`kernel/`, `sun55i-codec`): playback + capture, mixer controls, DAPM, self-registered card, `audio-routing` + speaker amp (PH6). Builds + dt-validates clean; jack/HMIC detect pending, needs HW — see [`docs/AUDIO-CODEC-NOTES.md`](docs/AUDIO-CODEC-NOTES.md) |
-| Gamepad / buttons | 🟠 | Refined: power = **AXP2202 PEK**, volume = **LRADC** (`keyboard_1350mv`, 3 keys), main pad via userspace `trimui_inputd` — *not* a pure USB MCU |
+| Side keys (LRADC) | 🟡 | `lradc@2009800` + 3 keys (Home / Vol±) wired (`sun4i-lradc-keys`); vref + voltages need HW calibration |
+| Gamepad / buttons | 🟠 | Power = **AXP2202 PEK**; main D-pad/ABXY via userspace `trimui_inputd` — *not* a pure USB MCU |
 | Vibrator / fan (PWM) | 🟡 | `pwm-vibrator` (ch7) + `pwm-fan` (ch10, inverted, cooling-device) nodes added; needs HW |
 | Thermal (THS) | 🔴 | In-flight upstream (A523 THS series, not yet merged); the `pwm-fan` cooling-map hooks the zones once it lands |
 | GPU (Mali-G57) | 🟡 | **Upstream** (Panfrost, Valhall-JM); `&gpu` **enabled** in board DTS (`mali-supply` = AXP2202 dcdc2). Needs HW — see [`docs/GPU-NOTES.md`](docs/GPU-NOTES.md) |

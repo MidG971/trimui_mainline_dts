@@ -1,0 +1,37 @@
+From 159f7c40566475d1d5cca70e0f51cf3cb8d7bfdc Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Mon, 22 Jun 2026 00:15:11 +0000
+Subject: [PATCH] arm64: dts: allwinner: sun55i-a523: add LRADC
+
+Add the lradc@2009800 node (allwinner,sun50i-r329-lradc): CLK_BUS_LRADC,
+RST_BUS_LRADC, IRQ 66. Disabled by default; boards enable it with a
+vref-supply and the per-key button children.
+
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+index 5afa8d92a..d2c1e7ed5 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+@@ -340,6 +340,15 @@ ledc: led-controller@2008000 {
+ 			status = "disabled";
+ 		};
+ 
++		lradc: lradc@2009800 {
++			compatible = "allwinner,sun50i-r329-lradc";
++			reg = <0x2009800 0x100>;
++			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_LRADC>;
++			resets = <&ccu RST_BUS_LRADC>;
++			status = "disabled";
++		};
++
+ 		wdt: watchdog@2050000 {
+ 			compatible = "allwinner,sun55i-a523-wdt";
+ 			reg = <0x2050000 0x20>;
+-- 
+2.39.5
+

@@ -25,6 +25,7 @@
 #include "sun55i-a523.dtsi"
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/pwm/pwm.h>
@@ -366,6 +367,37 @@
 		"MIC3N_PIN", "MIC3";
 	avcc-supply = <&reg_aldo4>;
 	status = "okay";
+};
+
+/*
+ * Side keys on LRADC (vendor "keyboard_1350mv", 3 keys). vref + the per-key
+ * voltages need HW calibration (vendor scale = 1350 mV; values below are the
+ * vendor thresholds). Keycodes from the vendor DTB.
+ */
+&lradc {
+	vref-supply = <&reg_bldo2>;	/* 1.8V VERIFY */
+	status = "okay";
+
+	button-410 {
+		label = "Home";
+		linux,code = <KEY_HOMEPAGE>;
+		channel = <0>;
+		voltage = <410000>;	/* VERIFY */
+	};
+
+	button-646 {
+		label = "Volume Up";
+		linux,code = <KEY_VOLUMEUP>;
+		channel = <0>;
+		voltage = <646000>;	/* VERIFY */
+	};
+
+	button-900 {
+		label = "Volume Down";
+		linux,code = <KEY_VOLUMEDOWN>;
+		channel = <0>;
+		voltage = <900000>;	/* VERIFY */
+	};
 };
 
 &rtc {

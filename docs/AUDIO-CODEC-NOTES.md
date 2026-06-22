@@ -6,11 +6,14 @@
 Plan + status for the **new mainline ASoC driver** for the A523 internal audio codec
 (BSP `snd_sun55iw3_codec.c` is ~3115 lines).
 
-**Status: driver written — `kernel/drivers/sun55i-codec.c` (playback + capture, 14
-mixer controls, DAPM, clocking, init, ref-counted mic-bias). Builds clean against
-v7.1; binding `dt_binding_check`-clean. NOT YET HW-verified.** Deferred: jack/HMIC
-detect, DAP DRC/HPF, SID-efuse bias calibration, tx-hub/rx-sync, suspend/resume, and
-the SoC dtsi `codec@7110000` node + board `simple-audio-card`.
+**Status: driver + DT integration done — `kernel/drivers/sun55i-codec.c`** (playback +
+capture, 14 mixer controls, DAPM, clocking, init, ref-counted mic-bias) now a
+**two-component model** (cpu DAI + codec DAI) that **self-registers its card** (like
+sun4i-codec), parses `allwinner,audio-routing`, and drives the **speaker amp GPIO**
+(`allwinner,pa-gpios`). SoC `audio-codec@7110000` node + board `&codec` enable +
+routing (PH6 amp) all in tree. **Builds clean on v7.1; binding + board DTB validate
+clean. NOT YET HW-verified.** Deferred: jack/HMIC detect, DAP DRC/HPF, SID-efuse bias
+calibration, tx-hub/rx-sync, suspend/resume.
 
 ## 1. Hardware
 
@@ -90,14 +93,16 @@ Keep for a minimal mainline driver:
 6. [x] **DT node (patch 0010):** `audio-codec@7110000` in `sun55i-a523.dtsi`
    (mcu_ccu bus/dac/adc clocks + audio PLLs, mcu_ccu reset, `mcu_dma` DRQ 7, IRQ 190),
    disabled; board `&codec` enable + `avcc = aldo4`. Board DTB dt-validates clean.
-7. [ ] **Sound card (NEXT — driver-side):** integrated sunxi codecs self-register a card
-   via a **two-component split** (sun4i model: a cpu-DAI component owning hw_params +
-   dmaengine, plus the codec component owning the analog DAPM). Refactor the single
-   component into that, add `create_link`/`create_card` + `snd_soc_register_card`,
-   parse `allwinner,audio-routing`, add a **Speaker** widget (amp GPIO **PH6**) + a
-   Headphone jack. Then board adds `allwinner,audio-routing` + the speaker GPIO.
-8. [ ] **Then:** jack/HMIC detect, DT `*-vol`/`*-gain` defaults, DRC/HPF, SID-efuse
-   bias cal, tx-hub/rx-sync, suspend/resume. Real verification is HW-gated.
+7. [x] **Sound card (driver-side):** refactored to the **two-component split** (cpu-DAI
+   component owning the dmaengine PCM + the codec component owning analog DAPM/hw_params);
+   `create_link`/`create_card` + `devm_snd_soc_register_card`, parses
+   `allwinner,audio-routing`, **Speaker** card widget driving the amp GPIO
+   (`allwinner,pa-gpios` = **PH6**). Board adds the routing (vendor map) + PH6. Builds +
+   dt-validates clean.
+8. [ ] **Then (HW-gated):** jack/HMIC detect (headphone + the media-key voltages), DT
+   `*-vol`/`*-gain` defaults, DRC/HPF, SID-efuse bias cal, tx-hub/rx-sync, suspend/resume.
+   And **verify the DAPM graph on hardware** — the routing/widget directions mirror the
+   vendor BSP but the card's DAPM power-walk is unproven without the device.
 
 ## 6. How to tackle it (next session)
 

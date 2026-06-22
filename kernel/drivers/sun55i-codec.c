@@ -21,6 +21,7 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -136,9 +137,7 @@ struct sun55i_codec {
 	struct clk			*clk_pll_audio0_4x;	/* 48k family */
 	struct clk			*clk_pll_audio1_div5;	/* 44.1k family */
 	struct reset_control		*rst;
-	struct regulator		*avcc;
-	struct regulator		*vdd;
-	struct regulator		*cpvin;
+	struct gpio_desc		*gpio_pa;	/* speaker amp enable */
 	struct snd_dmaengine_dai_dma_data	playback_dma;
 	struct snd_dmaengine_dai_dma_data	capture_dma;
 
@@ -315,18 +314,20 @@ static int sun55i_codec_dai_probe(struct snd_soc_dai *dai)
 	return 0;
 }
 
-static const struct snd_soc_dai_ops sun55i_codec_dai_ops = {
-	.probe		= sun55i_codec_dai_probe,
-	.hw_params	= sun55i_codec_hw_params,
-	.prepare	= sun55i_codec_prepare,
-	.trigger	= sun55i_codec_trigger,
-};
-
 #define SUN55I_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE | \
 			 SNDRV_PCM_FMTBIT_S32_LE)
 
-static struct snd_soc_dai_driver sun55i_codec_dai = {
-	.name	= "sun55i-codec",
+/*
+ * Two-component model (as sun4i-codec): a "cpu" DAI that only wires up the
+ * dmaengine PCM, and the "Codec" DAI that drives the registers. The cpu
+ * component uses legacy DAI naming so the card can reference it by dev name.
+ */
+static const struct snd_soc_dai_ops sun55i_codec_cpu_dai_ops = {
+	.probe		= sun55i_codec_dai_probe,
+};
+
+static struct snd_soc_dai_driver sun55i_codec_cpu_dai = {
+	.name	= "sun55i-codec-cpu-dai",
 	.playback = {
 		.stream_name	= "Playback",
 		.channels_min	= 1,
@@ -341,7 +342,32 @@ static struct snd_soc_dai_driver sun55i_codec_dai = {
 		.rates		= SNDRV_PCM_RATE_8000_48000 | SNDRV_PCM_RATE_KNOT,
 		.formats	= SUN55I_FORMATS,
 	},
-	.ops	= &sun55i_codec_dai_ops,
+	.ops	= &sun55i_codec_cpu_dai_ops,
+};
+
+static const struct snd_soc_dai_ops sun55i_codec_codec_dai_ops = {
+	.hw_params	= sun55i_codec_hw_params,
+	.prepare	= sun55i_codec_prepare,
+	.trigger	= sun55i_codec_trigger,
+};
+
+static struct snd_soc_dai_driver sun55i_codec_codec_dai = {
+	.name	= "Codec",
+	.playback = {
+		.stream_name	= "Codec Playback",
+		.channels_min	= 1,
+		.channels_max	= 2,
+		.rates		= SNDRV_PCM_RATE_8000_192000 | SNDRV_PCM_RATE_KNOT,
+		.formats	= SUN55I_FORMATS,
+	},
+	.capture = {
+		.stream_name	= "Codec Capture",
+		.channels_min	= 1,
+		.channels_max	= 3,
+		.rates		= SNDRV_PCM_RATE_8000_48000 | SNDRV_PCM_RATE_KNOT,
+		.formats	= SUN55I_FORMATS,
+	},
+	.ops	= &sun55i_codec_codec_dai_ops,
 };
 
 /* ---- mixer controls ---- */
@@ -612,7 +638,7 @@ static int sun55i_codec_component_probe(struct snd_soc_component *component)
 	return 0;
 }
 
-static const struct snd_soc_component_driver sun55i_codec_component = {
+static const struct snd_soc_component_driver sun55i_codec_codec_component = {
 	.probe			= sun55i_codec_component_probe,
 	.controls		= sun55i_codec_controls,
 	.num_controls		= ARRAY_SIZE(sun55i_codec_controls),
@@ -623,6 +649,85 @@ static const struct snd_soc_component_driver sun55i_codec_component = {
 	.idle_bias_on		= 1,
 	.suspend_bias_off	= 1,
 };
+
+/* The cpu/platform component: just the dmaengine PCM wrapper. */
+static const struct snd_soc_component_driver sun55i_codec_cpu_component = {
+	.name			= "sun55i-codec",
+	.legacy_dai_naming	= 1,
+};
+
+/* ---- card (the codec self-registers it, like sun4i-codec) ---- */
+static int sun55i_codec_spk_event(struct snd_soc_dapm_widget *w,
+				  struct snd_kcontrol *k, int event)
+{
+	struct snd_soc_card *card = snd_soc_dapm_to_card(w->dapm);
+	struct sun55i_codec *scodec = snd_soc_card_get_drvdata(card);
+
+	gpiod_set_value_cansleep(scodec->gpio_pa, !!SND_SOC_DAPM_EVENT_ON(event));
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		msleep(700);	/* let the DAC settle before un-muting the amp */
+	return 0;
+}
+
+static const struct snd_soc_dapm_widget sun55i_codec_card_widgets[] = {
+	SND_SOC_DAPM_SPK("SPK", sun55i_codec_spk_event),
+};
+
+static struct snd_soc_dai_link *sun55i_codec_create_link(struct device *dev,
+							 int *num_links)
+{
+	struct snd_soc_dai_link *link = devm_kzalloc(dev, sizeof(*link),
+						     GFP_KERNEL);
+	struct snd_soc_dai_link_component *dlc = devm_kzalloc(dev, 3 * sizeof(*dlc),
+							     GFP_KERNEL);
+	if (!link || !dlc)
+		return NULL;
+
+	link->cpus	= &dlc[0];
+	link->codecs	= &dlc[1];
+	link->platforms	= &dlc[2];
+	link->num_cpus		= 1;
+	link->num_codecs	= 1;
+	link->num_platforms	= 1;
+
+	link->name		= "cdc";
+	link->stream_name	= "CDC PCM";
+	link->codecs->dai_name	= "Codec";
+	link->cpus->dai_name	= dev_name(dev);
+	link->codecs->name	= dev_name(dev);
+	link->platforms->name	= dev_name(dev);
+	link->dai_fmt		= SND_SOC_DAIFMT_I2S;
+
+	*num_links = 1;
+	return link;
+}
+
+static struct snd_soc_card *sun55i_codec_create_card(struct device *dev)
+{
+	struct snd_soc_card *card;
+	int ret;
+
+	card = devm_kzalloc(dev, sizeof(*card), GFP_KERNEL);
+	if (!card)
+		return ERR_PTR(-ENOMEM);
+
+	card->dai_link = sun55i_codec_create_link(dev, &card->num_links);
+	if (!card->dai_link)
+		return ERR_PTR(-ENOMEM);
+
+	card->dev		= dev;
+	card->owner		= THIS_MODULE;
+	card->name		= "sun55i-audio";
+	card->dapm_widgets	= sun55i_codec_card_widgets;
+	card->num_dapm_widgets	= ARRAY_SIZE(sun55i_codec_card_widgets);
+	card->fully_routed	= true;
+
+	ret = snd_soc_of_parse_audio_routing(card, "allwinner,audio-routing");
+	if (ret)
+		dev_warn(dev, "failed to parse audio-routing: %d\n", ret);
+
+	return card;
+}
 
 static bool sun55i_codec_volatile_reg(struct device *dev, unsigned int reg)
 {
@@ -651,6 +756,7 @@ static int sun55i_codec_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct sun55i_codec *scodec;
+	struct snd_soc_card *card;
 	struct resource *res;
 	void __iomem *base;
 	int ret;
@@ -701,24 +807,21 @@ static int sun55i_codec_probe(struct platform_device *pdev)
 		return ret;
 
 	/* All three analog supplies are external on this codec. */
-	scodec->avcc = devm_regulator_get(dev, "avcc");
-	if (IS_ERR(scodec->avcc))
-		return PTR_ERR(scodec->avcc);
-	scodec->vdd = devm_regulator_get(dev, "vdd");
-	if (IS_ERR(scodec->vdd))
-		return PTR_ERR(scodec->vdd);
-	scodec->cpvin = devm_regulator_get(dev, "cpvin");
-	if (IS_ERR(scodec->cpvin))
-		return PTR_ERR(scodec->cpvin);
-	ret = regulator_enable(scodec->vdd);
+	ret = devm_regulator_get_enable(dev, "avcc");
 	if (ret)
-		return ret;
-	ret = regulator_enable(scodec->avcc);
+		return dev_err_probe(dev, ret, "failed to enable avcc\n");
+	ret = devm_regulator_get_enable(dev, "vdd");
 	if (ret)
-		goto err_vdd;
-	ret = regulator_enable(scodec->cpvin);
+		return dev_err_probe(dev, ret, "failed to enable vdd\n");
+	ret = devm_regulator_get_enable(dev, "cpvin");
 	if (ret)
-		goto err_avcc;
+		return dev_err_probe(dev, ret, "failed to enable cpvin\n");
+
+	scodec->gpio_pa = devm_gpiod_get_optional(dev, "allwinner,pa",
+						  GPIOD_OUT_LOW);
+	if (IS_ERR(scodec->gpio_pa))
+		return dev_err_probe(dev, PTR_ERR(scodec->gpio_pa),
+				     "failed to get pa gpio\n");
 
 	scodec->playback_dma.addr	= res->start + SUN55I_DAC_TXDATA;
 	scodec->playback_dma.maxburst	= 8;
@@ -727,37 +830,30 @@ static int sun55i_codec_probe(struct platform_device *pdev)
 	scodec->capture_dma.maxburst	= 8;
 	scodec->capture_dma.addr_width	= DMA_SLAVE_BUSWIDTH_4_BYTES;
 
-	ret = devm_snd_dmaengine_pcm_register(dev, NULL, 0);
-	if (ret) {
-		dev_err_probe(dev, ret, "failed to register PCM\n");
-		goto err_cpvin;
-	}
+	ret = devm_snd_soc_register_component(dev, &sun55i_codec_codec_component,
+					      &sun55i_codec_codec_dai, 1);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to register codec\n");
 
-	ret = devm_snd_soc_register_component(dev, &sun55i_codec_component,
-					      &sun55i_codec_dai, 1);
-	if (ret) {
-		dev_err_probe(dev, ret, "failed to register component\n");
-		goto err_cpvin;
-	}
+	ret = devm_snd_soc_register_component(dev, &sun55i_codec_cpu_component,
+					      &sun55i_codec_cpu_dai, 1);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to register cpu dai\n");
+
+	ret = devm_snd_dmaengine_pcm_register(dev, NULL, 0);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to register PCM\n");
+
+	card = sun55i_codec_create_card(dev);
+	if (IS_ERR(card))
+		return dev_err_probe(dev, PTR_ERR(card), "failed to create card\n");
+	snd_soc_card_set_drvdata(card, scodec);
+
+	ret = devm_snd_soc_register_card(dev, card);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to register card\n");
 
 	return 0;
-
-err_cpvin:
-	regulator_disable(scodec->cpvin);
-err_avcc:
-	regulator_disable(scodec->avcc);
-err_vdd:
-	regulator_disable(scodec->vdd);
-	return ret;
-}
-
-static void sun55i_codec_remove(struct platform_device *pdev)
-{
-	struct sun55i_codec *scodec = platform_get_drvdata(pdev);
-
-	regulator_disable(scodec->cpvin);
-	regulator_disable(scodec->avcc);
-	regulator_disable(scodec->vdd);
 }
 
 static const struct of_device_id sun55i_codec_of_match[] = {
@@ -772,7 +868,6 @@ static struct platform_driver sun55i_codec_driver = {
 		.of_match_table	= sun55i_codec_of_match,
 	},
 	.probe	= sun55i_codec_probe,
-	.remove	= sun55i_codec_remove,
 };
 module_platform_driver(sun55i_codec_driver);
 

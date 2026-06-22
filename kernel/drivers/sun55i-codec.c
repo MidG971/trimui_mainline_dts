@@ -22,6 +22,8 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
+#include <linux/input.h>
+#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -32,6 +34,7 @@
 #include <linux/reset.h>
 
 #include <sound/dmaengine_pcm.h>
+#include <sound/jack.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/tlv.h>
@@ -113,6 +116,12 @@
 #define SUN55I_CPLDO_EN				7
 #define SUN55I_LINEOUT_GAIN			0	/* 5-bit */
 #define SUN55I_MICBIAS_AN_CTL		0x318
+#define SUN55I_SEL_DET_ADC_BF			24	/* 2-bit */
+#define SUN55I_JACK_DET_EN			23
+#define SUN55I_MIC_DET_ADC_EN			20
+#define SUN55I_DET_MODE				18
+#define SUN55I_AUTO_PULL_LOW_EN			17
+#define SUN55I_HMIC_BIAS_EN			15
 #define SUN55I_HMIC_BIAS_SEL			13	/* 2-bit */
 #define SUN55I_MMIC_BIAS_EN			7
 #define SUN55I_RAMP			0x31c
@@ -121,7 +130,16 @@
 #define SUN55I_HP_AN_CTL		0x324
 #define SUN55I_HPPA_EN				15
 #define SUN55I_HMIC_CTL			0x328
+#define SUN55I_MDATA_THRESHOLD			16	/* 5-bit */
+#define SUN55I_HMIC_N				6	/* 4-bit debounce */
+#define SUN55I_JACK_OUT_IRQ_EN			2
+#define SUN55I_JACK_IN_IRQ_EN			1
+#define SUN55I_MIC_DET_IRQ_EN			0
 #define SUN55I_HMIC_STA			0x32c
+#define SUN55I_HMIC_DATA			8	/* 5-bit ADC data */
+#define SUN55I_JACK_OUT_IRQ_STA			4
+#define SUN55I_JACK_IN_IRQ_STA			3
+#define SUN55I_MIC_DET_IRQ_STA			0
 #define SUN55I_POWER_AN_CTL		0x348
 #define SUN55I_VRP_LDO_EN			24
 #define SUN55I_BG_BUFFER_DISABLE		15
@@ -138,6 +156,8 @@ struct sun55i_codec {
 	struct clk			*clk_pll_audio1_div5;	/* 44.1k family */
 	struct reset_control		*rst;
 	struct gpio_desc		*gpio_pa;	/* speaker amp enable */
+	int				irq;
+	struct snd_soc_jack		jack;
 	struct snd_dmaengine_dai_dma_data	playback_dma;
 	struct snd_dmaengine_dai_dma_data	capture_dma;
 
@@ -145,6 +165,9 @@ struct sun55i_codec {
 	struct mutex			mic_lock;
 	bool				mic_active[3];
 };
+
+#define SUN55I_JACK_BUTTONS	(SND_JACK_BTN_0 | SND_JACK_BTN_1 | \
+				 SND_JACK_BTN_2 | SND_JACK_BTN_3)
 
 /* ---- sample-rate -> FS field (DAC_FS / ADC_FS, 3-bit) ---- */
 static const struct {
@@ -656,6 +679,118 @@ static const struct snd_soc_component_driver sun55i_codec_cpu_component = {
 	.legacy_dai_naming	= 1,
 };
 
+/*
+ * ---- headset jack (HMIC) ----
+ * HW-GATED: the HMIC insert/removal + mic-button detection is timing-sensitive
+ * (the BSP runs a multi-stage DET_MODE/scan dance). This is the faithful but
+ * simplified single-pass version; the debounce, det-level and the HMIC_DATA
+ * button thresholds need calibration on the device.
+ */
+static void sun55i_codec_jack_setup(struct sun55i_codec *scodec)
+{
+	struct regmap *rm = scodec->regmap;
+
+	regmap_update_bits(rm, SUN55I_HMIC_CTL, 0xffff, 0);
+	regmap_update_bits(rm, SUN55I_HMIC_STA, 0xffff, 0x6000);
+
+	/* Detection ADC basedata; low-level jack detect (vendor jack-det-level=0). */
+	regmap_update_bits(rm, SUN55I_MICBIAS_AN_CTL,
+			   0x3 << SUN55I_SEL_DET_ADC_BF, 0x1 << SUN55I_SEL_DET_ADC_BF);
+	regmap_update_bits(rm, SUN55I_MICBIAS_AN_CTL,
+			   BIT(SUN55I_AUTO_PULL_LOW_EN), BIT(SUN55I_AUTO_PULL_LOW_EN));
+	regmap_update_bits(rm, SUN55I_MICBIAS_AN_CTL, BIT(SUN55I_DET_MODE), 0);
+	regmap_update_bits(rm, SUN55I_MICBIAS_AN_CTL,
+			   BIT(SUN55I_AUTO_PULL_LOW_EN), 0);
+	regmap_update_bits(rm, SUN55I_MICBIAS_AN_CTL, BIT(SUN55I_DET_MODE),
+			   BIT(SUN55I_DET_MODE));
+	regmap_update_bits(rm, SUN55I_MICBIAS_AN_CTL, BIT(SUN55I_JACK_DET_EN),
+			   BIT(SUN55I_JACK_DET_EN));
+
+	regmap_update_bits(rm, SUN55I_HMIC_CTL, 0xf << SUN55I_HMIC_N, 0);
+	regmap_update_bits(rm, SUN55I_HMIC_CTL, BIT(SUN55I_JACK_IN_IRQ_EN),
+			   BIT(SUN55I_JACK_IN_IRQ_EN));
+	regmap_update_bits(rm, SUN55I_HMIC_CTL, BIT(SUN55I_JACK_OUT_IRQ_EN),
+			   BIT(SUN55I_JACK_OUT_IRQ_EN));
+}
+
+static int sun55i_codec_jack_button(unsigned int data)
+{
+	/* HMIC_DATA (5-bit) -> key, from the vendor jack-key-det-voltage ranges. */
+	switch (data) {
+	case 0:
+		return SND_JACK_BTN_0;		/* hook / play-pause */
+	case 1:
+		return SND_JACK_BTN_3;		/* voice */
+	case 2:
+		return SND_JACK_BTN_1;		/* volume up */
+	case 4:
+	case 5:
+		return SND_JACK_BTN_2;		/* volume down */
+	default:
+		return 0;
+	}
+}
+
+static irqreturn_t sun55i_codec_jack_irq(int irq, void *data)
+{
+	struct sun55i_codec *scodec = data;
+	struct regmap *rm = scodec->regmap;
+	unsigned int sta, report;
+
+	if (!scodec->jack.jack)
+		return IRQ_NONE;
+
+	regmap_read(rm, SUN55I_HMIC_STA, &sta);
+
+	if (sta & BIT(SUN55I_JACK_OUT_IRQ_STA)) {
+		regmap_update_bits(rm, SUN55I_HMIC_CTL, BIT(SUN55I_MIC_DET_IRQ_EN), 0);
+		regmap_update_bits(rm, SUN55I_MICBIAS_AN_CTL,
+				   BIT(SUN55I_MIC_DET_ADC_EN), 0);
+		snd_soc_jack_report(&scodec->jack, 0,
+				    SND_JACK_HEADSET | SUN55I_JACK_BUTTONS);
+	} else if (sta & BIT(SUN55I_JACK_IN_IRQ_STA)) {
+		regmap_update_bits(rm, SUN55I_MICBIAS_AN_CTL,
+				   BIT(SUN55I_MIC_DET_ADC_EN),
+				   BIT(SUN55I_MIC_DET_ADC_EN));
+		regmap_update_bits(rm, SUN55I_HMIC_CTL, BIT(SUN55I_MIC_DET_IRQ_EN),
+				   BIT(SUN55I_MIC_DET_IRQ_EN));
+		snd_soc_jack_report(&scodec->jack, SND_JACK_HEADSET,
+				    SND_JACK_HEADSET);
+	} else if (sta & BIT(SUN55I_MIC_DET_IRQ_STA)) {
+		report = sun55i_codec_jack_button((sta >> SUN55I_HMIC_DATA) & 0x1f);
+		snd_soc_jack_report(&scodec->jack, report, SUN55I_JACK_BUTTONS);
+	}
+
+	regmap_write(rm, SUN55I_HMIC_STA,
+		     BIT(SUN55I_JACK_OUT_IRQ_STA) | BIT(SUN55I_JACK_IN_IRQ_STA) |
+		     BIT(SUN55I_MIC_DET_IRQ_STA));
+	return IRQ_HANDLED;
+}
+
+static int sun55i_codec_init_jack(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_card *card = rtd->card;
+	struct sun55i_codec *scodec = snd_soc_card_get_drvdata(card);
+	int ret;
+
+	if (scodec->irq <= 0)
+		return 0;
+
+	ret = snd_soc_card_jack_new(card, "Headset",
+				    SND_JACK_HEADSET | SUN55I_JACK_BUTTONS,
+				    &scodec->jack);
+	if (ret)
+		return ret;
+
+	snd_jack_set_key(scodec->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
+	snd_jack_set_key(scodec->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEUP);
+	snd_jack_set_key(scodec->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEDOWN);
+	snd_jack_set_key(scodec->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
+
+	sun55i_codec_jack_setup(scodec);
+	return 0;
+}
+
 /* ---- card (the codec self-registers it, like sun4i-codec) ---- */
 static int sun55i_codec_spk_event(struct snd_soc_dapm_widget *w,
 				  struct snd_kcontrol *k, int event)
@@ -697,6 +832,7 @@ static struct snd_soc_dai_link *sun55i_codec_create_link(struct device *dev,
 	link->codecs->name	= dev_name(dev);
 	link->platforms->name	= dev_name(dev);
 	link->dai_fmt		= SND_SOC_DAIFMT_I2S;
+	link->init		= sun55i_codec_init_jack;
 
 	*num_links = 1;
 	return link;
@@ -822,6 +958,16 @@ static int sun55i_codec_probe(struct platform_device *pdev)
 	if (IS_ERR(scodec->gpio_pa))
 		return dev_err_probe(dev, PTR_ERR(scodec->gpio_pa),
 				     "failed to get pa gpio\n");
+
+	/* Codec IRQ drives the headset/HMIC jack detection (enabled per-jack). */
+	scodec->irq = platform_get_irq(pdev, 0);
+	if (scodec->irq < 0)
+		return scodec->irq;
+	ret = devm_request_threaded_irq(dev, scodec->irq, NULL,
+					sun55i_codec_jack_irq, IRQF_ONESHOT,
+					"sun55i-codec", scodec);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to request irq\n");
 
 	scodec->playback_dma.addr	= res->start + SUN55I_DAC_TXDATA;
 	scodec->playback_dma.maxburst	= 8;

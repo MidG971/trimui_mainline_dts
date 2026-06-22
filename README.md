@@ -48,7 +48,7 @@ dt-validate clean, **unverified on hardware**). Roadmap in [`PORTING-NOTES.md`](
 | MIPI-DSI display (4-lane) | 🟡 | DSI host + combo-PHY + TCON-LCD + panel drivers written (`kernel/`), dt-validate clean; the **DE3.5 mixer/CRTC** (lit pixel) is the remaining blocker. Not upstream; needs HW — see [`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md) |
 | PWM backlight | 🟡 | PWM driver ported (`kernel/patches/`, `pwm-sun20i`); `pwm-backlight` wired. Builds + dt-validates; needs HW |
 | Analog joysticks (GPADC) | 🟠 | GPADC lands **mainline v7.2**; `adc-joystick` nodes drafted in [`dts/staging/`](dts/staging/) (vendor: gpadc0+gpadc1, 2 ch each) |
-| Audio codec | 🟡 | ASoC driver + DT integration done (`kernel/`, `sun55i-codec`): playback + capture, mixer controls, DAPM, self-registered card, `audio-routing` + speaker amp (PH6). Builds + dt-validates clean; jack/HMIC detect pending, needs HW — see [`docs/AUDIO-CODEC-NOTES.md`](docs/AUDIO-CODEC-NOTES.md) |
+| Audio codec | 🟡 | ASoC driver + DT integration done (`kernel/`, `sun55i-codec`): playback + capture, mixer controls, DAPM, self-registered card, `audio-routing` + speaker amp (PH6), **headset/HMIC jack detection** (IRQ-driven; buttons→keys). Builds (W=1) + dt-validates clean; detection thresholds + on-device tuning need HW — see [`docs/AUDIO-CODEC-NOTES.md`](docs/AUDIO-CODEC-NOTES.md) |
 | Side keys (LRADC) | 🟡 | `lradc@2009800` + 3 keys (Home / Vol±) wired (`sun4i-lradc-keys`); vref + voltages need HW calibration |
 | Gamepad / buttons | 🟠 | Power = **AXP2202 PEK**; main D-pad/ABXY via userspace `trimui_inputd` — *not* a pure USB MCU |
 | Vibrator / fan (PWM) | 🟡 | `pwm-vibrator` (ch7) + `pwm-fan` (ch10, inverted, cooling-device) nodes added; needs HW |
@@ -66,9 +66,10 @@ stock firmware — see [`FIRMWARE-FINDINGS.md`](FIRMWARE-FINDINGS.md), whose
 ## Kernel side (out-of-tree, not upstream)
 
 The display/PWM bring-up that mainline lacks lives under [`kernel/`](kernel/):
-- [`kernel/patches/`](kernel/patches/) — the `0001`–`0009` series (git-format-patch,
+- [`kernel/patches/`](kernel/patches/) — the `0001`–`0011` series (git-format-patch,
   checkpatch-clean, `Signed-off-by`): DSI host variant, combo-PHY Kconfig, SoC display
-  nodes, TCON-LCD compat, PWM node, PWM driver wiring, panel, DE33 mixer cfg, codec wiring.
+  nodes, TCON-LCD compat, PWM node, PWM driver wiring, panel, DE33 mixer cfg, codec
+  (driver wiring + DT node), LRADC side keys.
 - [`kernel/drivers/`](kernel/drivers/) — new sources: `phy-sun55i-dsi-combo.c`,
   `pwm-sun20i.c`, `panel-trimui-smart-pro-s.c`, `sun55i-codec.c`.
 - [`kernel/bindings/`](kernel/bindings/) — DT bindings (combo-PHY, panel, PWM, codec).

@@ -38,7 +38,7 @@ dt-validate clean, **unverified on hardware**). Roadmap in [`PORTING-NOTES.md`](
 
 | Component | Status | Notes |
 | :--- | :---: | :--- |
-| 8x Cortex-A55 (boot) | 🟢 | Boots at bootloader voltage; per-cluster cpufreq/DVFS not wired upstream yet |
+| 8x Cortex-A55 (boot) | 🟢 | Boots at bootloader voltage; per-cluster cpufreq/DVFS not wired upstream yet — draft OPP tables in [`dts/staging/trimui-cpu-opp.dtsi`](dts/staging/trimui-cpu-opp.dtsi) (blocked on the A523 CPU clock not being exposed upstream + the tcs4838 big-cluster regulator driver) |
 | AXP717 PMIC + regulators | 🟡 | On `r_i2c0`. Vendor fw drives it as **axp2202**; silk says AXP717C — read i2c ID@0x34 on HW to settle |
 | Storage: microSD / eMMC | 🟡 | Nodes + supplies set; rails tagged VERIFY |
 | USB2 host / OTG | 🟡 | Controllers enabled; VBUS/ID GPIOs need HW verification |
@@ -53,7 +53,7 @@ dt-validate clean, **unverified on hardware**). Roadmap in [`PORTING-NOTES.md`](
 | Gamepad / buttons | 🟠 | Power = **AXP2202 PEK**; main D-pad/ABXY via userspace `trimui_inputd` — *not* a pure USB MCU |
 | Vibrator / fan (PWM) | 🟡 | `pwm-vibrator` (ch7) + `pwm-fan` (ch10, inverted, cooling-device) nodes added; needs HW |
 | Thermal (THS) | 🔴 | In-flight upstream (A523 THS series, not yet merged); the `pwm-fan` cooling-map hooks the zones once it lands |
-| GPU (Mali-G57) | 🟡 | **Upstream** (Panfrost, Valhall-JM); `&gpu` **enabled** in board DTS (`mali-supply` = AXP2202 dcdc2). Needs HW — see [`docs/GPU-NOTES.md`](docs/GPU-NOTES.md) |
+| GPU (Mali-G57) | 🟡 | **Upstream** (Panfrost, Valhall-JM); `&gpu` **enabled** in board DTS (`mali-supply` = AXP2202 dcdc2). Optional DVFS OPP table (150–600 MHz, compiles today) in [`dts/staging/trimui-gpu-opp.dtsi`](dts/staging/trimui-gpu-opp.dtsi). Needs HW — see [`docs/GPU-NOTES.md`](docs/GPU-NOTES.md) |
 | VPU | 🔴 | Not in mainline |
 
 Legend: 🟢 works · 🟡 present, needs HW verification · 🟠 partial/stubbed · 🔴 blocked on missing mainline driver.

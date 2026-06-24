@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+// Copyright (C) 2026 Midgy BALON
+/*
+ * STAGING — Mali-G57 GPU DVFS (devfreq) OPP table. Optional, off the critical path.
+ *
+ * UNLIKE the other dts/staging fragments, this one is NOT gated on upstream work:
+ * it COMPILES against today's v7.1 baseline (the gpu@1800000 node and CLK_GPU
+ * already exist upstream). It lives here only because it is HW-UNVERIFIED. To use:
+ * #include it from the board DTS after the &gpu enable, or paste these nodes in.
+ *
+ * Frequencies = the VENDOR DTB table: 150 / 200 / 300 / 400 / 600 MHz.
+ *
+ * Voltage is intentionally NOT scaled (clock-only OPP, no opp-microvolt):
+ * mali-supply is AXP2202 dcdc2, a SHARED, regulator-always-on GPU+VE rail
+ * (board DTS pins it at 920 mV). Per docs/GPU-NOTES.md it must be treated as a
+ * static system rail, so Panfrost devfreq scales CLK_GPU ("core") only.
+ *   -> IF the OPP core rejects this because mali-supply is bound, add an
+ *      identical `opp-microvolt = <920000>;` to every row (a no-op on the fixed
+ *      always-on rail — must match reg_dcdc2's constraint, NOT a lower value).
+ *   -> Only add real per-step voltages if the GPU ever gets its own rail.
+ *
+ * HW-verify: that CLK_GPU actually reaches each rate (CCU divider granularity)
+ * and that 600 MHz is stable on the device. You can push entries past 600 MHz
+ * ("GPU overclock") but that is unvalidated and limited by the fixed rail.
+ */
+
+&gpu {
+	operating-points-v2 = <&gpu_opp_table>;
+};
+
+/ {
+	gpu_opp_table: opp-table-gpu {
+		compatible = "operating-points-v2";
+
+		opp-150000000 {
+			opp-hz = /bits/ 64 <150000000>;
+		};
+		opp-200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+		};
+		opp-300000000 {
+			opp-hz = /bits/ 64 <300000000>;
+		};
+		opp-400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+		};
+		opp-600000000 {
+			opp-hz = /bits/ 64 <600000000>;
+		};
+	};
+};

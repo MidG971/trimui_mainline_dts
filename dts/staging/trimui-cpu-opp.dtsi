@@ -1,0 +1,181 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+// Copyright (C) 2026 Midgy BALON
+/*
+ * STAGING — per-cluster CPU DVFS (cpufreq-dt) OPP tables. DRAFT. Does NOT build
+ * or work yet. See dts/staging/README.md.
+ *
+ * BLOCKED ON (all three must be resolved before this is real):
+ *
+ *  1. NO A523 CPU CLOCK IN MAINLINE. include/dt-bindings/clock/sun55i-a523-ccu.h
+ *     exports no CPU clock macro (no CLK_CPUX / CLK_PLL_CPU; only CLK_AHB etc.),
+ *     and the cpu@N nodes upstream have no `clocks`. cpufreq-dt needs a per-
+ *     cluster CPU clock to scale. The `clocks = <&ccu CLK_CPU_L/_B>` lines below
+ *     use PLACEHOLDER MACRO NAMES THAT DO NOT EXIST YET — rename them to the real
+ *     macros once the A523 CPU clock is exposed (CCU patch or a dedicated
+ *     cpu-clk controller node). This is the hard blocker.
+ *
+ *  2. BIG-CLUSTER REGULATOR HAS NO DRIVER. cluster1 cpu-supply = tcs4838@0x41 on
+ *     r_i2c0 (vendor). Mainline has no tcs4838 driver (fan53555 covers only
+ *     tcs4525/4526), and there is no reg node for it. Until that exists, cluster1
+ *     cannot do voltage-tracked DVFS, so its cpu-supply is left COMMENTED below.
+ *     cluster0 is fine: AXP717/2202 dcdc1 = reg_dcdc1 (already in the board DTS).
+ *
+ *  3. PLACEHOLDER FREQ/VOLTAGE POINTS. Every opp-hz / opp-microvolt below is a
+ *     PLACEHOLDER ladder, not measured. Read the real table off the device:
+ *     vendor DTB cpu opp_table (or /sys cpufreq on the stock OS via recon.sh) for
+ *     the true frequencies, per-step voltages, and the stock CEILING per cluster.
+ *
+ * Topology (from sun55i-a523.dtsi): two 4x Cortex-A55 clusters, separate rails:
+ *   cluster0 = cpu0..cpu3 (cpu@0..@300)   -> cpu-supply = reg_dcdc1      (little)
+ *   cluster1 = cpu4..cpu7 (cpu@400..@700) -> cpu-supply = tcs4838 dcdc0  (big)
+ *
+ * RAIL LIMITS — voltages MUST stay inside the board-DTS regulator constraints:
+ *   reg_dcdc1 "vdd-cpu": 900000..1160000 uV. Exceeding this needs that range
+ *   widened first (and silicon/thermal headroom to back it up).
+ *
+ * OVERCLOCKING: the commented opp-1800000000+ rows are ABOVE a typical Cortex-A55
+ * stock ceiling and are UNVALIDATED. Enable only AFTER: (a) the real vendor
+ * ceiling is known, (b) THS thermal + the pwm-fan cooling-map are live (else
+ * there is no throttle safety net), and (c) on-device stability + thermal
+ * testing. Higher frequency needs higher voltage, which needs headroom in the
+ * rail constraints above. Doing this wrong risks instability or hardware damage.
+ */
+
+/ {
+	cpu_opp_l: opp-table-cpu-l {
+		compatible = "operating-points-v2";
+		opp-shared;	/* cpu0..3 change frequency together */
+
+		opp-480000000 {
+			opp-hz = /bits/ 64 <480000000>;
+			opp-microvolt = <900000>;
+		};
+		opp-720000000 {
+			opp-hz = /bits/ 64 <720000000>;
+			opp-microvolt = <940000>;
+		};
+		opp-1008000000 {
+			opp-hz = /bits/ 64 <1008000000>;
+			opp-microvolt = <1000000>;
+		};
+		opp-1416000000 {
+			opp-hz = /bits/ 64 <1416000000>;
+			opp-microvolt = <1100000>;
+		};
+		opp-1608000000 {
+			opp-hz = /bits/ 64 <1608000000>;
+			opp-microvolt = <1160000>;	/* = reg_dcdc1 max */
+		};
+		/* --- OVERCLOCK: needs reg_dcdc1 max raised >1.16V + THS + testing ---
+		opp-1800000000 {
+			opp-hz = /bits/ 64 <1800000000>;
+			opp-microvolt = <1200000>;
+		};
+		opp-2000000000 {
+			opp-hz = /bits/ 64 <2000000000>;
+			opp-microvolt = <1250000>;
+		};
+		--- */
+	};
+
+	cpu_opp_b: opp-table-cpu-b {
+		compatible = "operating-points-v2";
+		opp-shared;	/* cpu4..7 change frequency together */
+
+		/* Same placeholder ladder; the "big" cluster typically clocks higher.
+		 * Tune separately once tcs4838 dcdc0 is drivable AND the vendor table
+		 * is read. Voltages here are illustrative only. */
+		opp-480000000 {
+			opp-hz = /bits/ 64 <480000000>;
+			opp-microvolt = <900000>;
+		};
+		opp-720000000 {
+			opp-hz = /bits/ 64 <720000000>;
+			opp-microvolt = <940000>;
+		};
+		opp-1008000000 {
+			opp-hz = /bits/ 64 <1008000000>;
+			opp-microvolt = <1000000>;
+		};
+		opp-1416000000 {
+			opp-hz = /bits/ 64 <1416000000>;
+			opp-microvolt = <1100000>;
+		};
+		opp-1800000000 {
+			opp-hz = /bits/ 64 <1800000000>;
+			opp-microvolt = <1160000>;
+		};
+		/* --- OVERCLOCK: unvalidated; see header ---
+		opp-2000000000 {
+			opp-hz = /bits/ 64 <2000000000>;
+			opp-microvolt = <1250000>;
+		};
+		--- */
+	};
+};
+
+/*
+ * cluster0 (little) — cpu0..cpu3.
+ * CLK_CPU_L is a PLACEHOLDER macro name (see blocker #1).
+ */
+&cpu0 {
+	clocks = <&ccu CLK_CPU_L>;
+	clock-names = "cpu";
+	cpu-supply = <&reg_dcdc1>;
+	operating-points-v2 = <&cpu_opp_l>;
+};
+
+&cpu1 {
+	clocks = <&ccu CLK_CPU_L>;
+	clock-names = "cpu";
+	cpu-supply = <&reg_dcdc1>;
+	operating-points-v2 = <&cpu_opp_l>;
+};
+
+&cpu2 {
+	clocks = <&ccu CLK_CPU_L>;
+	clock-names = "cpu";
+	cpu-supply = <&reg_dcdc1>;
+	operating-points-v2 = <&cpu_opp_l>;
+};
+
+&cpu3 {
+	clocks = <&ccu CLK_CPU_L>;
+	clock-names = "cpu";
+	cpu-supply = <&reg_dcdc1>;
+	operating-points-v2 = <&cpu_opp_l>;
+};
+
+/*
+ * cluster1 (big) — cpu4..cpu7.
+ * CLK_CPU_B is a PLACEHOLDER macro name (blocker #1).
+ * cpu-supply is COMMENTED until the tcs4838@0x41 regulator has a mainline
+ * driver + DT node (blocker #2). Without it, do NOT scale frequency here.
+ */
+&cpu4 {
+	clocks = <&ccu CLK_CPU_B>;
+	clock-names = "cpu";
+	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
+	operating-points-v2 = <&cpu_opp_b>;
+};
+
+&cpu5 {
+	clocks = <&ccu CLK_CPU_B>;
+	clock-names = "cpu";
+	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
+	operating-points-v2 = <&cpu_opp_b>;
+};
+
+&cpu6 {
+	clocks = <&ccu CLK_CPU_B>;
+	clock-names = "cpu";
+	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
+	operating-points-v2 = <&cpu_opp_b>;
+};
+
+&cpu7 {
+	clocks = <&ccu CLK_CPU_B>;
+	clock-names = "cpu";
+	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
+	operating-points-v2 = <&cpu_opp_b>;
+};

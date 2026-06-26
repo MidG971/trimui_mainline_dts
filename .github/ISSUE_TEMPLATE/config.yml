@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+# Copyright (C) 2026 Midgy BALON
+blank_issues_enabled: true
+contact_links:
+  - name: Roadmap & hardware truth table
+    url: https://github.com/MidG971/trimui_mainline_dts/blob/main/PORTING-NOTES.md
+    about: "Before filing, check what already works, what's blocked on missing upstream drivers, and the phased plan."
+  - name: Contributing guide
+    url: https://github.com/MidG971/trimui_mainline_dts/blob/main/CONTRIBUTING.md
+    about: "How to test and reproduce a change, the AI-disclosure rule, and the hard rules (no confidential PDFs / binaries / IPs)."

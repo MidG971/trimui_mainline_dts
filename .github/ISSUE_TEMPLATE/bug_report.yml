@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+# Copyright (C) 2026 Midgy BALON
+name: "Bug report"
+description: "Something builds/runs but misbehaves (boot, driver, DTB, build error)."
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a report. This is an **experimental, largely pre-hardware**
+        bring-up project, so please be precise: a bug we **can't reproduce** usually
+        can't be fixed.
+
+        Before filing, please skim the **README status table** and `PORTING-NOTES.md`.
+        Many things are *known* not to work yet (🟠 / 🔴 — blocked on missing mainline
+        drivers) and are not bugs.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight
+      options:
+        - label: "I searched existing issues and this isn't a duplicate."
+          required: true
+        - label: "I checked the README status table / PORTING-NOTES and this isn't a known-blocked item."
+          required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what actually happened.
+      placeholder: |
+        Expected: ...
+        Actual: ...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Exact reproduction steps & commands
+      description: >
+        The part we most need. Paste the literal commands so someone else can
+        reproduce. "It doesn't boot/build" with no commands can't be acted on.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: baseline
+    attributes:
+      label: Kernel baseline
+      description: Mainline tag/commit you built against (project baseline is v7.1).
+      placeholder: "v7.1"
+    validations:
+      required: true
+  - type: input
+    id: repo-commit
+    attributes:
+      label: Repo commit
+      description: "Commit of this repo you used (git rev-parse --short HEAD)."
+      placeholder: "e.g. fdf37ae"
+    validations:
+      required: true
+  - type: input
+    id: toolchain
+    attributes:
+      label: Toolchain
+      description: Cross-compiler and version.
+      placeholder: "aarch64-linux-gnu-gcc 13.2"
+    validations:
+      required: false
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Hardware involved?
+      options:
+        - "No device — build/validation only"
+        - "Yes — running on a real Trimui Smart Pro S"
+    validations:
+      required: true
+  - type: input
+    id: device-info
+    attributes:
+      label: Device details (if on hardware)
+      description: Board revision / silk, stock firmware version, boot path (FEL / SD / eMMC).
+      placeholder: "A523-PRO2-AXP717C, stock fw 1.0.1, FEL RAM-boot"
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: >
+        Serial console (ttyS0 @115200), dmesg, build error, dt-validate output —
+        whatever is relevant. Paste as text, not a screenshot, where possible.
+      render: shell
+    validations:
+      required: false

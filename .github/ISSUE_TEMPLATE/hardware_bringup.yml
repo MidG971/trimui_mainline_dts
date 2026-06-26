@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+# Copyright (C) 2026 Midgy BALON
+name: "Hardware finding / bring-up"
+description: "Report a hardware fact from a real device, or request/track support for a peripheral."
+title: "[hw] "
+labels: ["hardware"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this to **report something observed on a real device** (the most
+        valuable kind of contribution here) or to **request/track** support for a
+        peripheral. Findings must be **cited** — see the provenance field. Unsourced
+        "it should be X" guesses are what this project specifically tries to avoid.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Type
+      options:
+        - "Finding — something I observed on real hardware"
+        - "Request / tracking — a peripheral that needs bring-up"
+        - "Correction — a value in the repo looks wrong"
+    validations:
+      required: true
+  - type: input
+    id: subsystem
+    attributes:
+      label: Subsystem / peripheral
+      description: Which part of the device.
+      placeholder: "PMIC / WiFi / display / GPADC sticks / audio codec / battery ..."
+    validations:
+      required: true
+  - type: textarea
+    id: finding
+    attributes:
+      label: Finding / request
+      description: What you found, or what support you're requesting and why.
+    validations:
+      required: true
+  - type: textarea
+    id: provenance
+    attributes:
+      label: Evidence & provenance (required)
+      description: >
+        How do you know? Cite the source for every fact: the command you ran and
+        its output (i2cdetect / dmesg / evtest / cat /sys/...), the vendor DTB
+        line/property, the User Manual page or register, or an upstream sibling
+        board. No source = mark it as a guess, not a fact.
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: has-device
+    attributes:
+      label: Do you have the device in hand?
+      options:
+        - "Yes — I can test patches on it"
+        - "Yes — but read-only / can't reflash"
+        - "No — this is from firmware mining / docs / upstream"
+    validations:
+      required: true
+  - type: input
+    id: device-info
+    attributes:
+      label: Device details (if applicable)
+      description: Board silk / revision, stock firmware version.
+      placeholder: "A523-PRO2-AXP717C, stock fw 1.0.x"
+    validations:
+      required: false
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed DT/driver change (optional)
+      description: If you have a concrete idea for the node/driver/value, sketch it here.
+    validations:
+      required: false

@@ -86,7 +86,7 @@ DE33 series; the DSI host/PHY is greenfield.
 
 ## 2. Vendor panel specification (decoded from the board DTB)
 
-Source: `/home/dio/Downloads/trimui_smart_pro_s/trimui_smart_pro_source.dts`
+Source: `dts_extracted_from_firmware_dump.dts`
 (`panel_0@0`, `backlight0`, `dsi1@5508000`, pinctrl groups, AXP2202 regulators).
 
 ### Panel summary

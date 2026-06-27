@@ -104,11 +104,9 @@ Keep for a minimal mainline driver:
    And **verify the DAPM graph on hardware** — the routing/widget directions mirror the
    vendor BSP but the card's DAPM power-walk is unproven without the device.
 
-## 6. How to tackle it (next session)
+## 6. How to tackle it
 
-- Foreground, in chunks per §5 (driver ports as background agents get cut off mid-run
-  — happened again this session at the account session limit). If budget allows,
-  one analysis agent may pre-extract the exact DAPM widget/route/control reg-bit
+- Pre-extract the exact DAPM widget/route/control reg-bit
   tables from `snd_sun55iw3_codec.c` to speed the skeleton — but the writing stays
   foreground.
 - Reference on the build host: BSP `aw-bsp-drivers/drivers/sound/platform/

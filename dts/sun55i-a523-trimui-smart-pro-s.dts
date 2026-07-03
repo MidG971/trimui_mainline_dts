@@ -10,10 +10,10 @@
  *
  * On board now: PMIC + regulators, storage (microSD/eMMC), USB2, RTC, LEDC RGB
  * array, GPU (Mali-G57 / Panfrost, upstream), MIPI-DSI panel + PWM backlight
- * (via patches), fan + vibrator (PWM), WiFi/BT power sequencing (AIC8800,
- * out-of-tree module). Still pending: GPADC analog sticks (mainline v7.2 — draft
- * in dts/staging/), LRADC volume keys (needs an SoC-dtsi lradc node), audio
- * codec, USB3 (draft in dts/staging/). See PORTING-NOTES.md for the roadmap.
+ * (via patches), fan + vibrator (PWM), audio codec, LRADC side keys, GPADC
+ * analog sticks (2 controllers; gpadc0 upstream v7.2 + gpadc1 via patch), WiFi/BT
+ * power sequencing (AIC8800, out-of-tree module). Still pending: USB3 (draft in
+ * dts/staging/). See PORTING-NOTES.md for the roadmap.
  *
  * "VERIFY" = needs confirmation by i2c/dump on real hardware before trusting.
  * Rail->consumer map is derived from the vendor DTB where known and otherwise
@@ -397,6 +397,71 @@
 		linux,code = <KEY_VOLUMEDOWN>;
 		channel = <0>;
 		voltage = <900000>;	/* VERIFY */
+	};
+};
+
+/*
+ * Analog sticks via GPADC — two controllers, 2 channels each (4 axes = 2 sticks).
+ * gpadc0 (adc@2009000) is upstream since v7.2; gpadc1 (adc@2009c00) is added by
+ * kernel/patches (the second controller). Channel->axis mapping and abs-range are
+ * BEST-GUESS: calibrate on HW (read raw min/max/centre per axis; then set
+ * abs-range + abs-flat deadzone). 12-bit (0..4095). VERIFY on the device.
+ */
+&gpadc {		/* left stick */
+	status = "okay";
+};
+
+&gpadc1 {		/* right stick (adc@2009c00, via kernel/patches) */
+	status = "okay";
+};
+
+/ {
+	joystick-left {
+		compatible = "adc-joystick";
+		io-channels = <&gpadc 0>, <&gpadc 1>;
+		poll-interval = <16>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		axis@0 {
+			reg = <0>;
+			linux,code = <ABS_X>;
+			abs-range = <0 4095>;	/* VERIFY / calibrate */
+			abs-fuzz = <16>;
+			abs-flat = <128>;
+		};
+
+		axis@1 {
+			reg = <1>;
+			linux,code = <ABS_Y>;
+			abs-range = <0 4095>;	/* VERIFY / calibrate */
+			abs-fuzz = <16>;
+			abs-flat = <128>;
+		};
+	};
+
+	joystick-right {
+		compatible = "adc-joystick";
+		io-channels = <&gpadc1 0>, <&gpadc1 1>;
+		poll-interval = <16>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		axis@0 {
+			reg = <0>;
+			linux,code = <ABS_RX>;
+			abs-range = <0 4095>;	/* VERIFY / calibrate */
+			abs-fuzz = <16>;
+			abs-flat = <128>;
+		};
+
+		axis@1 {
+			reg = <1>;
+			linux,code = <ABS_RY>;
+			abs-range = <0 4095>;	/* VERIFY / calibrate */
+			abs-fuzz = <16>;
+			abs-flat = <128>;
+		};
 	};
 };
 

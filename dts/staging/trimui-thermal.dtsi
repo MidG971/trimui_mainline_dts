@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+// Copyright (C) 2026 Midgy BALON
+/*
+ * STAGING — active-cooling (pwm-fan) map for the A523 thermal zones. DRAFT.
+ * Does NOT build against today's baseline. See dts/staging/README.md and
+ * docs/THERMAL-DVFS-NOTES.md.
+ *
+ * BLOCKED ON: the A523 THS (thermal sensor) series is not upstream yet.
+ * Latest is Mikhail Kalashnikov's "[PATCH v5] Allwinner: A523: add support for
+ * A523 THS0/1 controllers" (based on 7.2-rc1; Reviewed-by Chen-Yu Tsai on 3/5
+ * patches — close to merge, but not in v7.2-rc1). That series adds:
+ *   - thermal-sensor@2009400 (ths1: big=idx0, little=idx1, gpu=idx2)
+ *   - thermal-sensor@200a000 (ths0: dram)
+ *   - thermal-zones: cpu0_thermal, cpu4_thermal, gpu-thermal, ddr-thermal
+ * with passive cpufreq throttling only (each cpu has #cooling-cells = <2>).
+ *
+ * WHAT THIS ADDS (the missing piece): the board has a real pwm-fan
+ * (label pwm_fan, 33 cooling states) that the upstream zones do NOT bind. This
+ * fragment attaches the fan as an ACTIVE cooling device to the CPU zones, so
+ * the device spins its fan up instead of only throttling. Include it from the
+ * board DTS *after* the THS series is in the kernel tree (its zone/trip labels
+ * must already exist), and add `#include <dt-bindings/thermal/thermal.h>`.
+ *
+ * CAVEATS (resolve on hardware):
+ *  - The upstream cpu zones set `sustainable-power`, which selects the IPA
+ *    (power_allocator) governor. A plain pwm-fan is not a power actor, and the
+ *    upstream cpufreq cooling devices carry no `dynamic-power-coefficient`, so
+ *    IPA may not modulate the fan as intended. On HW, either (a) add
+ *    dynamic-power-coefficient to the CPUs + a fan cooling-map weight, or
+ *    (b) drop sustainable-power to fall back to step_wise (simpler for a fan).
+ *    The mapping below assumes step_wise-style ramping; tune once THS reads real
+ *    temperatures on the device.
+ *  - Trip points (70/90 C passive) come from the vendor BSP via the THS series;
+ *    the vendor userspace thermald starts the fan far lower (auto mode). Pick the
+ *    fan-start trip to taste after measuring idle/load temps.
+ *  - Upstream v5 has a known bug (gpu-thermal trips node is misnamed `gpu-trips`
+ *    instead of `trips`, so gpu trips are ignored) — adopt the MERGED version,
+ *    not v5 verbatim. Once fixed, a gpu fan map can be added the same way.
+ */
+
+/* Ramp the fan on the little-cluster zone (also covers idle SoC temp). */
+&cpu0_thermal {
+	cooling-maps {
+		map-fan {
+			trip = <&cpu0_threshold>;	/* 70 C passive */
+			cooling-device = <&pwm_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+/* Ramp the fan on the big-cluster zone (the hot one under load). */
+&cpu4_thermal {
+	cooling-maps {
+		map-fan {
+			trip = <&cpu4_threshold>;	/* 70 C passive */
+			cooling-device = <&pwm_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};

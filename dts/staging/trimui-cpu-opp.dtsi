@@ -4,7 +4,7 @@
  * STAGING — per-cluster CPU DVFS (cpufreq-dt) OPP tables. DRAFT. Does NOT build
  * or work yet. See dts/staging/README.md.
  *
- * BLOCKED ON (all three must be resolved before this is real):
+ * BLOCKED ON (both must be resolved before this is real):
  *
  *  1. NO A523 CPU CLOCK IN MAINLINE. include/dt-bindings/clock/sun55i-a523-ccu.h
  *     exports no CPU clock macro (no CLK_CPUX / CLK_PLL_CPU; only CLK_AHB etc.),
@@ -20,25 +20,30 @@
  *     cannot do voltage-tracked DVFS, so its cpu-supply is left COMMENTED below.
  *     cluster0 is fine: AXP717/2202 dcdc1 = reg_dcdc1 (already in the board DTS).
  *
- *  3. PLACEHOLDER FREQ/VOLTAGE POINTS. Every opp-hz / opp-microvolt below is a
- *     PLACEHOLDER ladder, not measured. Read the real table off the device:
- *     vendor DTB cpu opp_table (or /sys cpufreq on the stock OS via recon.sh) for
- *     the true frequencies, per-step voltages, and the stock CEILING per cluster.
+ * FREQ/VOLTAGE POINTS — RESOLVED (was blocker #3). These are the REAL vendor
+ * ladders, transcribed from the stock firmware `cluster0-opp-table` /
+ * `cluster1-opp-table` (allwinner,sun50i-operating-points). The vendor board DTB
+ * is BYTE-IDENTICAL between fw v1.0.1 and v1.0.2 (md5 967f1c68…), so these are
+ * current. Vendor uses per-speed-bin voltage columns (opp-microvolt-vfXXYY keyed
+ * off SID efuse); the single `opp-microvolt` below = the production bin (vf0100).
+ * Sub-steps that only exist in some bins (cl0: 720/1032/1128/1296; cl1: 720/1248)
+ * are OMITTED — keep the clean production ladder.
  *
  * Topology (from sun55i-a523.dtsi): two 4x Cortex-A55 clusters, separate rails:
  *   cluster0 = cpu0..cpu3 (cpu@0..@300)   -> cpu-supply = reg_dcdc1      (little)
  *   cluster1 = cpu4..cpu7 (cpu@400..@700) -> cpu-supply = tcs4838 dcdc0  (big)
+ *   (Confirmed on the stock OS: two cpufreq domains, policy0 = cpu0, policy4 = cpu4.)
+ *
+ * CEILINGS (vendor production bin vf0100):
+ *   cluster0 little: 408 -> 1416 MHz  (0.90 -> 1.15 V)  -- fits reg_dcdc1 (0.90..1.16 V)
+ *   cluster1 big:    408 -> 1800 MHz  (0.90 -> 1.15 V) nominal
+ *   cluster1 turbo bins (better silicon only): 1992 @1.22V, 2088 @1.24V, 2160 @1.28V
+ *     -- left COMMENTED; above the nominal ceiling, need tcs4838 + THS + testing.
  *
  * RAIL LIMITS — voltages MUST stay inside the board-DTS regulator constraints:
- *   reg_dcdc1 "vdd-cpu": 900000..1160000 uV. Exceeding this needs that range
- *   widened first (and silicon/thermal headroom to back it up).
- *
- * OVERCLOCKING: the commented opp-1800000000+ rows are ABOVE a typical Cortex-A55
- * stock ceiling and are UNVALIDATED. Enable only AFTER: (a) the real vendor
- * ceiling is known, (b) THS thermal + the pwm-fan cooling-map are live (else
- * there is no throttle safety net), and (c) on-device stability + thermal
- * testing. Higher frequency needs higher voltage, which needs headroom in the
- * rail constraints above. Doing this wrong risks instability or hardware damage.
+ *   reg_dcdc1 "vdd-cpu": 900000..1160000 uV. The little-cluster ladder (max 1.15 V)
+ *   fits. The big-cluster turbo rows would exceed a typical stock voltage and are
+ *   gated on the tcs4838 driver + THS thermal + on-device stability testing.
  */
 
 / {
@@ -46,69 +51,100 @@
 		compatible = "operating-points-v2";
 		opp-shared;	/* cpu0..3 change frequency together */
 
-		opp-480000000 {
-			opp-hz = /bits/ 64 <480000000>;
+		opp-408000000 {
+			opp-hz = /bits/ 64 <408000000>;
 			opp-microvolt = <900000>;
 		};
-		opp-720000000 {
-			opp-hz = /bits/ 64 <720000000>;
-			opp-microvolt = <940000>;
+		opp-672000000 {
+			opp-hz = /bits/ 64 <672000000>;
+			opp-microvolt = <900000>;
+		};
+		opp-792000000 {
+			opp-hz = /bits/ 64 <792000000>;
+			opp-microvolt = <900000>;
+		};
+		opp-936000000 {
+			opp-hz = /bits/ 64 <936000000>;
+			opp-microvolt = <920000>;
 		};
 		opp-1008000000 {
 			opp-hz = /bits/ 64 <1008000000>;
+			opp-microvolt = <960000>;
+		};
+		opp-1104000000 {
+			opp-hz = /bits/ 64 <1104000000>;
 			opp-microvolt = <1000000>;
+		};
+		opp-1224000000 {
+			opp-hz = /bits/ 64 <1224000000>;
+			opp-microvolt = <1050000>;
+		};
+		opp-1320000000 {
+			opp-hz = /bits/ 64 <1320000000>;
+			opp-microvolt = <1120000>;
 		};
 		opp-1416000000 {
 			opp-hz = /bits/ 64 <1416000000>;
-			opp-microvolt = <1100000>;
+			opp-microvolt = <1150000>;	/* little-cluster ceiling */
 		};
-		opp-1608000000 {
-			opp-hz = /bits/ 64 <1608000000>;
-			opp-microvolt = <1160000>;	/* = reg_dcdc1 max */
-		};
-		/* --- OVERCLOCK: needs reg_dcdc1 max raised >1.16V + THS + testing ---
-		opp-1800000000 {
-			opp-hz = /bits/ 64 <1800000000>;
-			opp-microvolt = <1200000>;
-		};
-		opp-2000000000 {
-			opp-hz = /bits/ 64 <2000000000>;
-			opp-microvolt = <1250000>;
-		};
-		--- */
 	};
 
 	cpu_opp_b: opp-table-cpu-b {
 		compatible = "operating-points-v2";
 		opp-shared;	/* cpu4..7 change frequency together */
 
-		/* Same placeholder ladder; the "big" cluster typically clocks higher.
-		 * Tune separately once tcs4838 dcdc0 is drivable AND the vendor table
-		 * is read. Voltages here are illustrative only. */
-		opp-480000000 {
-			opp-hz = /bits/ 64 <480000000>;
+		opp-408000000 {
+			opp-hz = /bits/ 64 <408000000>;
 			opp-microvolt = <900000>;
 		};
-		opp-720000000 {
-			opp-hz = /bits/ 64 <720000000>;
-			opp-microvolt = <940000>;
+		opp-672000000 {
+			opp-hz = /bits/ 64 <672000000>;
+			opp-microvolt = <900000>;
+		};
+		opp-840000000 {
+			opp-hz = /bits/ 64 <840000000>;
+			opp-microvolt = <900000>;
 		};
 		opp-1008000000 {
 			opp-hz = /bits/ 64 <1008000000>;
+			opp-microvolt = <900000>;
+		};
+		opp-1200000000 {
+			opp-hz = /bits/ 64 <1200000000>;
+			opp-microvolt = <920000>;
+		};
+		opp-1344000000 {
+			opp-hz = /bits/ 64 <1344000000>;
+			opp-microvolt = <960000>;
+		};
+		opp-1488000000 {
+			opp-hz = /bits/ 64 <1488000000>;
 			opp-microvolt = <1000000>;
 		};
-		opp-1416000000 {
-			opp-hz = /bits/ 64 <1416000000>;
+		opp-1584000000 {
+			opp-hz = /bits/ 64 <1584000000>;
+			opp-microvolt = <1050000>;
+		};
+		opp-1680000000 {
+			opp-hz = /bits/ 64 <1680000000>;
 			opp-microvolt = <1100000>;
 		};
 		opp-1800000000 {
 			opp-hz = /bits/ 64 <1800000000>;
-			opp-microvolt = <1160000>;
+			opp-microvolt = <1150000>;	/* big-cluster nominal ceiling */
 		};
-		/* --- OVERCLOCK: unvalidated; see header ---
-		opp-2000000000 {
-			opp-hz = /bits/ 64 <2000000000>;
-			opp-microvolt = <1250000>;
+		/* --- TURBO BINS: better-silicon only; need tcs4838 + THS + testing ---
+		opp-1992000000 {
+			opp-hz = /bits/ 64 <1992000000>;
+			opp-microvolt = <1220000>;
+		};
+		opp-2088000000 {
+			opp-hz = /bits/ 64 <2088000000>;
+			opp-microvolt = <1240000>;
+		};
+		opp-2160000000 {
+			opp-hz = /bits/ 64 <2160000000>;
+			opp-microvolt = <1280000>;
 		};
 		--- */
 	};

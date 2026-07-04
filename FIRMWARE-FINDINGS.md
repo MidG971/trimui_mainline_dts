@@ -66,3 +66,35 @@ Tooling present on the workstation for this: `binwalk`, `strings`, `dtc`/`fdtdum
 1. `adb push recon.sh /tmp/recon.sh && adb shell 'sh /tmp/recon.sh' | tee recon-out.txt`
 2. `adb pull /tmp/live.dtb` (vendor ground-truth DTB for offline diffing)
 3. **Back up the eMMC before flashing anything** (dd partitions over adb, or via FEL — `sunxi-fel` is installed here).
+
+# Firmware v1.0.2 re-mine (2026-07-04) — diff vs v1.0.1
+
+Re-mined the newer stock build (`trimui_tg5050.awimg`, build `20260201_2150`; **beta**).
+Method: parse the `IMAGEWTY` file table (1024-byte entries @0x400; name at entry+36,
+`stored_len`/`orig_len`/`offset` at entry+0x124), then SHA-256 every partition and
+diff the two firmwares. Only **two** partitions changed:
+
+| Partition group | v1.0.1 → v1.0.2 | Note |
+|---|---|---|
+| boot0 / SPL / u-boot / boot_package / fes1 / toc\* / **`sunxi.fex` (vendor DTB)** / arisc / env | **byte-identical** | boot chain + device tree unchanged → U-Boot DRAM retarget and every DTB-derived fact still current (vendor DTB md5 `967f1c68…`) |
+| kernel (`vmlinux.fex` / `boot.fex`) | changed | same source **Linux 5.15.147**, rebuilt `#42` (Dec 18 2025) → `#82` (Feb 2 2026); embedded DTB identical. Among `/lib/modules` only `mali_kbase.ko` changed (vendor GPU blob — irrelevant to our Panfrost path) |
+| `rootfs.fex` (+18 MB) | changed | mostly UI/audio (bgm.mp3 +8 MB, 3 new mp3s, MainUI, lang files) + a new **"performance" power mode**. `/lib/firmware` byte-identical → AIC8800 blobs unchanged |
+
+**New authoritative data (usable now):**
+
+- **CPU DVFS ladders** (vendor `cluster{0,1}-opp-table`, production bin vf0100 — current
+  since the DTB is byte-identical). Little cluster (cpu0–3, `reg_dcdc1`): 408 → **1416 MHz**,
+  0.90 → 1.15 V. Big cluster (cpu4–7, `tcs4838`): 408 → **1800 MHz** nominal (0.90 → 1.15 V),
+  turbo bins 1992 @1.22 V / 2088 @1.24 V / **2160 @1.28 V**. Two cpufreq domains confirmed on
+  the stock OS (`cpufreq/policy0` = little, `policy4` = big). → filled into
+  `dts/staging/trimui-cpu-opp.dtsi`.
+- **GPU DVFS ladder** 150 / 200 / 300 / 400 / 600 / 648 / 696 / 744 / 840 / **888 MHz** (vendor
+  `gpu-opp-table`; the draft previously stopped at 600). → filled into `dts/staging/trimui-gpu-opp.dtsi`.
+- **Vendor DVFS knobs** (for reference): per-cluster `cpufreq/policy{0,4}/force_{min,max}_freq`
+  and `/sys/class/gpu_ctl/force_max_freq` (mali_kbase), reset to 0 (unclamped) at boot.
+- **Thermal:** the vendor kernel exposes **≥6 thermal zones** (the OSD reads `thermal_zone5`).
+- **Bluetooth attach** = `hciattach -n ttyAS1 aic` (vendor `ttyAS1` = mainline `ttyS1` → our `&uart1`).
+
+**Net:** v1.0.2 is a userspace/UI refresh + kernel rebuild; it introduces **no** device-tree,
+bootloader, or (non-Mali) driver changes, so nothing in the port needs re-work. It is a **beta**
+— re-mine once v1.0.2 ships officially, in case the release build differs.

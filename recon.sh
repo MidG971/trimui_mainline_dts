@@ -47,15 +47,29 @@ else
   echo "i2cdetect not present. Buses:"; ls -d /dev/i2c-* 2>/dev/null
 fi
 
-sec "3. PMIC IDENTITY  (axp2202 vs axp717 — THE key ambiguity)"
-echo "For each i2c bus that ACKed 0x34 above, read the IC-type register."
-echo "AXP717 vs AXP2202 differ in their ID register value — record it."
+sec "3. PMIC IDENTITY  (axp717 vs axp2202 — THE key ambiguity)"
+echo "Board silk + Allwinner reference design say AXP717C, whose register map matches"
+echo "mainline's x-powers,axp717 driver. AXP717C has NO chip-ID/version register, so we"
+echo "identify by BEHAVIOUR: dump the whole PMIC and check the AXP717 map decodes sanely."
+echo "If 0x83/84/85 (DCDC1/2/3 V-set) + regulator_summary (sec 9) match the known rails"
+echo "(esp. DCDC3 ~= 1.10V DRAM) -> axp717-compatible. A dump that does NOT decode as"
+echo "AXP717 => a genuinely different AXP2202 and mainline needs a new driver. Capture BOTH."
 if have i2cget; then
   for b in $(i2cdetect -l 2>/dev/null | sed -n 's/^i2c-\([0-9]\+\).*/\1/p'); do
-    v=$(i2cget -y "$b" 0x34 0x03 2>/dev/null) && \
-      echo "  bus $b  pmic@0x34 reg0x03 (IC type) = $v"
+    i2cget -y "$b" 0x34 0x00 >/dev/null 2>&1 || continue
+    echo "===== PMIC @ i2c-$b addr 0x34 ====="
+    if have i2cdump; then
+      echo "[full register dump 0x00-0xff — read-only]"; i2cdump -y "$b" 0x34 b 2>/dev/null
+    fi
+    echo "[key AXP717C registers]"
+    for r in 0x00 0x01 0x03 0x0b 0x19 0x80 0x81 0x82 0x83 0x84 0x85 0x90 0x91 0xa4; do
+      v=$(i2cget -y "$b" 0x34 "$r" 2>/dev/null)
+      echo "  reg $r = $v"
+    done
+    echo "  expect (AXP717C): 0x83/84/85 = DCDC1/2/3 V-set; DCDC3 ~1.10V (DRAM);"
+    echo "                    0x00/0x01 = PMU status; 0x03 is RESERVED (nonzero => suspect)."
   done
-  echo "Also probe CPU-regulator candidates (which one ACKs = populated):"
+  echo "CPU big-cluster regulator (which addr ACKs = populated; expect 0x41=tcs4838):"
   for b in $(i2cdetect -l 2>/dev/null | sed -n 's/^i2c-\([0-9]\+\).*/\1/p'); do
     for a in 0x36 0x41 0x60; do
       i2cget -y "$b" "$a" 0x00 >/dev/null 2>&1 && \
@@ -63,7 +77,7 @@ if have i2cget; then
     done
   done
 else
-  echo "i2cget not present — note which addresses i2cdetect showed."
+  echo "i2cget not present — install i2c-tools; note which addresses i2cdetect showed."
 fi
 
 sec "4. POWER SUPPLY / BATTERY  (confirm 5000mAh design, voltages, charger)"
@@ -88,6 +102,24 @@ sec "7. USB topology  (which port hosts what; OTG gadget config)"
 have lsusb && lsusb
 echo "[usb gadget functions in use]"; ls /sys/kernel/config/usb_gadget/ 2>/dev/null
 dump /sys/kernel/debug/usb/devices
+
+sec "7B. USB-C / DISPLAYPORT ALT MODE  (the 'usb/dp' port: PD + DP-out)"
+echo "Vendor HW has a full DP-alt-mode chain: TCON3 -> drm_edp (allwinner,drm-dp, 4-lane)"
+echo "-> husb311 TCPC (usb-c-connector altmode SVID 0xff01 = DisplayPort) + ps8743 USB3/DP"
+echo "mux (twi5). Capture the live Type-C / DP state (DP-out rides on the display port)."
+echo "[type-c ports / partners / alt modes (SVID ff01 = DisplayPort)]"
+for t in /sys/class/typec/*; do
+  dump "$t/uevent"
+  for am in "$t"/*/svid "$t"/*/*/svid; do
+    [ -e "$am" ] && { printf '  altmode %s = ' "$am"; cat "$am" 2>/dev/null; }
+  done
+done
+ls -l /sys/class/typec 2>/dev/null
+echo "[husb311 TCPC + ps8743 mux on i2c]"; ls -l /sys/bus/i2c/devices 2>/dev/null | grep -iE 'husb|ps87|tcpc'
+echo "[DRM connectors — is a DP/eDP connector exposed?]"
+for s in /sys/class/drm/*/status; do dump "$s"; done
+echo "[dmesg: typec / tcpm / husb311 / ps8743 / dp / edp]"
+dmesg 2>/dev/null | grep -iE 'husb311|ps8743|tcpm|typec|alt.?mode|displayport|[^a-z]dp[^a-z]|edp' | tail -40
 
 sec "8. STORAGE  (eMMC + SD layout — needed to plan a safe full backup)"
 dump /proc/partitions

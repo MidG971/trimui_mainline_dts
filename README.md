@@ -27,7 +27,7 @@ Mainline Linux bring-up for the **Trimui Smart Pro S** retro-gaming handheld
 
 Hardware bring-up hasn't started yet — **the device hasn't arrived**, so
 everything so far is build- and `dt-validate`-verified only. The board DTS targets
-**mainline Linux v7.1**; the base — serial console, microSD/eMMC, USB2, PMIC +
+**mainline Linux v7.2**; the base — serial console, microSD/eMMC, USB2, PMIC +
 regulators, RTC, the LEDC RGB array, WiFi-SDIO sequencing + BT UART, and the Mali
 GPU (Panfrost) — builds against mainline and is `dt-validate`-clean. The MIPI-DSI
 display, PWM backlight and audio ship as an out-of-tree patch series under
@@ -50,7 +50,7 @@ hardware facts or test patches.
 
 ```bash
 ./compile.sh                                   # board DTB only (syntax-level)
-./kernel/build-trimui-kernel.sh <v7.1-src>     # full kernel: patches + drivers + dtbs
+./kernel/build-trimui-kernel.sh <v7.2-src>     # full kernel: patches + drivers + dtbs
 ```
 
 Details and validation gates: [Building](https://github.com/MidG971/trimui_mainline_dts/wiki/Building).

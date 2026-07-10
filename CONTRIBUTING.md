@@ -40,7 +40,7 @@ bitten this project repeatedly, so "it compiles" alone will be sent back.
 What "tested" means depends on what you touched — see
 [How to validate your change](#how-to-validate-your-change) below. At minimum
 your change must **build and pass the relevant validator** on the project's
-baseline (mainline Linux **v7.1**). If your change affects hardware behavior and
+baseline (mainline Linux **v7.2**). If your change affects hardware behavior and
 you have a device, test it on the device. If you do **not** have a device, that
 is fine — say so explicitly and state precisely what you *did* validate (build /
 `dt-validate` / checkpatch). Marking work **"unverified on silicon"** is normal
@@ -51,7 +51,7 @@ and welcome here; silently implying it works is not.
 Someone else must be able to repeat what you did from your description alone.
 That means:
 
-- **Exact commands and baseline.** State the kernel tree/tag (e.g. `v7.1`), the
+- **Exact commands and baseline.** State the kernel tree/tag (e.g. `v7.2`), the
   repo commit you branched from, the toolchain, and the literal commands you
   ran. "I built it" is not reproducible; the command that built it is.
 - **Provenance for every hardware fact.** Do not invent nodes, addresses, GPIOs,
@@ -127,7 +127,7 @@ that will get a PR closed on principle rather than on its merits.
 
 ## How to validate your change
 
-Pick the rows that apply. Run them on a mainline **v7.1** tree (the project
+Pick the rows that apply. Run them on a mainline **v7.2** tree (the project
 baseline) before opening the PR, and paste the relevant output into the PR.
 
 ### Device tree (`dts/`)
@@ -137,7 +137,7 @@ baseline) before opening the PR, and paste the relevant output into the PR.
   ./compile.sh
   ```
 - Real validation against the kernel schema — copy the board DTS (and
-  `dts/trimui-panel.dtsi`) into a v7.1 tree's
+  `dts/trimui-panel.dtsi`) into a v7.2 tree's
   `arch/arm64/boot/dts/allwinner/`, add it to that Makefile, then:
   ```sh
   make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CHECK_DTBS=y dtbs
@@ -150,9 +150,9 @@ baseline) before opening the PR, and paste the relevant output into the PR.
 
 ### Kernel drivers / patch series (`kernel/`)
 
-- Build clean, with warnings on (`W=1`), against v7.1:
+- Build clean, with warnings on (`W=1`), against v7.2:
   ```sh
-  ./kernel/build-trimui-kernel.sh <path-to-v7.1-kernel-src>
+  ./kernel/build-trimui-kernel.sh <path-to-v7.2-kernel-src>
   # internally: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- W=1 ...
   ```
 - Patches must be `git format-patch` form with a `Signed-off-by` line and pass

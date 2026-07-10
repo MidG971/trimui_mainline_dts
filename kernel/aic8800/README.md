@@ -12,9 +12,8 @@ WiFi-only; the piece they drop — **Bluetooth** — is included here.
 
 | File | |
 |---|---|
-| [`build-aic8800.sh`](build-aic8800.sh) | Fetches the pinned BSP, applies the port, builds the 3 modules |
-| [`aic8800-7.2.patch`](aic8800-7.2.patch) | Our port of the vendor driver to mainline v6.15+/v7.x |
-| [`aic_compat72.h`](aic_compat72.h) | Small force-included compat shim (version-guarded) |
+| [`build-aic8800.sh`](build-aic8800.sh) | Fetches the pinned source, applies the delta, builds the 3 modules (`make M=`) |
+| [`aic8800-warpme-v7.2.patch`](aic8800-warpme-v7.2.patch) | Our tiny v7.1→v7.2 delta on top of the pinned source |
 
 **Not here (by policy):** the RF firmware and the `.ko` binaries. Extract the
 firmware from your device's own stock rootfs (`/lib/firmware/aic8800d80/`,
@@ -22,11 +21,18 @@ firmware from your device's own stock rootfs (`/lib/firmware/aic8800d80/`,
 
 ## Source
 
-Pinned to **radxa-pkg/aic8800** `bd11969` — SDK **V5.0** (2026-01-23), driver
-`fdrv` **6.4.3.0**, which is the exact version shipped in the Trimui stock
-firmware. Built from its `src/SDIO/driver_fw/driver/aic8800/` tree, which uniquely
-carries all three modules — `aic8800_bsp`, `aic8800_fdrv` (WiFi) and
-`aic8800_btlpm` (BT) — plus the `libbt-vendor` userspace with the `aic` HCI type.
+Pinned to **warpme/minimyth2** `97b9429b` — its in-tree AIC8800 SDIO backport,
+snapshot **v2025_0926**, driver `fdrv` **6.4.3.0** (the exact version shipped in
+the Trimui stock firmware, so it stays compatible with the device's firmware
+blobs). It carries all three modules — `aic8800_bsp`, `aic8800_fdrv` (WiFi) and
+`aic8800_btlpm` (BT) — and, unlike older snapshots, already includes the
+modern-kernel fixups (it targets linux-7.1). We build it **out-of-tree** (`make M=`)
+so nothing is patched into your kernel tree.
+
+> Earlier this used radxa-pkg/aic8800 (`fdrv` 6.4.3.0, snapshot 2025_0225) with a
+> larger 5.15→7.x port + compat shim. warpme's snapshot is newer, on the same fdrv
+> line, and already 7.1-fixed, so the port shrank to the three-line delta below.
+> See `docs/`/the tracking notes for how to check warpme for newer snapshots.
 
 ## Build
 
@@ -35,19 +41,18 @@ carries all three modules — `aic8800_bsp`, `aic8800_fdrv` (WiFi) and
 ./build-aic8800.sh /path/to/linux-v7.2 [work-dir]
 ```
 Produces `aic8800_bsp.ko`, `aic8800_fdrv.ko`, `aic8800_btlpm.ko`. Verified building
-**clean on v7.2-rc1** (0 errors), vermagic `7.2.0-rc1`.
+**clean on v7.2-rc1** (0 errors, modpost clean), vermagic `7.2.0-rc1`.
 
-## What the port does
+## What the delta does
 
-The vendor driver targets ~5.15 and predates several kernel changes:
-- **`aic8800-7.2.patch`** — `of_gpio.h`→`gpio/consumer.h`; add `<vmalloc.h>`;
-  `MODULE_IMPORT_NS()`→string literal (6.13+); the v7.2 **`cfg80211_ops`
-  migration** (keys/stations `net_device`→`wireless_dev`; `radio_idx`/`link_id`
-  added to tx-power etc.; internal callers pass `->ieee80211_ptr`); the TDLS
-  `ieee80211_mgmt` action-union change.
-- **`aic_compat72.h`** (force-included) — mechanical renames: `del_timer`→
-  `timer_delete`, `from_timer`→`timer_container_of`, `in_irq`→`in_hardirq`,
-  `wakeup_source_*`→`register/unregister`, `strncpy`→`strscpy`.
+warpme's snapshot is already fixed for linux-7.1, so only the residual v7.1→v7.2
+gap remains. `aic8800-warpme-v7.2.patch` (3 hunks):
+
+- **`rwnx_platform.c`** — `strncpy()` was removed in v7.2; the call copies an exact
+  computed length and NUL-terminates on the next line, so it becomes `memcpy()`.
+- **`rwnx_msg_tx.c`** — `strncpy()` into a fixed-size buffer becomes `strscpy()`.
+- **`rwnx_main.c`** — the v7.2 `cfg80211_ops.remain_on_channel` gained a trailing
+  `const u8 *rx_addr`; add it to the callback (the internal helper ignores it).
 
 ## Runtime (on the device)
 
@@ -61,7 +66,7 @@ The vendor driver targets ~5.15 and predates several kernel changes:
    ```
 3. Bluetooth HCI over UART (`&uart1`, PG6-9 + RTS/CTS):
    ```sh
-   hciattach -n ttyS1 aic    # vendor hciattach fork with the "aic" type
+   hciattach -n ttyS1 aic    # vendor hciattach "aic" type (vendor ttyAS1 = mainline ttyS1)
    ```
    Then `hciconfig hci0 up` / `bluetoothd`. Alternatively, test whether mainline's
    generic `hci_uart`/`btattach` can drive it once firmware is loaded (`btlpm` is
@@ -71,4 +76,6 @@ The vendor driver targets ~5.15 and predates several kernel changes:
 
 - Builds clean on v7.2-rc1; **not yet silicon-verified** (no device in hand).
 - `.ko` are kernel-version locked — rebuild against whatever kernel you ship.
-- Re-pin + re-test `aic8800-7.2.patch` if the BSP or kernel baseline moves.
+- Re-pin (`MM2_PIN` in the script) + re-test the delta if the source or kernel
+  baseline moves. warpme also ships a USB backport (`3402-…`) — not needed here
+  (the Trimui uses SDIO), but available if a USB AIC8800 ever matters.

@@ -118,7 +118,10 @@ that will get a PR closed on principle rather than on its merits.
   (display, GPADC, THS thermal, USB3) so we can drop out-of-tree carries as they
   land. Note which kernel version you validated against.
 - **Docs and provenance** — improving `PORTING-NOTES.md` / `docs/` with cited
-  facts.
+  facts. The [project wiki](https://github.com/MidG971/trimui_mainline_dts/wiki)
+  summarises these for readers; if you edit it, see
+  [`docs/WIKI-MAINTENANCE.md`](docs/WIKI-MAINTENANCE.md) for how it's structured
+  and how to check a page actually renders.
 
 ---
 

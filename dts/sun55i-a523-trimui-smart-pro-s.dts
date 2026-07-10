@@ -46,12 +46,22 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-	/* LiPo pack. VERIFY capacity + OCV table against the device. */
+	/*
+	 * LiPo pack, 5000 mAh. Values from the vendor DTB: battery-cap 0x1388 =
+	 * 5000 mAh, init-chgvol 0x1068 = 4.2 V CV, runtime-chgcur 0x3e8 = 1 A
+	 * (the vendor bumps to ~1.95 A in suspend/shutdown). The AXP717 has a
+	 * hardware fuel gauge (E-gauge) that reports charge % directly, so mainline's
+	 * axp717 battery driver reads SoC from hardware and consumes only the
+	 * charge-current + voltage limits below — the vendor's 32-point OCV curve
+	 * (pmu_bat_para1..32) is not needed by mainline (kept in FIRMWARE-FINDINGS).
+	 * VERIFY the design-min and capacity against the device.
+	 */
 	battery: battery {
 		compatible = "simple-battery";
-		voltage-min-design-microvolt = <3400000>;
-		voltage-max-design-microvolt = <4350000>;
-		charge-full-design-microamp-hours = <5000000>;	/* VERIFY */
+		voltage-min-design-microvolt = <3400000>;		/* VERIFY */
+		voltage-max-design-microvolt = <4200000>;		/* vendor CV = 4.2 V */
+		constant-charge-current-max-microamp = <1000000>;	/* 1 A runtime */
+		charge-full-design-microamp-hours = <5000000>;		/* 5000 mAh */
 	};
 
 	/*

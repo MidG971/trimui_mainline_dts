@@ -34,6 +34,7 @@ device arrives, with the exact tools for each step.
 | serial terminal: `picocom`/`minicom`/`screen` | console | install: `sudo apt install picocom` |
 | our U-Boot FEL image | `uboot-a523/u-boot-sunxi-with-spl-trimui.bin` | ✅ built |
 | `recon.sh` | read-only day-1 collector | ✅ in repo root |
+| `hw-verify.sh` | interactive guided per-subsystem verification + Markdown report generator | ✅ in repo root |
 | build host `compiler-rock3b` | kernel build (`kernel/build-trimui-kernel.sh`) | ✅ |
 
 ### On-device (stock OS, pushed via adb if missing)
@@ -184,6 +185,11 @@ HW tuning. See `kernel/DE35-NOTES.md`.
 ---
 
 ## Phase 7 — Input, audio, the rest
+
+> Drive every step below interactively with **`hw-verify.sh`** (repo root): it
+> guides each test (press a key, move a stick, listen for a tone…), captures the
+> output, and writes a mainlining-ready report with the DT calibration values.
+> `sh hw-verify.sh --help` · `--list` · `--demo` (no-device skeleton).
 
 - **Input**: `evtest` → LRADC keys (vol/side, `lradc@2009800`), the gamepad
   (D-pad/ABXY — kernel source TBD from recon), AXP2202 power key.

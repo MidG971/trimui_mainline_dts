@@ -380,33 +380,38 @@
 };
 
 /*
- * Side keys on LRADC (vendor "keyboard_1350mv", 3 keys). vref + the per-key
- * voltages need HW calibration (vendor scale = 1350 mV; values below are the
- * vendor thresholds). Keycodes from the vendor DTB.
+ * Side keys on LRADC (vendor "keyboard_1350mv", 3 keys). The per-key voltages
+ * and keycodes are transcribed from the vendor DTB (key0/1/2 = <voltage_mV
+ * keycode>): 410 mV / KEY_HOMEPAGE, 646 mV / KEY_VOLUMEUP, 900 mV /
+ * KEY_VOLUMEDOWN. So these are the vendor's measured thresholds, not guesses —
+ * confirm on HW with evtest. If a key doesn't fire, mainline's r329-LRADC scale
+ * differs from the vendor 1350 mV reference: read the driver's measured voltage
+ * (temporary dev_info in sun4i-lradc-keys.c) and/or fix vref-supply. See the
+ * "LRADC keys" step in docs/HARDWARE-BRINGUP.md.
  */
 &lradc {
-	vref-supply = <&reg_bldo2>;	/* 1.8V VERIFY */
+	vref-supply = <&reg_bldo2>;	/* 1.8V VERIFY (LRADC reference rail) */
 	status = "okay";
 
 	button-410 {
 		label = "Home";
 		linux,code = <KEY_HOMEPAGE>;
 		channel = <0>;
-		voltage = <410000>;	/* VERIFY */
+		voltage = <410000>;	/* vendor key0; confirm on HW */
 	};
 
 	button-646 {
 		label = "Volume Up";
 		linux,code = <KEY_VOLUMEUP>;
 		channel = <0>;
-		voltage = <646000>;	/* VERIFY */
+		voltage = <646000>;	/* vendor key1; confirm on HW */
 	};
 
 	button-900 {
 		label = "Volume Down";
 		linux,code = <KEY_VOLUMEDOWN>;
 		channel = <0>;
-		voltage = <900000>;	/* VERIFY */
+		voltage = <900000>;	/* vendor key2; confirm on HW */
 	};
 };
 

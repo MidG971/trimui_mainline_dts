@@ -187,6 +187,18 @@ HW tuning. See `kernel/DE35-NOTES.md`.
 
 - **Input**: `evtest` → LRADC keys (vol/side, `lradc@2009800`), the gamepad
   (D-pad/ABXY — kernel source TBD from recon), AXP2202 power key.
+  - **LRADC keys — confirm/calibrate (no multimeter):** the board keymap voltages
+    (410 / 646 / 900 mV → Home / Vol+ / Vol−) are transcribed from the vendor DTB
+    `key0/1/2`, so they should be right. **Confirm:** `evtest`, pick the LRADC device,
+    press each of the 3 keys, check the right code fires (`KEY_HOMEPAGE` / `KEY_VOLUMEUP`
+    / `KEY_VOLUMEDOWN`). If all fire → drop the `VERIFY` tags, done.
+    **If a key doesn't fire / maps wrong** (mainline's r329-LRADC scale ≠ vendor 1350 mV
+    ref): read the *measured* voltage in software — add a temporary
+    `dev_info(dev, "lradc voltage=%u\n", voltage);` in the IRQ handler of
+    `drivers/input/keyboard/sun4i-lradc-keys.c`, rebuild that module, press each button,
+    read `dmesg`, and put those µV in the DT. If all three are off by the same ratio, fix
+    `vref-supply` (currently `&reg_bldo2` / 1.8 V, tagged VERIFY) instead. (Alternatively
+    `devmem2` the LRADC data register at `0x2009800`+offset while holding a key.)
 - **Analog sticks**: GPADC (`adc-joystick`) — UM §8.4.
 - **RGB LEDs**: already wired — `&ledc` enabled in the board DTS with 17 RGB LEDs
   (the LEDC node + driver landed in mainline v7.1; `allwinner,sun55i-a523-ledc`). Check

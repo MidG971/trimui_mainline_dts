@@ -312,8 +312,15 @@
 
 /* USB */
 &usb_otg {
-	dr_mode = "otg";	/* external USB-C */
+	dr_mode = "otg";	/* external "usb/dp" USB-C port */
+	usb-role-switch;	/* host/device role driven by the husb311 Type-C PD controller */
 	status = "okay";
+
+	port {
+		usb_otg_hs_ep: endpoint {
+			remote-endpoint = <&usbc_hs_ep>;
+		};
+	};
 };
 
 &usbphy {
@@ -336,6 +343,61 @@
 
 &ohci1 {
 	status = "okay";
+};
+
+/*
+ * USB-C Type-C port controller on the "usb/dp" port. husb311 (Hynetek) is
+ * register-compatible with the Richtek RT1711H. It negotiates USB-PD (charging)
+ * and drives the OTG data-role switch (usb-role-switch on &usb_otg, via the
+ * sunxi musb role-switch support) so the port can host adapters as well as
+ * charge / act as a gadget. VERIFY on hardware: bus/pins (i2c5 = PB11/PB12),
+ * ALERT irq (PL13), the PDOs, and a vbus-supply (an AXP drive-vbus rail) if
+ * bus-powered host peripherals (keyboard/mouse) are to be powered.
+ */
+&i2c5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c5_pb_pins>;
+	status = "okay";
+
+	usb_pd: usb-pd@4e {
+		compatible = "hynetek,husb311", "richtek,rt1711h";
+		reg = <0x4e>;
+		interrupt-parent = <&r_pio>;
+		interrupts = <0 13 IRQ_TYPE_LEVEL_LOW>;	/* PL13, active-low ALERT */
+		wakeup-source;
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "usb/dp";
+			power-role = "dual";
+			data-role = "dual";
+			try-power-role = "source";
+			op-sink-microwatt = <1000000>;
+			/* PDOs transcribed from the vendor DTB — VERIFY on hardware. */
+			sink-pdos = <0x220190c8 0x864190c8>;
+			source-pdos = <0x22019032 0x86419078>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					usbc_hs_ep: endpoint {
+						remote-endpoint = <&usb_otg_hs_ep>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&pio {
+	i2c5_pb_pins: i2c5-pb-pins {
+		pins = "PB11", "PB12";	/* TWI5-SCK / TWI5-SDA */
+		allwinner,pinmux = <2>;
+		function = "i2c5";
+	};
 };
 
 /*

@@ -1,0 +1,175 @@
+From c524448d7e34dc81dde6f812f5dd7f1f1e12faca Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Mon, 13 Jul 2026 16:29:39 +0200
+Subject: [PATCH] usb: musb: sunxi: add optional USB role-switch support
+
+The sunxi MUSB glue only switches between host and peripheral via extcon
+(the ID pin / VBUS detection from the PHY). Boards that route the OTG port
+through a USB Type-C port controller (a TCPM such as the HUSB311/RT1711H)
+have no ID pin; the USB data role is decided by the Type-C stack instead.
+
+Register an optional usb_role_switch (opt-in via the "usb-role-switch"
+device property, wired from a usb-c-connector's OF graph) whose set()
+callback drives the same HOSTMODE workqueue the extcon notifier uses. This
+lets a TCPM flip the dual-role port to host so it can enumerate adapters,
+or to peripheral, without an ID pin. Modelled on the mediatek glue; select
+USB_ROLE_SWITCH so the API is always available.
+
+Boards without the property are unaffected: no role switch is registered
+and the extcon behaviour is unchanged.
+
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ .../usb/allwinner,sun4i-a10-musb.yaml         | 12 ++++
+ drivers/usb/musb/Kconfig                      |  1 +
+ drivers/usb/musb/sunxi.c                      | 56 ++++++++++++++++++-
+ 3 files changed, 68 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/usb/allwinner,sun4i-a10-musb.yaml b/Documentation/devicetree/bindings/usb/allwinner,sun4i-a10-musb.yaml
+index 7ffcd236d..5c9e14586 100644
+--- a/Documentation/devicetree/bindings/usb/allwinner,sun4i-a10-musb.yaml
++++ b/Documentation/devicetree/bindings/usb/allwinner,sun4i-a10-musb.yaml
+@@ -65,6 +65,18 @@ properties:
+     description: Phandle to the device SRAM
+     $ref: /schemas/types.yaml#/definitions/phandle-array
+ 
++  usb-role-switch:
++    $ref: /schemas/types.yaml#/definitions/flag
++    description:
++      Register a USB role switch, driven by a Type-C port controller (a TCPM),
++      to select the host or peripheral data role on boards that have no ID pin.
++
++  port:
++    $ref: /schemas/graph.yaml#/properties/port
++    description:
++      OF graph endpoint to a USB Type-C connector (usb-c-connector) used for
++      role switching.
++
+ required:
+   - compatible
+   - reg
+diff --git a/drivers/usb/musb/Kconfig b/drivers/usb/musb/Kconfig
+index f56929267..b58d50408 100644
+--- a/drivers/usb/musb/Kconfig
++++ b/drivers/usb/musb/Kconfig
+@@ -69,6 +69,7 @@ config USB_MUSB_SUNXI
+ 	depends on EXTCON
+ 	select GENERIC_PHY
+ 	select SUNXI_SRAM
++	select USB_ROLE_SWITCH
+ 
+ config USB_MUSB_DA8XX
+ 	tristate "DA8xx/OMAP-L1x"
+diff --git a/drivers/usb/musb/sunxi.c b/drivers/usb/musb/sunxi.c
+index a6bd3e968..6306a1972 100644
+--- a/drivers/usb/musb/sunxi.c
++++ b/drivers/usb/musb/sunxi.c
+@@ -17,10 +17,12 @@
+ #include <linux/of.h>
+ #include <linux/phy/phy-sun4i-usb.h>
+ #include <linux/platform_device.h>
++#include <linux/property.h>
+ #include <linux/reset.h>
+ #include <linux/soc/sunxi/sunxi_sram.h>
+ #include <linux/usb/musb.h>
+ #include <linux/usb/of.h>
++#include <linux/usb/role.h>
+ #include <linux/usb/usb_phy_generic.h>
+ #include <linux/workqueue.h>
+ #include "musb_core.h"
+@@ -91,6 +93,7 @@ struct sunxi_glue {
+ 	struct work_struct	work;
+ 	struct extcon_dev	*extcon;
+ 	struct notifier_block	host_nb;
++	struct usb_role_switch	*role_sw;
+ };
+ 
+ /* phy_power_on / off may sleep, so we use a workqueue  */
+@@ -219,6 +222,36 @@ static int sunxi_musb_host_notifier(struct notifier_block *nb,
+ 	return NOTIFY_DONE;
+ }
+ 
++/*
++ * Optional USB role-switch, driven by a Type-C port controller (e.g. a TCPM).
++ * Boards without an ID pin use this instead of the extcon ID/VBUS detection to
++ * flip the dual-role port between host and peripheral. It funnels into the same
++ * HOSTMODE work the extcon notifier above uses.
++ */
++static int sunxi_musb_role_switch_set(struct usb_role_switch *sw,
++				      enum usb_role role)
++{
++	struct sunxi_glue *glue = usb_role_switch_get_drvdata(sw);
++
++	if (role == USB_ROLE_HOST)
++		set_bit(SUNXI_MUSB_FL_HOSTMODE, &glue->flags);
++	else
++		clear_bit(SUNXI_MUSB_FL_HOSTMODE, &glue->flags);
++
++	set_bit(SUNXI_MUSB_FL_HOSTMODE_PEND, &glue->flags);
++	schedule_work(&glue->work);
++
++	return 0;
++}
++
++static enum usb_role sunxi_musb_role_switch_get(struct usb_role_switch *sw)
++{
++	struct sunxi_glue *glue = usb_role_switch_get_drvdata(sw);
++
++	return test_bit(SUNXI_MUSB_FL_HOSTMODE, &glue->flags) ?
++		USB_ROLE_HOST : USB_ROLE_DEVICE;
++}
++
+ static int sunxi_musb_init(struct musb *musb)
+ {
+ 	struct sunxi_glue *glue = dev_get_drvdata(musb->controller->parent);
+@@ -777,6 +810,23 @@ static int sunxi_musb_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, glue);
+ 
++	if (device_property_read_bool(&pdev->dev, "usb-role-switch")) {
++		struct usb_role_switch_desc desc = {
++			.fwnode = dev_fwnode(&pdev->dev),
++			.driver_data = glue,
++			.set = sunxi_musb_role_switch_set,
++			.get = sunxi_musb_role_switch_get,
++			.allow_userspace_control = true,
++		};
++
++		glue->role_sw = usb_role_switch_register(&pdev->dev, &desc);
++		if (IS_ERR(glue->role_sw)) {
++			ret = dev_err_probe(&pdev->dev, PTR_ERR(glue->role_sw),
++					    "Error registering role switch\n");
++			goto err_unregister_usb_phy;
++		}
++	}
++
+ 	memset(&pinfo, 0, sizeof(pinfo));
+ 	pinfo.name	 = "musb-hdrc";
+ 	pinfo.id	= PLATFORM_DEVID_AUTO;
+@@ -792,11 +842,13 @@ static int sunxi_musb_probe(struct platform_device *pdev)
+ 	if (IS_ERR(glue->musb_pdev)) {
+ 		ret = PTR_ERR(glue->musb_pdev);
+ 		dev_err(&pdev->dev, "Error registering musb dev: %d\n", ret);
+-		goto err_unregister_usb_phy;
++		goto err_unregister_role_sw;
+ 	}
+ 
+ 	return 0;
+ 
++err_unregister_role_sw:
++	usb_role_switch_unregister(glue->role_sw);
+ err_unregister_usb_phy:
+ 	usb_phy_generic_unregister(glue->usb_phy);
+ 	return ret;
+@@ -808,6 +860,8 @@ static void sunxi_musb_remove(struct platform_device *pdev)
+ 	struct platform_device *usb_phy = glue->usb_phy;
+ 
+ 	platform_device_unregister(glue->musb_pdev);
++	if (glue->role_sw)
++		usb_role_switch_unregister(glue->role_sw);
+ 	usb_phy_generic_unregister(usb_phy);
+ }
+ 
+-- 
+2.39.5
+

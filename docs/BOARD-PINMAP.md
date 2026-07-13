@@ -16,7 +16,7 @@ GPIO decode in vendor DTB: `<phandle bank pin flags>`.
 |---|---|---|---|
 | **UART0 console** | PB9 TX / PB10 RX | mux2 | `uart0_pb_pins`. Vendor can also route UART0→PF2/PF4 (debug-on-SD). |
 | **r_i2c0 (PMIC bus, = S-TWI0)** | PL0 SCK / PL1 SDA | mux2 | `i2c@7081400`. axp2202@0x34, tcs4838@0x41. |
-| S-TWI2 (USB-C PD bus) | PL12 SCK / PL13 SDA | mux2 | husb311 PD controller, intr=PL13. |
+| **i2c5 (USB-C PD bus, = TWI5)** | PB11 SCK / PB12 SDA | mux2 (Fn2) | `usb-pd@4e` husb311/rt1711h + ps8743 mux + ac107 all on `twi5@2503400`; ALERT irq=**PL13** (r_pio). ⚠️ earlier "S-TWI2/PL12-13" was WRONG — vendor DTB puts husb311 under `twi5@2503400`. |
 | **microSD (mmc0 = SDC0)** | PF0–PF5 + CD **PF6** (act-low) | mux2 / GPIO | D1,D0,CLK,CMD,D3,D2. |
 | **WiFi SDIO (mmc1 = SDC1)** | PG0–PG5 | mux2 | CLK,CMD,D0–D3. |
 | **eMMC (mmc2 = SDC2), 8-bit** | PC0 DS, PC1 RST, PC5 CLK, PC6 CMD, PC8 D3, PC9 D4, PC10 D0, PC11 D5, PC13 D1, PC14 D6, PC15 D2, PC16 D7 | mux3 | shares NAND pins. |
@@ -66,7 +66,7 @@ Panel routes through DSI1.
 | PH13 / PH14 | `pmu_vbus_det` / `pmu_acin_det` | ✅ likely |
 | PH7 / PH8 | `usb_gma340_sel/oe` (USB switch) | ? verify |
 | PH9 / PH10 | focaltech touch irq/reset | ✖ probably unpopulated (no touch) |
-| PB11/PB12, PL2/PL3 | JTAG tck/tms, tdi/tdo | debug only |
+| PL2/PL3 | JTAG (r_pio) | debug only. NB: JTAG tck/tms/do/di also on **PB0–3** (datasheet Fn4). **PB11/PB12 are TWI5/i2c5** here (husb311), NOT JTAG. |
 | PB4 test, PL4 suspend | misc | verify |
 
 ## Inputs (no gpio-keys in vendor DTB)

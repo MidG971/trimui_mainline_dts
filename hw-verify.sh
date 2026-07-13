@@ -533,7 +533,7 @@ t_gamepad() {
 
 # ----------------------------------------------------------------------------
 t_sticks() {
-	begin_test sticks "Calibrate the two analog sticks: read raw ADC per axis at both extremes + centre. Feeds adc-joystick abs-range / abs-flat."
+	begin_test sticks "Calibrate the two analog sticks (read raw ADC per axis at extremes + centre -> abs-range/abs-flat) AND confirm the adc-joystick input axes fire (ABS_X/Y left, ABS_RX/RY right)."
 	cap "for d in /sys/bus/iio/devices/iio:device*; do [ -e \"\$d\" ] && printf '%s name=%s\\n' \"\$d\" \"\$(cat \$d/name 2>/dev/null)\"; done"
 	_chs=""
 	[ "$DEMO" != 1 ] && _chs=$(ls /sys/bus/iio/devices/iio:device*/in_voltage*_raw 2>/dev/null)
@@ -579,10 +579,26 @@ t_sticks() {
 		say "    -> min=${_min:-?} max=${_max:-?} centre=${_c:-?}  (suggest abs-flat=$_flat)"
 		calib "axis $_i ($_f): abs-range = <${_min:-0} ${_max:-4095}>; abs-flat = <${_flat}>; centre~${_c:-?}"
 	done
+	# Functional layer: the adc-joystick node should expose input device(s) with ABS
+	# axes, not just raw ADC. Confirm the joystick input responds (closes the loop
+	# between the GPADC read and a working stick).
+	cap "grep -iE -B1 -A4 'adc.joystick|joystick' /proc/bus/input/devices 2>/dev/null || echo '(no adc-joystick input device — is joystick-left/right bound? needs CONFIG_JOYSTICK_ADC)'"
+	_js=""; [ "$DEMO" != 1 ] && _js=$(find_event "joystick")
+	if [ -n "$_js" ]; then
+		say "  adc-joystick input present (e.g. /dev/input/$_js; there may be TWO — one per stick)."
+		say "  In evtest, move each stick: LEFT = ABS_X/ABS_Y, RIGHT = ABS_RX/ABS_RY."
+		have evtest && manual "evtest sticks" "evtest /dev/input/$_js   # move a stick; watch ABS_X/Y (left) or ABS_RX/RY (right)"
+	elif [ "$DEMO" != 1 ]; then
+		say "  Raw GPADC reads work (above) but there is NO adc-joystick input node — the"
+		say "  joystick-left/right node isn't bound (check the board DTS + CONFIG_JOYSTICK_ADC)."
+	fi
+	pause "  Press Enter after checking the stick ABS axes in evtest..."
+	_jsok=$(askval "Do both sticks report ABS axes in evtest? (both/left/right/no)" "both")
+	calib "adc-joystick input: LEFT=ABS_X/ABS_Y (&gpadc), RIGHT=ABS_RX/ABS_RY (&gpadc1); responding=${_jsok}"
 	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ "$DEMO" != 1 ] && _dflt=PASS
-	finish "$(verdict "$_dflt")" "swept $_i channel(s) — see abs-range lines" \
-		"joystick-left/right axis@0/1 abs-range + abs-flat (io-channels &gpadc / &gpadc1)" \
-		"12-bit expected (0..4095). Set abs-range to the measured min/max and abs-flat to a deadzone."
+	finish "$(verdict "$_dflt")" "swept $_i channel(s); adc-joystick axes=${_jsok}" \
+		"joystick-left/right axis@0/1 abs-range + abs-flat (io-channels &gpadc / &gpadc1); adc-joystick input (ABS_X/Y + ABS_RX/RY)" \
+		"12-bit (0..4095): set abs-range to measured min/max, abs-flat = deadzone. GPADC0 upstream v7.2; GPADC1 via kernel/patches/0012 (both build clean on v7.2-rc3)."
 }
 
 # ----------------------------------------------------------------------------

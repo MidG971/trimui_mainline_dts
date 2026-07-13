@@ -34,7 +34,7 @@ device arrives, with the exact tools for each step.
 | serial terminal: `picocom`/`minicom`/`screen` | console | install: `sudo apt install picocom` |
 | our U-Boot FEL image | `uboot-a523/u-boot-sunxi-with-spl-trimui.bin` | ✅ built |
 | `recon.sh` | read-only day-1 collector | ✅ in repo root |
-| `hw-verify.sh` | interactive guided per-subsystem verification + Markdown report generator | ✅ in repo root |
+| `hw-verify.sh` | interactive guided verification + Markdown report generator; also guides the pre-rootfs phases below (`--bringup` = recon/backup/fel/sdboot) | ✅ in repo root |
 | build host `compiler-rock3b` | kernel build (`kernel/build-trimui-kernel.sh`) | ✅ |
 
 ### On-device (stock OS, pushed via adb if missing)
@@ -44,6 +44,13 @@ device arrives, with the exact tools for each step.
 - `evtest` — to identify input devices (gamepad MCU, LRADC keys).
 
 ---
+
+> Phases 1–4 can be driven interactively with **`hw-verify.sh --bringup`** (ids
+> `recon` / `backup` / `fel` / `sdboot`): it prints the exact command for each
+> step, and for the risky ones (backup `dd`, FEL, SD write) it labels the risk,
+> requires a typed acknowledgement, and records the outcome — it never runs a
+> `dd`, enters FEL, or writes storage itself. Results land in the same report as
+> the Phase-7 subsystem tests. The manual commands below remain the source of truth.
 
 ## Phase 1 — Recon on the stock OS (READ-ONLY, zero risk)
 

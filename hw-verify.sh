@@ -14,20 +14,31 @@
 #
 # Run it on the device (mainline rootfs preferred; degrades on the stock OS):
 #     sh hw-verify.sh            # interactive menu (pick tests, re-run, skip)
-#     sh hw-verify.sh --all      # run every test in order
+#     sh hw-verify.sh --all      # run every on-device subsystem test in order
 #     sh hw-verify.sh pmic lradc # run just those tests
+#     sh hw-verify.sh --bringup  # the pre-rootfs phases (recon/backup/fel/sdboot)
 #     sh hw-verify.sh --demo     # no-device skeleton (everything PENDING)
 #     sh hw-verify.sh --list     # list test ids
 #     sh hw-verify.sh --help
 #
+# Two groups of steps share one report format:
+#   * BRING-UP phases (recon, backup, fel, sdboot) cover the pre-rootfs runbook
+#     steps from docs/HARDWARE-BRINGUP.md (run from the HOST / stock OS). The
+#     risky ones (eMMC backup dd, FEL, SD write) are GUIDED ONLY: the script
+#     prints the exact command to run by hand, loudly labels the risk, requires
+#     a typed acknowledgement, and records the result — it NEVER executes a dd,
+#     enters FEL, or writes/partitions any storage itself.
+#   * SUBSYSTEM tests (identity..cpufreq) assume an already-booted mainline
+#     rootfs and actively exercise each block (press a button, move a stick...).
+#
 # POSIX sh / busybox-ash safe, read-mostly. The only writes are optional and
-# explicit (backlight/LED/fan sweeps, and only after confirming the sysfs node
-# is writable); each restores the original value. It never flashes or partitions.
-# If a tool is missing it prints how to get it and SKIPs; if stdin is not a TTY
-# it auto-skips every prompt so piping/CI can never wedge it.
+# explicit (backlight/LED/fan/vibrator sweeps, and only after confirming the
+# sysfs node is writable); each restores the original value. It never flashes or
+# partitions. If a tool is missing it prints how to get it and SKIPs; if stdin is
+# not a TTY it auto-skips every prompt so piping/CI can never wedge it.
 #
 # Cross-references: recon.sh, dts/sun55i-a523-trimui-smart-pro-s.dts,
-# docs/HARDWARE-BRINGUP.md (Phase 5/7), docs/UPSTREAMING.md, FIRMWARE-FINDINGS.md.
+# docs/HARDWARE-BRINGUP.md (Phases 1-7), docs/UPSTREAMING.md, FIRMWARE-FINDINGS.md.
 # ============================================================================
 
 SELF=hw-verify.sh
@@ -38,7 +49,12 @@ DEMO=0
 INTERACTIVE=1
 [ -t 0 ] || INTERACTIVE=0
 
-TEST_IDS="identity pmic lradc gamepad sticks display audio leds wifi bluetooth usb battery thermal cpufreq"
+# On-device subsystem tests (assume a booted mainline rootfs).
+TEST_IDS="identity storage pmic lradc gamepad sticks display audio leds vibrator wifi bluetooth usb battery rtc thermal cpufreq"
+# Pre-rootfs bring-up phases (run from the host / stock OS; guided, mostly RO).
+BRINGUP_IDS="recon backup fel sdboot"
+# Full ordered set (bring-up first, chronologically) for the report + menus.
+ALL_IDS="$BRINGUP_IDS $TEST_IDS"
 
 # ---- primitives (echo recon.sh's helper style) -----------------------------
 sec()  { printf '\n\n========== %s ==========\n' "$1"; }
@@ -46,9 +62,37 @@ say()  { printf '%s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 need() {
-	# need TOOL "install hint" -> 0 if present, else print hint + return 1
+	# need TOOL "install hint" -> 0 if present, else print hint + return 1.
+	# In demo mode always succeed so the no-device skeleton shows the full test
+	# body (commands + calibration) even on a host that lacks the on-device tool.
 	have "$1" && return 0
+	[ "$DEMO" = 1 ] && return 0
 	say "  [tool missing] '$1' not found — $2"
+	return 1
+}
+
+danger() {
+	# danger ACKWORD "one-line risk description" -> gate a risky bring-up step.
+	# The script NEVER runs the dangerous command itself; this only decides
+	# whether to prompt for the step's result. Prints a loud, labelled warning
+	# (also into the report), then:
+	#   demo / non-TTY / non-interactive -> auto-skip (return 1), never armed;
+	#   interactive -> require typing ACKWORD exactly to arm (return 0).
+	printf '\n  %s\n' "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+	printf '  !! RISKY STEP: %s\n' "$2"
+	printf '  !! This script will NOT run it — it only shows the exact command to\n'
+	printf '  !! run BY HAND and records the outcome. It never dds, enters FEL, or\n'
+	printf '  !! writes/partitions any storage. Read the command before you run it.\n'
+	printf '  %s\n' "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+	{ printf '\n> RISKY STEP (guided, NOT executed by this script): %s\n' "$2"; } >> "$TESTBUF"
+	if [ "$DEMO" = 1 ] || [ "$INTERACTIVE" != 1 ]; then
+		say "  (auto-skip: demo / no TTY — step documented above, not armed)"
+		return 1
+	fi
+	printf '  Type %s to acknowledge the risk and record a result (else skip): ' "$1"
+	read -r _ack || return 1
+	[ "$_ack" = "$1" ] && return 0
+	say "  (skipped — acknowledgement not given)"
 	return 1
 }
 
@@ -64,7 +108,9 @@ verdict() {
 	# Demo => always PENDING. Non-interactive => the default the caller computed.
 	if [ "$DEMO" = 1 ]; then echo PENDING; return; fi
 	if [ "$INTERACTIVE" != 1 ]; then echo "${1:-SKIP}"; return; fi
-	printf '  Verdict [P]ass/[F]ail/[S]kip (default %s): ' "${1:-SKIP}"
+	# Prompt to stderr: this runs inside $(...), so only the resolved verdict may
+	# reach stdout (else the prompt text pollutes the captured value).
+	printf '  Verdict [P]ass/[F]ail/[S]kip (default %s): ' "${1:-SKIP}" >&2
 	read -r _v || { echo "${1:-SKIP}"; return; }
 	case "$_v" in
 		p|P|pass|PASS) echo PASS ;;
@@ -77,7 +123,9 @@ verdict() {
 askval() {
 	# askval "prompt" "default" -> echo the user's typed value (or the default)
 	if [ "$INTERACTIVE" != 1 ] || [ "$DEMO" = 1 ]; then echo "$2"; return; fi
-	printf '  %s [%s]: ' "$1" "$2"
+	# Prompt to stderr: askval runs inside $(...), so stdout must carry only the
+	# typed value (a stdout prompt would be captured into the result).
+	printf '  %s [%s]: ' "$1" "$2" >&2
 	read -r _x || { echo "$2"; return; }
 	if [ -n "$_x" ]; then echo "$_x"; else echo "$2"; fi
 }
@@ -166,7 +214,12 @@ find_event() {
 
 test_title() {
 	case "$1" in
+		recon)     echo "Phase 1 — stock-OS recon (recon.sh + live DTB)" ;;
+		backup)    echo "Phase 2 — eMMC backup (brick-insurance)" ;;
+		fel)       echo "Phase 3 — FEL RAM-boot U-Boot (DRAM retarget)" ;;
+		sdboot)    echo "Phase 4 — first mainline boot from microSD" ;;
 		identity)  echo "Identity, kernel & live DTB" ;;
+		storage)   echo "Storage (microSD mmc0 / eMMC mmc2 + partitions)" ;;
 		pmic)      echo "PMIC identity (AXP717C vs AXP2202) + CPU regulator" ;;
 		lradc)     echo "LRADC side keys (Home / Vol+ / Vol-)" ;;
 		gamepad)   echo "Gamepad / buttons (D-pad, ABXY, L/R) source" ;;
@@ -174,14 +227,108 @@ test_title() {
 		display)   echo "Display (DRM connector) + backlight sweep" ;;
 		audio)     echo "Audio codec (speaker / mic / headphone jack)" ;;
 		leds)      echo "LEDC RGB array (17 LEDs, colour order)" ;;
+		vibrator)  echo "Vibrator (pwm-vibrator, pwm0 ch7)" ;;
 		wifi)      echo "WiFi (AIC8800 SDIO on mmc1)" ;;
 		bluetooth) echo "Bluetooth (AIC8800 UART / hci0)" ;;
-		usb)       echo "USB host / gadget / USB-C DP alt-mode" ;;
+		usb)       echo "USB host / gadget / USB-C PD + DP alt-mode" ;;
 		battery)   echo "Battery / charger" ;;
+		rtc)       echo "RTC (sun55i-a523 rtc@7090000)" ;;
 		thermal)   echo "Thermal zones + PWM fan" ;;
 		cpufreq)   echo "CPU frequency / OPP (little + big cluster)" ;;
 		*)         echo "$1" ;;
 	esac
+}
+
+# ============================================================================
+# PRE-ROOTFS BRING-UP PHASES (host / stock OS; guided, mostly read-only).
+# These mirror docs/HARDWARE-BRINGUP.md Phases 1-4. The destructive-looking
+# ones are GUIDED ONLY (see danger()): the script prints the command to run by
+# hand and records the outcome; it never dds, enters FEL, or writes storage.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+t_recon() {
+	begin_test recon "Phase 1: guided READ-ONLY recon on the STOCK OS — run recon.sh over adb and pull the live DTB. Resolves the HW-gated unknowns (PMIC id, AIC8800 variant, gamepad source, partition map)."
+	say "  Runs on the HOST over adb (stock OS; adbd autostarts). Fully read-only —"
+	say "  recon.sh flashes/writes nothing. This step just guides + records it."
+	if have adb; then cap "adb devices"; else say "  (adb absent on this host — install android-tools-adb / platform-tools)"; fi
+	if [ -f recon.sh ]; then say "  recon.sh found in $(pwd) — push and run it:"; else say "  recon.sh not in CWD; run these from the repo root."; fi
+	manual "run the passive recon dump" "adb push recon.sh /tmp/ && adb shell sh /tmp/recon.sh | tee recon-\$(date +%F).log"
+	manual "pull the live DTB (for offline DE work + diffing)" "adb pull /sys/firmware/fdt live.dtb && dtc -I dtb -O dts live.dtb -o live.dts"
+	_ok=$(askval "recon.sh completed and live.dtb pulled OK? (yes/no)" "yes")
+	calib "Phase-1 recon: keep recon-<date>.log + live.dtb — they feed the pmic/wifi/gamepad/storage verdicts and the Phase-6 DE DT assembly"
+	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ "$_ok" = yes ] && _dflt=PASS
+	finish "$(verdict "$_dflt")" "recon + live.dtb = ${_ok}" \
+		"Phase-1 recon log + live.dtb (input to pmic/wifi/gamepad/storage + Phase-6 DE assembly)" \
+		"recon.sh is the read-only collector; see docs/HARDWARE-BRINGUP.md Phase 1. Do the backup (Phase 2) before writing anything."
+}
+
+# ----------------------------------------------------------------------------
+t_backup() {
+	begin_test backup "Phase 2: full eMMC image backup (brick-insurance) BEFORE anything is written. READS the eMMC to a host file; it does not modify the device."
+	say "  Runs on the HOST over adb (stock OS, root). On the STOCK OS the eMMC is"
+	say "  usually /dev/block/mmcblk0 and the microSD is mmcblk1 — CONFIRM before dd"
+	say "  (under mainline the eMMC is mmc2; the index differs by kernel)."
+	manual "confirm which device is the eMMC first" "adb shell cat /proc/partitions   # eMMC = the large internal one (~mmcblk0 on stock)"
+	manual "image the whole eMMC to a host file" "adb shell 'dd if=/dev/block/mmcblk0 bs=8M' > emmc-full-backup.img"
+	manual "checksum the image" "sha256sum emmc-full-backup.img | tee emmc-full-backup.img.sha256"
+	if danger BACKUP "images the whole eMMC to emmc-full-backup.img (a host-side READ; the device is not modified)"; then
+		_sz=$(askval "Backup image size (e.g. 8G / bytes), blank if not done" "")
+		_ok=$(askval "Image created AND sha256 saved? (yes/no)" "yes")
+	else
+		_sz=""; _ok="skipped"
+	fi
+	calib "recovery: emmc-full-backup.img (+ .sha256) + stock firmware trimui_tg5050_20251218_v1.0.1 kept safe; /proc/partitions map -> storage test + boot config"
+	_dflt=SKIP; [ "$_ok" = yes ] && _dflt=PASS
+	finish "$(verdict "$_dflt")" "backup = ${_ok}; size = ${_sz:-?}" \
+		"brick-insurance eMMC image (recovery path); partition map feeds the storage test + boot config" \
+		"Keep the image and the stock firmware archive. This is the recovery path if a later write goes wrong."
+}
+
+# ----------------------------------------------------------------------------
+t_fel() {
+	begin_test fel "Phase 3: brick-safe FEL RAM-boot of our U-Boot to validate the DRAM retarget. FEL is RAM-only — it touches NO storage, so it cannot brick."
+	say "  Runs on the HOST. Serial console on ttyS0 (UART0 = PB9 TX / PB10 RX,"
+	say "  3.3 V, 115200 8N1). Watch it for the DRAM training + U-Boot prompt."
+	if have sunxi-fel; then cap "sunxi-fel version"; else say "  (sunxi-fel absent — install sunxi-tools; it must be A523/sun55iw3-capable)"; fi
+	if ls uboot/*.bin >/dev/null 2>&1; then cap "ls -l uboot/*.bin"; else say "  (no FEL image yet — build uboot/u-boot-sunxi-with-spl-trimui.bin; see uboot/README.md)"; fi
+	manual "open the serial console" "picocom -b 115200 /dev/ttyUSB0"
+	manual "enter FEL (RAM loader)" "adb reboot efex     # or hold the A523 FEL button combo at power-on"
+	manual "confirm the SoC over FEL" "sunxi-fel version   # must report A523 / sun55iw3"
+	manual "RAM-boot our U-Boot (no storage write)" "sunxi-fel -v uboot uboot/u-boot-sunxi-with-spl-trimui.bin"
+	if danger FEL "RAM-boots our U-Boot over USB to validate the DRAM params (RAM-only; no storage write)"; then
+		_ver=$(askval "sunxi-fel version string (expect sun55iw3 / A523)" "")
+		_dram=$(askval "DRAM trained + U-Boot prompt reached on serial? (yes/no)" "yes")
+	else
+		_ver=""; _dram="skipped"
+	fi
+	calib "U-Boot DRAM retarget: if DRAM init hangs, tweak tpr2/tpr6/tpr10/tpr11/tpr12 in uboot/trimui-tg5050_defconfig; DRAM rail = reg_dcdc3 (vdd-dram 1.10 V) = CONFIG_AXP_DCDC3_VOLT=1100"
+	_dflt=SKIP; [ "$_dram" = yes ] && _dflt=PASS
+	finish "$(verdict "$_dflt")" "sunxi-fel = ${_ver:-?}; DRAM+U-Boot = ${_dram}" \
+		"U-Boot DRAM retarget (uboot/trimui-tg5050_defconfig tpr2/6/10/11/12); reg_dcdc3 vdd-dram 1.10 V" \
+		"FEL is RAM-only and cannot brick. If DRAM fails: uboot/DRAM-PARAMS.md + uboot/DRAM-VALIDATION.md, rebuild, retry."
+}
+
+# ----------------------------------------------------------------------------
+t_sdboot() {
+	begin_test sdboot "Phase 4: first mainline boot from microSD (never eMMC). The microSD is written on the HOST — the device eMMC is never touched."
+	say "  Build on compiler-rock3b (kernel/build-trimui-kernel.sh) -> Image +"
+	say "  sun55i-a523-trimui-smart-pro-s.dtb + modules, then write a boot microSD."
+	say "  WRITE THE SD, NOT YOUR HOST DISK: check lsblk and pick the right /dev/sdX."
+	manual "identify the SD on the host (before writing)" "lsblk   # confirm the microSD node; NOT your system disk"
+	manual "kernel cmdline for extlinux/boot.scr" "console=ttyS0,115200 root=/dev/mmcblk0p2 rw   # SD enumerates as mmc0"
+	manual "boot from SD in U-Boot" "load mmc 0:1 <addr> Image; load mmc 0:1 <addr> <dtb>; booti ..."
+	if danger SDCARD "you will PARTITION + WRITE a microSD on the host (choose the SD node carefully; never the device eMMC)"; then
+		_con=$(askval "Console to a shell over ttyS0? (yes/no)" "yes")
+		_map=$(askval "SD came up as mmc0 and eMMC as mmc2 (dmesg | grep mmc)? (yes/no)" "yes")
+	else
+		_con="skipped"; _map="skipped"
+	fi
+	calib "boot: console=ttyS0,115200 root=/dev/mmcblk0p2 (SD=&mmc0); dtb=sun55i-a523-trimui-smart-pro-s.dtb; eMMC=&mmc2 (leave untouched until proven)"
+	_dflt=SKIP; [ "$_con" = yes ] && _dflt=PASS
+	finish "$(verdict "$_dflt")" "console = ${_con}; mmc-map(SD=mmc0,eMMC=mmc2) = ${_map}" \
+		"first microSD boot; console + root= cmdline; &mmc0/&mmc2 index mapping (feeds the storage test)" \
+		"Boot the SD until proven; keep eMMC pristine. DTS aliases: mmc0=microSD, mmc1=WiFi SDIO, mmc2=eMMC."
 }
 
 # ----------------------------------------------------------------------------
@@ -199,6 +346,31 @@ t_identity() {
 	finish "$_v" "${_model:-see raw output}" \
 		"model/compatible in dts/sun55i-a523-trimui-smart-pro-s.dts; /tmp/live.dtb for Phase 6 DE assembly" \
 		"Expected model 'Trimui Smart Pro S', compatible 'trimui,smart-pro-s'."
+}
+
+# ----------------------------------------------------------------------------
+t_storage() {
+	begin_test storage "Enumerate the MMC devices and confirm the runbook mapping (microSD = mmc0, WiFi SDIO = mmc1, eMMC = mmc2) plus the partition map. READ-ONLY."
+	cap "for h in /sys/class/mmc_host/mmc*; do [ -e \"\$h\" ] && printf '%s -> %s\\n' \"\$h\" \"\$(readlink -f \$h 2>/dev/null)\"; done"
+	cap "for b in /sys/block/mmcblk*; do [ -e \"\$b\" ] && printf '%s size=%s type=%s\\n' \"\$b\" \"\$(cat \$b/size 2>/dev/null)\" \"\$(cat \$b/device/type 2>/dev/null)\"; done"
+	cap "cat /proc/partitions 2>/dev/null"
+	have lsblk && cap "lsblk -o NAME,SIZE,TYPE,MOUNTPOINT 2>/dev/null"
+	cap "ls -l /dev/disk/by-name 2>/dev/null || ls -l /dev/mmcblk*p* 2>/dev/null"
+	cap "dmesg 2>/dev/null | grep -iE 'mmc[0-9]|mmcblk|mmc_host' | tail -20"
+	_sd=""; _emmc=""
+	if [ "$DEMO" != 1 ]; then
+		# SD is removable (mmcblk*/removable=1); eMMC is non-removable + biggest.
+		for _b in /sys/block/mmcblk*; do
+			[ -e "$_b/removable" ] || continue
+			if [ "$(cat "$_b/removable" 2>/dev/null)" = 1 ]; then _sd=$(basename "$_b"); else _emmc=$(basename "$_b"); fi
+		done
+	fi
+	_map=$(askval "Does dmesg show SD=mmc0, WiFi=mmc1, eMMC=mmc2? (yes/no/partial)" "yes")
+	calib "storage: microSD=&mmc0 (cd-gpios PF6, cap-sd-highspeed), WiFi SDIO=&mmc1 (non-removable, pwrseq), eMMC=&mmc2 (bus-width 8, hs400-1_8v). vmmc=&reg_cldo3 / vqmmc=&reg_cldo1 VERIFY"
+	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ "$_map" = yes ] && _dflt=PASS
+	finish "$(verdict "$_dflt")" "SD=${_sd:-?} eMMC=${_emmc:-?}; mmc index map=${_map}" \
+		"&mmc0/&mmc1/&mmc2 index + vmmc/vqmmc supplies; root= boot device (mmc0p2 on SD)" \
+		"Confirms the SD=mmc0 / eMMC=mmc2 mapping the runbook + boot cmdline rely on. eMMC vmmc/vqmmc rails are VERIFY in the DTS."
 }
 
 # ----------------------------------------------------------------------------
@@ -283,27 +455,32 @@ t_lradc() {
 
 # ----------------------------------------------------------------------------
 t_gamepad() {
-	begin_test gamepad "Identify the D-pad/ABXY/L/R source (open question: gpio-keys? USB/i2c MCU? hidraw?) and confirm the buttons register."
+	begin_test gamepad "Identify the D-pad/ABXY/shoulder/stick-click(L3,R3) source (open question: gpio-keys? USB/i2c MCU? hidraw?) and confirm every button registers."
 	cap "cat /proc/bus/input/devices 2>/dev/null"
 	cap "ls -l /dev/input/ 2>/dev/null"
 	cap "ls -l /dev/hidraw* /dev/ttyS* 2>/dev/null"
 	have lsusb && cap "lsusb" || say "  (lsusb absent — install usbutils to see an internal USB gamepad MCU)"
 	cap "dmesg 2>/dev/null | grep -iE 'input:|gamepad|joystick|hid|gpio-key' | tail -20"
-	_ev=""; [ "$DEMO" != 1 ] && _ev=$(find_event "gamepad\\|joystick\\|controller\\|pad\\|trimui\\|hid")
+	_ev=""; [ "$DEMO" != 1 ] && _ev=$(find_event "gamepad|joystick|controller|pad|trimui|hid")
 	if [ -n "$_ev" ]; then
 		say "  Candidate gamepad device = /dev/input/$_ev"
-		have evtest && manual "evtest gamepad" "evtest /dev/input/$_ev   # press D-pad, A/B/X/Y, L/R, Start/Select"
+		have evtest && manual "evtest gamepad" "evtest /dev/input/$_ev   # press D-pad, A/B/X/Y, L1/R1, L2/R2, Select/Start, and CLICK both sticks (L3/R3)"
 	else
 		say "  No obvious gamepad input node — inspect /proc/bus/input/devices above."
 	fi
-	pause "  Press Enter after exercising every button in evtest..."
+	say "  Don't forget the stick CLICKS: press each analog stick straight down until"
+	say "  it clicks. L3 = BTN_THUMBL (code 317), R3 = BTN_THUMBR (code 318). They are"
+	say "  DIGITAL buttons on THIS gamepad node — not the GPADC axes (that's the 'sticks' test)."
+	pause "  Press Enter after exercising every button (incl. L3/R3) in evtest..."
 	_src=$(askval "What is the kernel source of the pad? (usb-hid / i2c-mcu / gpio-keys / platform / unknown)" "unknown")
 	_ok=$(askval "Did every button register? (yes/some/no)" "yes")
+	_l3r3=$(askval "Did L3 and R3 (clicking the two sticks) both register? (yes/one/no)" "yes")
 	calib "gamepad source = ${_src}; node = /dev/input/${_ev:-?}  (informs the DT/driver decision — do NOT fabricate gpio-keys)"
+	calib "stick-click buttons: L3=BTN_THUMBL(317) R3=BTN_THUMBR(318) on the gamepad node; registered=${_l3r3}"
 	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ "$_ok" = yes ] && _dflt=PASS
-	finish "$(verdict "$_dflt")" "source=${_src}; node=/dev/input/${_ev:-?}; buttons=${_ok}" \
-		"gamepad input node/driver (open question in PORTING-NOTES §1); NOT gpio-keys" \
-		"Vendor uses userspace trimui_inputd over an internal MCU; capture what the kernel actually exposes."
+	finish "$(verdict "$_dflt")" "source=${_src}; node=/dev/input/${_ev:-?}; buttons=${_ok}; L3/R3=${_l3r3}" \
+		"gamepad input node/driver (open question in PORTING-NOTES §1); NOT gpio-keys; L3/R3=BTN_THUMBL/BTN_THUMBR" \
+		"Vendor uses userspace trimui_inputd over an internal MCU; capture what the kernel exposes, INCLUDING the two stick-click (L3/R3) buttons on the same node."
 }
 
 # ----------------------------------------------------------------------------
@@ -326,6 +503,8 @@ t_sticks() {
 		return
 	fi
 	say "  Found channels — sweep each one. Map: gpadc0 ch0/ch1 = LEFT X/Y, gpadc1 ch0/ch1 = RIGHT X/Y."
+	say "  (These are the analog AXES only. The stick-CLICK buttons L3/R3 are digital —"
+	say "   test them in the 'gamepad' test, they land on the gamepad input node.)"
 	_i=0
 	for _f in $_chs; do
 		_i=$((_i + 1))
@@ -473,6 +652,29 @@ t_leds() {
 }
 
 # ----------------------------------------------------------------------------
+t_vibrator() {
+	begin_test vibrator "Confirm the haptic motor (pwm-vibrator on pwm0 ch7, 50000 ns, normal polarity). The driver registers an input force-feedback (FF_RUMBLE) device, so drive it via a rumble effect."
+	cap "cat /proc/bus/input/devices 2>/dev/null | grep -iB2 -A3 'vibr\\|rumble\\|haptic' || echo '(no vibrator input device listed)'"
+	cap "ls /sys/class/pwm/ 2>/dev/null; for c in /sys/class/pwm/pwmchip*/pwm*; do [ -e \"\$c/period\" ] && printf '%s period=%s duty=%s enable=%s\\n' \"\$c\" \"\$(cat \$c/period 2>/dev/null)\" \"\$(cat \$c/duty_cycle 2>/dev/null)\" \"\$(cat \$c/enable 2>/dev/null)\"; done"
+	cap "dmesg 2>/dev/null | grep -iE 'vibrat|pwm-vibrator|rumble|input:.*[Vv]ibr' | tail -10"
+	_ev=""; [ "$DEMO" != 1 ] && _ev=$(find_event "vibr|rumble|haptic")
+	if [ -n "$_ev" ]; then
+		say "  Vibrator FF device = /dev/input/$_ev"
+		have fftest && manual "buzz the motor" "fftest /dev/input/$_ev   # select a RUMBLE/periodic effect and feel it"
+	else
+		say "  No vibrator FF input node found (need the pwm-vibrator driver bound + pwm0)."
+		manual "buzz the motor" "fftest /dev/input/eventN   # pick the vibrator node from the list above"
+	fi
+	pause "  Press Enter after trying to buzz the motor..."
+	_ok=$(askval "Did the motor buzz? (yes/no/skip)" "yes")
+	calib "vibrator: pwms = <&pwm0 7 50000 0>; pwm-names=\"enable\"; compatible=\"pwm-vibrator\" (vendor: pwm0 ch7, 50 us period, normal polarity)"
+	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ "$_ok" = yes ] && _dflt=PASS
+	finish "$(verdict "$_dflt")" "buzz=${_ok}; node=/dev/input/${_ev:-?}" \
+		"vibrator{} compatible pwm-vibrator; pwms=<&pwm0 7 50000 0> (PWM0 channel 7)" \
+		"Vendor DTB: haptic on PWM0 ch7, 50000 ns period, normal polarity. Shares &pwm0 with backlight (ch0) + fan (ch10)."
+}
+
+# ----------------------------------------------------------------------------
 t_wifi() {
 	begin_test wifi "Confirm the AIC8800 SDIO WiFi (mmc1) loads and scans; capture the D80 vs DC variant."
 	cap "lsmod 2>/dev/null | grep -iE 'aic|cfg80211|mac80211'"
@@ -543,14 +745,19 @@ t_usb() {
 	cap "for t in /sys/class/typec/*; do [ -e \"\$t/uevent\" ] && cat \"\$t/uevent\"; done"
 	cap "for a in /sys/class/typec/*/*/svid /sys/class/typec/*/*/*/svid; do [ -e \"\$a\" ] && printf '%s = %s\\n' \"\$a\" \"\$(cat \$a)\"; done"
 	cap "ls -l /sys/bus/i2c/devices 2>/dev/null | grep -iE 'husb|ps87|tcpc'"
+	# USB-PD: the husb311/RT1711H TCPC + tcpm expose the role + negotiated contract.
+	cap "for r in /sys/class/typec/*/power_role /sys/class/typec/*/data_role; do [ -e \"\$r\" ] && printf '%s = %s\\n' \"\$r\" \"\$(cat \$r)\"; done"
+	cap "for p in /sys/class/power_supply/tcpm* /sys/class/power_supply/*usb*pd*; do [ -e \"\$p/uevent\" ] && { echo \"--- \$p ---\"; cat \"\$p/uevent\"; }; done"
+	cap "ls /sys/class/usb_power_delivery/ 2>/dev/null"
 	say "  For DP-out: plug a USB-C DisplayPort sink; expect an alt-mode with SVID 0xff01."
 	_host=$(askval "Did the USB host port enumerate a device? (yes/no)" "yes")
+	_pd=$(askval "USB-PD contract negotiated (tcpm power_supply ONLINE / PDOs)? (yes/no/skip)" "skip")
 	_dp=$(askval "USB-C DisplayPort alt-mode (svid ff01) present? (yes/no/skip)" "skip")
-	calib "USB: otg dr_mode=otg; DP alt-mode svid 0xff01 via husb311 TCPC + ps8743 mux (DP-out is Phase-6+)"
+	calib "USB: otg dr_mode=otg; PD via husb311 (compatible \"hynetek,husb311\",\"richtek,rt1711h\"); DP alt-mode svid 0xff01 via ps8743 mux (DP-out is Phase-6+)"
 	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ "$_host" = yes ] && _dflt=PASS
-	finish "$(verdict "$_dflt")" "host-enum=${_host}; dp-altmode=${_dp}" \
-		"&usb_otg / &ehci0-1 / &ohci0-1 / &usbphy; typec DP alt-mode (husb311 + ps8743)" \
-		"USB2 data + PD charging work now; DP-out depends on the display stack (Phase 6)."
+	finish "$(verdict "$_dflt")" "host-enum=${_host}; pd-contract=${_pd}; dp-altmode=${_dp}" \
+		"&usb_otg / &ehci0-1 / &ohci0-1 / &usbphy; husb311 TCPC (PD) + typec DP alt-mode (ps8743 mux)" \
+		"USB2 data + PD charging work now (husb311 = RT1711H fallback, upstream); DP-out depends on the ps8743 mux driver + display stack (Phase 6)."
 }
 
 # ----------------------------------------------------------------------------
@@ -573,6 +780,33 @@ t_battery() {
 	finish "$(verdict "$_dflt")" "capacity=${_cap:-?}% voltage=${_volt:-?}uV status=${_stat:-?}" \
 		"battery{} simple-battery values; axp717 constant-charge-current-max / voltage-max-design" \
 		"Expected 5000 mAh, 4.2 V CV, 1 A runtime. AXP717 has a HW fuel gauge (no OCV table in DT)."
+}
+
+# ----------------------------------------------------------------------------
+t_rtc() {
+	begin_test rtc "Confirm the on-SoC RTC (rtc@7090000) is bound, reads a time, and ticks. READ-ONLY (no clock set). Feeds &rtc enable + wake/alarm."
+	cap "ls -l /dev/rtc* 2>/dev/null; ls /sys/class/rtc/ 2>/dev/null"
+	cap "for r in /sys/class/rtc/rtc*; do [ -e \"\$r\" ] && printf '%s name=%s date=%s time=%s\\n' \"\$r\" \"\$(cat \$r/name 2>/dev/null)\" \"\$(cat \$r/date 2>/dev/null)\" \"\$(cat \$r/time 2>/dev/null)\"; done"
+	have hwclock && cap "hwclock -r 2>&1"
+	cap "dmesg 2>/dev/null | grep -iE 'rtc|sun6i-rtc' | tail -10"
+	# Tick check: read the RTC seconds twice, ~2 s apart, and confirm it advanced.
+	# Interactive only (needs the two Enter presses to space the reads apart).
+	_ticks="skip"
+	if [ "$INTERACTIVE" = 1 ] && [ "$DEMO" != 1 ] && [ -e /sys/class/rtc/rtc0/since_epoch ]; then
+		_t1=$(cat /sys/class/rtc/rtc0/since_epoch 2>/dev/null)
+		pause "  Waiting to re-read the RTC (press Enter, wait ~2 s, press Enter again)..."
+		pause ""
+		_t2=$(cat /sys/class/rtc/rtc0/since_epoch 2>/dev/null)
+		if [ -n "$_t1" ] && [ -n "$_t2" ] && [ "$_t2" -gt "$_t1" ] 2>/dev/null; then _ticks="yes"; else _ticks="no"; fi
+		{ printf 'since_epoch: t1=%s t2=%s -> ticking=%s\n' "${_t1:-?}" "${_t2:-?}" "$_ticks"; } >> "$TESTBUF"
+		say "  since_epoch $_t1 -> $_t2 (ticking=$_ticks)"
+	fi
+	_ok=$(askval "RTC present and reading a sane time? (yes/no)" "yes")
+	calib "&rtc: status = \"okay\" (sun55i-a523 rtc@7090000); reads time + ticks (${_ticks}). Confirm battery-backed retention across a power cycle if an RTC cell is fitted."
+	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ "$_ok" = yes ] && _dflt=PASS
+	finish "$(verdict "$_dflt")" "read=${_ok}; ticking=${_ticks}" \
+		"&rtc (rtc@7090000) enable; RTC time source / alarm-wake" \
+		"On-SoC RTC via sun55i-a523.dtsi. Retention across power-off depends on a fitted RTC battery/supercap (VERIFY on HW)."
 }
 
 # ----------------------------------------------------------------------------
@@ -627,7 +861,12 @@ t_cpufreq() {
 # ---- dispatcher ------------------------------------------------------------
 run_test() {
 	case "$1" in
+		recon)     t_recon ;;
+		backup)    t_backup ;;
+		fel)       t_fel ;;
+		sdboot)    t_sdboot ;;
 		identity)  t_identity ;;
+		storage)   t_storage ;;
 		pmic)      t_pmic ;;
 		lradc)     t_lradc ;;
 		gamepad)   t_gamepad ;;
@@ -635,10 +874,12 @@ run_test() {
 		display)   t_display ;;
 		audio)     t_audio ;;
 		leds)      t_leds ;;
+		vibrator)  t_vibrator ;;
 		wifi)      t_wifi ;;
 		bluetooth) t_bluetooth ;;
 		usb)       t_usb ;;
 		battery)   t_battery ;;
+		rtc)       t_rtc ;;
 		thermal)   t_thermal ;;
 		cpufreq)   t_cpufreq ;;
 		*)         say "unknown test: $1  (see --list)" ;;
@@ -677,7 +918,7 @@ report_finalize() {
 		printf '\n\n---\n\n## Summary\n\n'
 		printf '| Test | Feature | Verdict | Measured value |\n'
 		printf '|---|---|---|---|\n'
-		for id in $TEST_IDS; do
+		for id in $ALL_IDS; do
 			_line=$(grep "^$id	" "$SUMMARY" 2>/dev/null | tail -n1)
 			[ -n "$_line" ] || continue
 			_vd=$(printf '%s' "$_line" | cut -f2)
@@ -714,24 +955,30 @@ id_for_num() {
 menu() {
 	while :; do
 		printf '\n===== Trimui Smart Pro S — HW verification =====\n'
+		printf ' Pre-rootfs bring-up phases (host / stock OS; type the id to run):\n'
+		for _id in $BRINGUP_IDS; do
+			printf '      %-9s %s\n' "$_id" "$(test_title "$_id")"
+		done
+		printf ' On-device subsystem tests (booted mainline rootfs):\n'
 		_i=0
 		for _id in $TEST_IDS; do
 			_i=$((_i + 1))
 			printf '  %2d) %-9s %s\n' "$_i" "$_id" "$(test_title "$_id")"
 		done
-		printf '   a) run ALL    r) show report path    q) finish & quit\n'
+		printf '   a) run subsystem tests   b) run bring-up phases   r) report path   q) quit\n'
 		printf 'select> '
 		read -r _sel || break
 		case "$_sel" in
 			q|Q|'') break ;;
 			a|A) for _id in $TEST_IDS; do run_test "$_id"; done ;;
+			b|B) for _id in $BRINGUP_IDS; do run_test "$_id"; done ;;
 			r|R) printf 'report: %s\n' "$REPORT" ;;
 			*)
 				_id=$(id_for_num "$_sel")
 				if [ -n "$_id" ]; then
 					run_test "$_id"
 				else
-					case " $TEST_IDS " in
+					case " $ALL_IDS " in
 						*" $_sel "*) run_test "$_sel" ;;
 						*) printf 'invalid selection: %s\n' "$_sel" ;;
 					esac
@@ -743,34 +990,49 @@ menu() {
 # ---- help ------------------------------------------------------------------
 usage() {
 	cat <<EOF
-$SELF — interactive on-device hardware verification for the Trimui Smart Pro S
-(Allwinner A523). Guides you through exercising each subsystem and writes a
-mainlining-ready Markdown report. Companion to the read-only recon.sh.
+$SELF — interactive hardware verification for the Trimui Smart Pro S
+(Allwinner A523). Guides you through the pre-rootfs bring-up phases and the
+on-device subsystem tests, and writes a mainlining-ready Markdown report.
+Companion to the read-only recon.sh.
 
 Usage:
   sh $SELF [options] [test ...]
 
 Options:
   -h, --help        this help
-  -l, --list        list the test ids and titles
-  -a, --all         run every test in order (non-interactive-friendly)
-  -d, --demo        no-device self-test: emit a PENDING report skeleton
+  -l, --list        list the test ids and titles (both groups)
+  -a, --all         run every on-device subsystem test in order
+  -b, --bringup     run the pre-rootfs bring-up phases (recon/backup/fel/sdboot)
+  -d, --demo        no-device self-test: emit a full PENDING report skeleton
   -y, --yes         non-interactive (auto-skip all prompts) even on a TTY
   -o, --output FILE report path (default: /tmp/trimui-hw-report-<timestamp>.md)
 
 With no test ids and a TTY, an interactive menu opens (pick / re-run / skip).
-Given test ids, only those run, e.g.:  sh $SELF pmic sticks
+Given test ids, only those run, e.g.:  sh $SELF pmic sticks   sh $SELF fel
+
+Two groups (same report format):
+  * BRING-UP phases (recon backup fel sdboot) — the pre-rootfs runbook steps,
+    run from the HOST / stock OS. The risky ones (eMMC backup dd, FEL, SD write)
+    are GUIDED ONLY: the script prints the command to run by hand, loudly labels
+    the risk, requires a typed acknowledgement, and records the result. It NEVER
+    dds, enters FEL, or writes/partitions storage itself — you cannot brick the
+    device by running this script.
+  * SUBSYSTEM tests (identity storage pmic .. rtc thermal cpufreq) — actively
+    exercise each block on a booted mainline rootfs.
 
 Notes:
   * POSIX sh / busybox-ash safe. Mostly read-only; the only writes are explicit
-    backlight/LED/fan sweeps (and only if the sysfs node is writable), each of
-    which restores the original value. It never flashes or repartitions.
+    backlight/LED/fan/vibrator sweeps (and only if the sysfs node is writable),
+    each of which restores the original value. It never flashes or repartitions.
   * If a tool is missing it prints how to install it and SKIPs the test.
   * If stdin is not a TTY, every prompt auto-skips (safe to pipe / run in CI).
 EOF
 }
 
 list_tests() {
+	printf 'Bring-up phases (pre-rootfs; host / stock OS):\n'
+	for _id in $BRINGUP_IDS; do printf '  %-9s %s\n' "$_id" "$(test_title "$_id")"; done
+	printf 'Subsystem tests (booted mainline rootfs):\n'
 	for _id in $TEST_IDS; do printf '  %-9s %s\n' "$_id" "$(test_title "$_id")"; done
 }
 
@@ -779,19 +1041,21 @@ list_tests() {
 # ============================================================================
 REPORT=""
 RUN_ALL=0
+RUN_BRINGUP=0
 ARGS_TESTS=""
 
 while [ $# -gt 0 ]; do
 	case "$1" in
-		-h|--help)   usage; exit 0 ;;
-		-l|--list)   list_tests; exit 0 ;;
-		-a|--all)    RUN_ALL=1 ;;
-		-d|--demo)   DEMO=1; INTERACTIVE=0 ;;
-		-y|--yes)    INTERACTIVE=0 ;;
-		-o|--output) shift; REPORT=$1 ;;
-		--output=*)  REPORT=${1#--output=} ;;
-		-*)          say "unknown option: $1 (see --help)"; exit 2 ;;
-		*)           ARGS_TESTS="$ARGS_TESTS $1" ;;
+		-h|--help)    usage; exit 0 ;;
+		-l|--list)    list_tests; exit 0 ;;
+		-a|--all)     RUN_ALL=1 ;;
+		-b|--bringup) RUN_BRINGUP=1 ;;
+		-d|--demo)    DEMO=1; INTERACTIVE=0 ;;
+		-y|--yes)     INTERACTIVE=0 ;;
+		-o|--output)  shift; REPORT=$1 ;;
+		--output=*)   REPORT=${1#--output=} ;;
+		-*)           say "unknown option: $1 (see --help)"; exit 2 ;;
+		*)            ARGS_TESTS="$ARGS_TESTS $1" ;;
 	esac
 	shift
 done
@@ -824,15 +1088,20 @@ report_init
 
 # Decide what to run.
 if [ "$DEMO" = 1 ]; then
-	for id in $TEST_IDS; do run_test "$id"; done
+	# Full skeleton: bring-up phases + every subsystem test, all PENDING.
+	for id in $ALL_IDS; do run_test "$id"; done
 elif [ -n "$ARGS_TESTS" ]; then
 	for id in $ARGS_TESTS; do run_test "$id"; done
+elif [ "$RUN_BRINGUP" = 1 ] && [ "$RUN_ALL" = 1 ]; then
+	for id in $ALL_IDS; do run_test "$id"; done
+elif [ "$RUN_BRINGUP" = 1 ]; then
+	for id in $BRINGUP_IDS; do run_test "$id"; done
 elif [ "$RUN_ALL" = 1 ]; then
 	for id in $TEST_IDS; do run_test "$id"; done
 elif [ "$INTERACTIVE" = 1 ]; then
 	menu
 else
-	# non-interactive, no explicit tests: run all, prompts auto-skip.
+	# non-interactive, no explicit tests: run the subsystem tests, prompts auto-skip.
 	for id in $TEST_IDS; do run_test "$id"; done
 fi
 

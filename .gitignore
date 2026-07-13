@@ -19,3 +19,4 @@ u-boot-sunxi-with-spl*
 *.pdf
 a523_trm.pdf
 A523_User_Manual*
+.aider*

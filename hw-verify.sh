@@ -16,13 +16,13 @@
 #     sh hw-verify.sh            # interactive menu (pick tests, re-run, skip)
 #     sh hw-verify.sh --all      # run every on-device subsystem test in order
 #     sh hw-verify.sh pmic lradc # run just those tests
-#     sh hw-verify.sh --bringup  # the pre-rootfs phases (recon/backup/fel/sdboot)
+#     sh hw-verify.sh --bringup  # the pre-rootfs phases (vendorboot/recon/backup/fel/sdboot)
 #     sh hw-verify.sh --demo     # no-device skeleton (everything PENDING)
 #     sh hw-verify.sh --list     # list test ids
 #     sh hw-verify.sh --help
 #
 # Two groups of steps share one report format:
-#   * BRING-UP phases (recon, backup, fel, sdboot) cover the pre-rootfs runbook
+#   * BRING-UP phases (vendorboot, recon, backup, fel, sdboot) cover the pre-rootfs runbook
 #     steps from docs/HARDWARE-BRINGUP.md (run from the HOST / stock OS). The
 #     risky ones (eMMC backup dd, FEL, SD write) are GUIDED ONLY: the script
 #     prints the exact command to run by hand, loudly labels the risk, requires
@@ -52,7 +52,7 @@ INTERACTIVE=1
 # On-device subsystem tests (assume a booted mainline rootfs).
 TEST_IDS="identity storage pmic lradc gamepad sticks display audio leds vibrator wifi bluetooth usb battery rtc thermal cpufreq"
 # Pre-rootfs bring-up phases (run from the host / stock OS; guided, mostly RO).
-BRINGUP_IDS="recon backup fel sdboot"
+BRINGUP_IDS="vendorboot recon backup fel sdboot"
 # Full ordered set (bring-up first, chronologically) for the report + menus.
 ALL_IDS="$BRINGUP_IDS $TEST_IDS"
 
@@ -214,6 +214,7 @@ find_event() {
 
 test_title() {
 	case "$1" in
+		vendorboot) echo "Phase 0 — fresh vendor boot log (golden reference)" ;;
 		recon)     echo "Phase 1 — stock-OS recon (recon.sh + live DTB)" ;;
 		backup)    echo "Phase 2 — eMMC backup (brick-insurance)" ;;
 		fel)       echo "Phase 3 — FEL RAM-boot U-Boot (DRAM retarget)" ;;
@@ -245,6 +246,34 @@ test_title() {
 # ones are GUIDED ONLY (see danger()): the script prints the command to run by
 # hand and records the outcome; it never dds, enters FEL, or writes storage.
 # ============================================================================
+
+# ----------------------------------------------------------------------------
+t_vendorboot() {
+	begin_test vendorboot "Phase 0: capture a FULL kernel log from a COLD boot of the STOCK firmware — the golden reference the mainline boot is diffed against (driver probe order, regulator/clock/PMIC init, input-device registration, thermal/cpufreq bring-up). READ-ONLY."
+	say "  Do this on a FRESH power-on: the earliest boot lines are the most useful and"
+	say "  the first to be lost once the kernel ring buffer wraps. Two capture paths —"
+	say "  serial gets vendor U-Boot + the whole kernel boot; adb gets the kernel log"
+	say "  without opening the case. Grab both if you can."
+	if have adb; then cap "adb devices"; else say "  (adb absent — install android-tools-adb / platform-tools for the adb path)"; fi
+	say ""
+	say "  [A] Serial (best — also captures vendor U-Boot). 3.3V UART on ttyS0"
+	say "      (PB9 TX / PB10 RX, 115200 8N1). Start logging BEFORE you power on:"
+	manual "serial cold-boot capture" "picocom -b 115200 /dev/ttyUSB0 --logfile vendor-serial-boot-\$(date +%F).log   # then cold-power the device"
+	say "  [B] adb (no disassembly). Cold-boot the stock OS, then grab dmesg promptly"
+	say "      (on a fresh boot the ring buffer still holds the whole kernel log):"
+	manual "adb fresh-boot dmesg" "adb wait-for-device && adb shell dmesg > vendor-dmesg-boot-\$(date +%F).log"
+	say "  [C] Recover a PREVIOUS boot's log from persistent store, if the vendor kept one:"
+	manual "pstore / last_kmsg" "adb shell 'ls -l /sys/fs/pstore/ 2>/dev/null; cat /proc/last_kmsg 2>/dev/null' | tee vendor-lastkmsg-\$(date +%F).log"
+	say ""
+	say "  Then mine the log for the facts the port needs (probe order + bind points):"
+	manual "extract highlights" "grep -niE 'axp|regulator|dsi|tcon|disp|panel|aic|mmc|sdio|pwm|gpadc|lradc|input:|thermal|cpufreq|[Rr]egistered' vendor-*-boot-*.log"
+	_ok=$(askval "Captured a full fresh-boot log? (yes/serial/adb/no)" "yes")
+	calib "Phase-0 vendor boot: keep vendor-serial-boot-<date>.log + vendor-dmesg-boot-<date>.log as the GOLDEN reference; diff the mainline boot against it (vendor driver probe order / bind points)"
+	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ "$_ok" != no ] && _dflt=PASS
+	finish "$(verdict "$_dflt")" "fresh vendor boot log = ${_ok}" \
+		"golden vendor boot reference (diff target for the mainline boot; confirms driver bind order + which subsystems the vendor kernel brings up)" \
+		"Capture on a COLD boot before the ring buffer wraps. Serial adds vendor U-Boot; adb dmesg gets the kernel log without opening the case. Pairs with Phase-1 recon (state) + live.dtb (topology)."
+}
 
 # ----------------------------------------------------------------------------
 t_recon() {
@@ -861,6 +890,7 @@ t_cpufreq() {
 # ---- dispatcher ------------------------------------------------------------
 run_test() {
 	case "$1" in
+		vendorboot) t_vendorboot ;;
 		recon)     t_recon ;;
 		backup)    t_backup ;;
 		fel)       t_fel ;;
@@ -1002,7 +1032,7 @@ Options:
   -h, --help        this help
   -l, --list        list the test ids and titles (both groups)
   -a, --all         run every on-device subsystem test in order
-  -b, --bringup     run the pre-rootfs bring-up phases (recon/backup/fel/sdboot)
+  -b, --bringup     run the pre-rootfs bring-up phases (vendorboot/recon/backup/fel/sdboot)
   -d, --demo        no-device self-test: emit a full PENDING report skeleton
   -y, --yes         non-interactive (auto-skip all prompts) even on a TTY
   -o, --output FILE report path (default: /tmp/trimui-hw-report-<timestamp>.md)
@@ -1011,7 +1041,7 @@ With no test ids and a TTY, an interactive menu opens (pick / re-run / skip).
 Given test ids, only those run, e.g.:  sh $SELF pmic sticks   sh $SELF fel
 
 Two groups (same report format):
-  * BRING-UP phases (recon backup fel sdboot) — the pre-rootfs runbook steps,
+  * BRING-UP phases (vendorboot recon backup fel sdboot) — the pre-rootfs runbook steps,
     run from the HOST / stock OS. The risky ones (eMMC backup dd, FEL, SD write)
     are GUIDED ONLY: the script prints the command to run by hand, loudly labels
     the risk, requires a typed acknowledgement, and records the result. It NEVER

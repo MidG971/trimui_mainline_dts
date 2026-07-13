@@ -484,7 +484,7 @@ t_lradc() {
 
 # ----------------------------------------------------------------------------
 t_gamepad() {
-	begin_test gamepad "Identify the D-pad/ABXY/shoulder/stick-click(L3,R3) source (open question: gpio-keys? USB/i2c MCU? hidraw?) and confirm every button registers."
+	begin_test gamepad "Identify the D-pad/ABXY/shoulder/stick-click(L3,R3) source (open question: gpio-keys? USB/i2c MCU? hidraw?), confirm every button registers, and characterise L2/R2 (digital button vs analog trigger)."
 	cap "cat /proc/bus/input/devices 2>/dev/null"
 	cap "ls -l /dev/input/ 2>/dev/null"
 	cap "ls -l /dev/hidraw* /dev/ttyS* 2>/dev/null"
@@ -500,16 +500,35 @@ t_gamepad() {
 	say "  Don't forget the stick CLICKS: press each analog stick straight down until"
 	say "  it clicks. L3 = BTN_THUMBL (code 317), R3 = BTN_THUMBR (code 318). They are"
 	say "  DIGITAL buttons on THIS gamepad node — not the GPADC axes (that's the 'sticks' test)."
-	pause "  Press Enter after exercising every button (incl. L3/R3) in evtest..."
+	say "  L2/R2 (lower triggers) may be DIGITAL or ANALOG — squeeze each SLOWLY in evtest:"
+	say "    EV_KEY BTN_TL2 (312) / BTN_TR2 (313) that snaps on/off  => digital;"
+	say "    EV_ABS ABS_Z / ABS_RZ that RAMPS 0..max as you squeeze  => analog trigger."
+	pause "  Press Enter after exercising every button (incl. L3/R3 and L2/R2) in evtest..."
 	_src=$(askval "What is the kernel source of the pad? (usb-hid / i2c-mcu / gpio-keys / platform / unknown)" "unknown")
 	_ok=$(askval "Did every button register? (yes/some/no)" "yes")
 	_l3r3=$(askval "Did L3 and R3 (clicking the two sticks) both register? (yes/one/no)" "yes")
+	_l2r2=$(askval "Are L2/R2 digital buttons or analog triggers? (digital/analog/unsure)" "digital")
+	_l2r2rng=""
+	case "$_l2r2" in
+		a|A|analog|ANALOG)
+			say "  Analog triggers: evtest's device dump prints each ABS axis as"
+			say "  'Value / Min / Max / Fuzz / Flat'. Read ABS_Z (L2) and ABS_RZ (R2)."
+			_l2r2rng=$(askval "ABS_Z/ABS_RZ range as min:max (e.g. 0:255, blank if unread)" "0:255")
+			calib "L2/R2 = ANALOG triggers: EV_ABS ABS_Z (L2) / ABS_RZ (R2), range ${_l2r2rng}; if MCU-borne set the input node abs-range, if wired to spare GPADC add adc channels (cross-check the 'sticks'/iio list)"
+			;;
+		d|D|digital|DIGITAL)
+			calib "L2/R2 = DIGITAL buttons: BTN_TL2(312) / BTN_TR2(313) on the gamepad node (key events, no axis)"
+			;;
+		*)
+			calib "L2/R2 = UNDETERMINED — recheck in evtest: BTN_TL2/BTN_TR2 (digital) vs ABS_Z/ABS_RZ ramp (analog)"
+			;;
+	esac
 	calib "gamepad source = ${_src}; node = /dev/input/${_ev:-?}  (informs the DT/driver decision — do NOT fabricate gpio-keys)"
 	calib "stick-click buttons: L3=BTN_THUMBL(317) R3=BTN_THUMBR(318) on the gamepad node; registered=${_l3r3}"
 	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ "$_ok" = yes ] && _dflt=PASS
-	finish "$(verdict "$_dflt")" "source=${_src}; node=/dev/input/${_ev:-?}; buttons=${_ok}; L3/R3=${_l3r3}" \
-		"gamepad input node/driver (open question in PORTING-NOTES §1); NOT gpio-keys; L3/R3=BTN_THUMBL/BTN_THUMBR" \
-		"Vendor uses userspace trimui_inputd over an internal MCU; capture what the kernel exposes, INCLUDING the two stick-click (L3/R3) buttons on the same node."
+	finish "$(verdict "$_dflt")" "source=${_src}; node=/dev/input/${_ev:-?}; buttons=${_ok}; L3/R3=${_l3r3}; L2/R2=${_l2r2}${_l2r2rng:+ ($_l2r2rng)}" \
+		"gamepad input node/driver (open question in PORTING-NOTES §1); NOT gpio-keys; L3/R3=BTN_THUMBL/BTN_THUMBR; L2/R2=BTN_TL2/TR2 (digital) or ABS_Z/ABS_RZ (analog)" \
+		"Vendor uses userspace trimui_inputd over an internal MCU; capture what the kernel exposes, incl. the L3/R3 clicks and whether L2/R2 are digital buttons or analog (ABS) triggers on the same node."
 }
 
 # ----------------------------------------------------------------------------

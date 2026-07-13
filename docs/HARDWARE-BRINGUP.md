@@ -34,7 +34,7 @@ device arrives, with the exact tools for each step.
 | serial terminal: `picocom`/`minicom`/`screen` | console | install: `sudo apt install picocom` |
 | our U-Boot FEL image | `uboot-a523/u-boot-sunxi-with-spl-trimui.bin` | ✅ built |
 | `recon.sh` | read-only day-1 collector | ✅ in repo root |
-| `hw-verify.sh` | interactive guided verification + Markdown report generator; also guides the pre-rootfs phases below (`--bringup` = recon/backup/fel/sdboot) | ✅ in repo root |
+| `hw-verify.sh` | interactive guided verification + Markdown report generator; also guides the pre-rootfs phases below (`--bringup` = vendorboot/recon/backup/fel/sdboot) | ✅ in repo root |
 | build host `compiler-rock3b` | kernel build (`kernel/build-trimui-kernel.sh`) | ✅ |
 
 ### On-device (stock OS, pushed via adb if missing)
@@ -45,12 +45,37 @@ device arrives, with the exact tools for each step.
 
 ---
 
-> Phases 1–4 can be driven interactively with **`hw-verify.sh --bringup`** (ids
-> `recon` / `backup` / `fel` / `sdboot`): it prints the exact command for each
+> Phases 0–4 can be driven interactively with **`hw-verify.sh --bringup`** (ids
+> `vendorboot` / `recon` / `backup` / `fel` / `sdboot`): it prints the exact command for each
 > step, and for the risky ones (backup `dd`, FEL, SD write) it labels the risk,
 > requires a typed acknowledgement, and records the outcome — it never runs a
 > `dd`, enters FEL, or writes storage itself. Results land in the same report as
 > the Phase-7 subsystem tests. The manual commands below remain the source of truth.
+
+## Phase 0 — Capture a fresh vendor boot log (golden reference)
+
+Before anything else, record a **full kernel log from a cold boot of the stock
+firmware** — the golden reference you diff the mainline boot against: vendor
+driver **probe order** and bind points, the regulator/clock/PMIC init sequence,
+input-device registration (the gamepad MCU), and thermal/cpufreq bring-up. The
+earliest lines are the most valuable *and* the first lost once the kernel ring
+buffer wraps, so capture on a **fresh power-on**.
+
+```bash
+# [A] Serial (best — also catches vendor U-Boot). 3.3V UART on ttyS0; start
+#     logging BEFORE power-on:
+picocom -b 115200 /dev/ttyUSB0 --logfile vendor-serial-boot-$(date +%F).log
+# [B] adb (no disassembly) — grab dmesg promptly after a cold boot:
+adb wait-for-device && adb shell dmesg > vendor-dmesg-boot-$(date +%F).log
+# [C] recover a previous boot's log if the vendor kept one:
+adb shell 'ls -l /sys/fs/pstore/ 2>/dev/null; cat /proc/last_kmsg 2>/dev/null'
+# mine it for probe order + bind points:
+grep -niE 'axp|regulator|dsi|tcon|disp|panel|aic|mmc|sdio|pwm|gpadc|lradc|input:|thermal|cpufreq' vendor-*-boot-*.log
+```
+
+Keep these logs — they pair with the Phase-1 recon (state) and `live.dtb` (topology).
+
+---
 
 ## Phase 1 — Recon on the stock OS (READ-ONLY, zero risk)
 

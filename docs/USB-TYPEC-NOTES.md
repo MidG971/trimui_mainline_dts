@@ -56,6 +56,7 @@ usb-pd@4e {
 3. **DP-out (Phase 6+):** gated on two of our own pieces — the **ps8743 mux driver** and
    the **A523 DP/eDP source** driver — plus the Type-C/DP-altmode glue. It rides on the
    display bring-up; the internal MIPI-DSI panel stays the priority.
+   **Full plan + port/charging map: [DP-ALTMODE-NOTES](DP-ALTMODE-NOTES.md).**
 
 `recon.sh` §7B captures the live Type-C alt-mode state (`/sys/class/typec`), the
 husb311/ps8743 i2c devices, DRM connectors, and `tcpm`/`dp` dmesg to confirm all this on

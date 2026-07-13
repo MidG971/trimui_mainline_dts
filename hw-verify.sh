@@ -795,7 +795,7 @@ t_bluetooth() {
 
 # ----------------------------------------------------------------------------
 t_usb() {
-	begin_test usb "Check USB host enumeration, the OTG/gadget mode, and USB-C DisplayPort alt-mode (SVID 0xff01)."
+	begin_test usb "Check USB host enumeration + the Type-C role-switch (usb/dp port hosting adapters), OTG/gadget mode, USB-PD, and DisplayPort alt-mode (SVID 0xff01)."
 	if have lsusb; then
 		say "  Plug a USB device into the (host) port, then confirm it enumerates."
 		pause "  Press Enter after plugging something in..."
@@ -813,15 +813,25 @@ t_usb() {
 	cap "for r in /sys/class/typec/*/power_role /sys/class/typec/*/data_role; do [ -e \"\$r\" ] && printf '%s = %s\\n' \"\$r\" \"\$(cat \$r)\"; done"
 	cap "for p in /sys/class/power_supply/tcpm* /sys/class/power_supply/*usb*pd*; do [ -e \"\$p/uevent\" ] && { echo \"--- \$p ---\"; cat \"\$p/uevent\"; }; done"
 	cap "ls /sys/class/usb_power_delivery/ 2>/dev/null"
+	# USB role-switch (patch 0013): the sunxi musb registers a role switch the husb311
+	# TCPM drives, so the usb/dp port can flip to host and enumerate adapters.
+	cap "for r in /sys/class/usb_role/*/role; do [ -e \"\$r\" ] && printf '%s = %s\\n' \"\$r\" \"\$(cat \$r)\"; done; [ -e /sys/class/usb_role ] || echo '(no usb_role switch — role-switch driver not bound)'"
+	say "  Host-mode test (usb/dp port): plug a USB adapter — keyboard / mouse / hub /"
+	say "  Ethernet dongle — into the \"usb/dp\" port. data_role should flip to 'host'"
+	say "  (usb_role -> host) and the device should appear in lsusb."
+	pause "  Press Enter after plugging an adapter into the usb/dp port..."
+	have lsusb && cap "lsusb  # after usb/dp host-switch"
+	_rsw=$(askval "Did the usb/dp port switch to host and enumerate the adapter? (yes/no/skip)" "yes")
 	say "  For DP-out: plug a USB-C DisplayPort sink; expect an alt-mode with SVID 0xff01."
 	_host=$(askval "Did the USB host port enumerate a device? (yes/no)" "yes")
 	_pd=$(askval "USB-PD contract negotiated (tcpm power_supply ONLINE / PDOs)? (yes/no/skip)" "skip")
 	_dp=$(askval "USB-C DisplayPort alt-mode (svid ff01) present? (yes/no/skip)" "skip")
-	calib "USB: otg dr_mode=otg; PD via husb311 (compatible \"hynetek,husb311\",\"richtek,rt1711h\"); DP alt-mode svid 0xff01 via ps8743 mux (DP-out is Phase-6+)"
+	calib "USB: otg dr_mode=otg; PD via husb311 on i2c5 (compatible \"hynetek,husb311\",\"richtek,rt1711h\"); DP alt-mode svid 0xff01 via ps8743 mux (DP-out is Phase-6+)"
+	calib "USB role-switch (patch 0013): usb/dp host-mode via &usb_otg usb-role-switch + husb311 TCPM; host-switched=${_rsw}"
 	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ "$_host" = yes ] && _dflt=PASS
-	finish "$(verdict "$_dflt")" "host-enum=${_host}; pd-contract=${_pd}; dp-altmode=${_dp}" \
-		"&usb_otg / &ehci0-1 / &ohci0-1 / &usbphy; husb311 TCPC (PD) + typec DP alt-mode (ps8743 mux)" \
-		"USB2 data + PD charging work now (husb311 = RT1711H fallback, upstream); DP-out depends on the ps8743 mux driver + display stack (Phase 6)."
+	finish "$(verdict "$_dflt")" "host-enum=${_host}; usb/dp-host-switch=${_rsw}; pd-contract=${_pd}; dp-altmode=${_dp}" \
+		"&usb_otg (usb-role-switch) / &ehci0-1 / &ohci0-1 / &usbphy; husb311 TCPC on i2c5 (PD + role-switch) + typec DP alt-mode (ps8743 mux)" \
+		"USB2 data + PD charging + host-mode role-switch (patch 0013, usb/dp port) are all in-tree; DP-out depends on the ps8743 mux driver + display stack (Phase 6)."
 }
 
 # ----------------------------------------------------------------------------

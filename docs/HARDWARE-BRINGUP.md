@@ -158,7 +158,9 @@ This validates the U-Boot + the **DRAM retarget** without writing storage.
 2. **Make a boot microSD**: partition (FAT boot + ext4 rootfs), put `Image` + the
    `.dtb` + a small rootfs (a distro arm64 rootfs or buildroot/initramfs). Use a
    U-Boot `boot.scr`/extlinux that loads `Image` + the dtb and sets
-   `console=ttyS0,115200 root=/dev/mmcblk0p2 rw`.
+   `console=ttyS0,115200 root=/dev/mmcblk0p2 rw`. (Daily-driver boot-time: once
+   it's working, add `quiet` and a small/no initramfs; `CONFIG_BOOTDELAY=1` in the
+   U-Boot defconfig keeps autoboot near-instant. Keep it verbose during bring-up.)
 3. Boot from SD (in U-Boot: `load mmc 0:1 ...; booti ...`), watch the console.
 4. **Verify, in order** (each is already wired in our DTS/drivers):
    - Console to a shell over ttyS0.

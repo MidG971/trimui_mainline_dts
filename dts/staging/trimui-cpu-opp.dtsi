@@ -159,6 +159,7 @@
 	clock-names = "cpu";
 	cpu-supply = <&reg_dcdc1>;
 	operating-points-v2 = <&cpu_opp_l>;
+	dynamic-power-coefficient = <286>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
 
 &cpu1 {
@@ -166,6 +167,7 @@
 	clock-names = "cpu";
 	cpu-supply = <&reg_dcdc1>;
 	operating-points-v2 = <&cpu_opp_l>;
+	dynamic-power-coefficient = <286>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
 
 &cpu2 {
@@ -173,6 +175,7 @@
 	clock-names = "cpu";
 	cpu-supply = <&reg_dcdc1>;
 	operating-points-v2 = <&cpu_opp_l>;
+	dynamic-power-coefficient = <286>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
 
 &cpu3 {
@@ -180,6 +183,7 @@
 	clock-names = "cpu";
 	cpu-supply = <&reg_dcdc1>;
 	operating-points-v2 = <&cpu_opp_l>;
+	dynamic-power-coefficient = <286>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
 
 /*
@@ -193,6 +197,7 @@
 	clock-names = "cpu";
 	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
 	operating-points-v2 = <&cpu_opp_b>;
+	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
 
 &cpu5 {
@@ -200,6 +205,7 @@
 	clock-names = "cpu";
 	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
 	operating-points-v2 = <&cpu_opp_b>;
+	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
 
 &cpu6 {
@@ -207,6 +213,7 @@
 	clock-names = "cpu";
 	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
 	operating-points-v2 = <&cpu_opp_b>;
+	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
 
 &cpu7 {
@@ -214,4 +221,5 @@
 	clock-names = "cpu";
 	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
 	operating-points-v2 = <&cpu_opp_b>;
+	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };

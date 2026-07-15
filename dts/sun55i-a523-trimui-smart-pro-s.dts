@@ -310,6 +310,45 @@
 	status = "okay";
 };
 
+/*
+ * CPU idle states (PSCI) — WFI cpu-sleep + cluster power-down, for battery life.
+ * Latencies/residencies transcribed from the vendor DTB; VERIFY on hardware.
+ */
+/ {
+	cpus {
+		idle-states {
+			entry-method = "psci";
+
+			cpu_sleep: cpu-sleep {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00010000>;
+				local-timer-stop;
+				entry-latency-us = <46>;
+				exit-latency-us = <59>;
+				min-residency-us = <3570>;
+			};
+
+			cluster_sleep: cluster-sleep {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010000>;
+				local-timer-stop;
+				entry-latency-us = <47>;
+				exit-latency-us = <74>;
+				min-residency-us = <5000>;
+			};
+		};
+	};
+};
+
+&cpu0 { cpu-idle-states = <&cpu_sleep &cluster_sleep>; };
+&cpu1 { cpu-idle-states = <&cpu_sleep &cluster_sleep>; };
+&cpu2 { cpu-idle-states = <&cpu_sleep &cluster_sleep>; };
+&cpu3 { cpu-idle-states = <&cpu_sleep &cluster_sleep>; };
+&cpu4 { cpu-idle-states = <&cpu_sleep &cluster_sleep>; };
+&cpu5 { cpu-idle-states = <&cpu_sleep &cluster_sleep>; };
+&cpu6 { cpu-idle-states = <&cpu_sleep &cluster_sleep>; };
+&cpu7 { cpu-idle-states = <&cpu_sleep &cluster_sleep>; };
+
 /* USB */
 &usb_otg {
 	dr_mode = "otg";	/* external "usb/dp" USB-C port */

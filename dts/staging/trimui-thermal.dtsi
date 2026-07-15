@@ -22,14 +22,14 @@
  * must already exist), and add `#include <dt-bindings/thermal/thermal.h>`.
  *
  * CAVEATS (resolve on hardware):
- *  - The upstream cpu zones set `sustainable-power`, which selects the IPA
- *    (power_allocator) governor. A plain pwm-fan is not a power actor, and the
- *    upstream cpufreq cooling devices carry no `dynamic-power-coefficient`, so
- *    IPA may not modulate the fan as intended. On HW, either (a) add
- *    dynamic-power-coefficient to the CPUs + a fan cooling-map weight, or
- *    (b) drop sustainable-power to fall back to step_wise (simpler for a fan).
- *    The mapping below assumes step_wise-style ramping; tune once THS reads real
- *    temperatures on the device.
+ *  - GOVERNOR (was the open question, now addressed): the upstream cpu zones set
+ *    `sustainable-power` (selects IPA / power_allocator). We now add
+ *    `dynamic-power-coefficient` to the CPUs (dts/staging/trimui-cpu-opp.dtsi:
+ *    little=286, big=354, from the vendor DTB) so the cpufreq cooling devices are
+ *    real power actors that IPA can model + throttle. The pwm-fan is then a "bound"
+ *    cooling device under IPA (on/off at the map trip). step_wise stays the simple
+ *    fallback (drop sustainable-power). Both governors are built in
+ *    kernel/trimui.config. Tune the DPCs/weights/trips once THS reads real temps.
  *  - Trip points (70/90 C passive) come from the vendor BSP via the THS series;
  *    the vendor userspace thermald starts the fan far lower (auto mode). Pick the
  *    fan-start trip to taste after measuring idle/load temps.

@@ -54,12 +54,9 @@ grep -q 'sun55i-a523-trimui-smart-pro-s.dtb' "$DTS/Makefile" \
 echo "== config =="
 cd "$KSRC"
 [ -f .config ] || make defconfig
-for sym in DRM DRM_SUN4I DRM_SUN6I_DSI PHY_SUN6I_MIPI_DPHY PHY_SUN55I_DSI_COMBO \
-	   PWM_SUN20I DRM_PANEL_TRIMUI_SMART_PRO_S BACKLIGHT_CLASS_DEVICE \
-	   DRM_PANEL_BACKLIGHT_QUIRKS REGULATOR REGULATOR_AXP20X MMC_SUNXI \
-	   PHY_SUN4I_USB AIC8800_BSP; do
-	./scripts/config --module "CONFIG_$sym" 2>/dev/null || true
-done
+# Board drivers + handheld tuning, from the versioned fragment (validated with
+# merge_config). AIC8800 (WiFi/BT) is an out-of-tree module, built separately.
+./scripts/kconfig/merge_config.sh -m .config "$REPO/kernel/trimui.config"
 make olddefconfig
 
 echo "== build: Image + dtbs + modules =="

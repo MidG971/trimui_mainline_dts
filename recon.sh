@@ -72,8 +72,20 @@ if have i2cget; then
   echo "CPU big-cluster regulator (which addr ACKs = populated; expect 0x41=tcs4838):"
   for b in $(i2cdetect -l 2>/dev/null | sed -n 's/^i2c-\([0-9]\+\).*/\1/p'); do
     for a in 0x36 0x41 0x60; do
-      i2cget -y "$b" "$a" 0x00 >/dev/null 2>&1 && \
-        echo "  bus $b addr $a ACK  (0x36=axp1530 0x41=tcs4838 0x60=sy8827g)"
+      i2cget -y "$b" "$a" 0x00 >/dev/null 2>&1 || continue
+      echo "  bus $b addr $a ACK  (0x36=axp1530 0x41=tcs4838 0x60=sy8827g)"
+      # tcs4838 is a FAN53555-family buck with NO public datasheet. Capturing its
+      # registers here (read-only) pins down the exact die + voltage table so the
+      # mainline fan53555.c variant can be finished. See docs/TCS4838-NOTES.md.
+      if [ "$a" = 0x41 ] && have i2cdump; then
+        echo "  [tcs4838@0x41 full register dump — read-only, for the mainline driver]"
+        i2cdump -y "$b" "$a" b 2>/dev/null
+        echo "  [fan53555-family decode] ID1(0x03)=$(i2cget -y "$b" "$a" 0x03 2>/dev/null)" \
+             "ID2(0x04)=$(i2cget -y "$b" "$a" 0x04 2>/dev/null)" \
+             "VSEL0(0x00)=$(i2cget -y "$b" "$a" 0x00 2>/dev/null)" \
+             "VSEL1(0x01)=$(i2cget -y "$b" "$a" 0x01 2>/dev/null)" \
+             "altVSEL(0x10/0x11)=$(i2cget -y "$b" "$a" 0x10 2>/dev/null)/$(i2cget -y "$b" "$a" 0x11 2>/dev/null)"
+      fi
     done
   done
 else

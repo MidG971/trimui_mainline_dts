@@ -439,6 +439,16 @@ t_pmic() {
 		done
 	fi
 	cap "for a in 0x36 0x41 0x60; do i2cget -y $_pbus \$a 0x00 >/dev/null 2>&1 && echo \"addr \$a ACK\"; done  # 0x36=axp1530 0x41=tcs4838 0x60=sy8827g"
+	# tcs4838 (fan53555-family, no public datasheet): if 0x41 ACKs, dump its registers
+	# so the mainline fan53555.c variant can be finished (ID1/ID2 => the exact die +
+	# voltage table). Read-only. See docs/TCS4838-NOTES.md.
+	case " $_cpu " in
+		*" 0x41 "*)
+			cap "i2cdump -y $_pbus 0x41 b"
+			cap "for r in 0x00 0x01 0x03 0x04 0x10 0x11 0x13 0x14; do printf 'reg %s = ' \$r; i2cget -y $_pbus 0x41 \$r 2>/dev/null; echo; done  # ID1=0x03 ID2=0x04; VSEL at 0x00/01 or 0x10/11"
+			calib "tcs4838@0x41: from ID1(0x03)/ID2(0x04)+VSEL pick the fan53555.c die (vsel reg + base/step/count); vendor range 0.7125-1.5V. See TCS4838-NOTES.md"
+			;;
+	esac
 	_dflt=SKIP; [ -n "$_pbus" ] && [ "$_pbus" != N ] && _dflt=PASS
 	_v=$(verdict "$_dflt")
 	_dec=$(askval "Did the dump decode as AXP717 (DCDC3 ~1.10V)? type axp717 or axp2202" "axp717")
@@ -446,7 +456,7 @@ t_pmic() {
 	[ -n "$_cpu" ] && calib "CPU big-cluster regulator ACK at:$_cpu  (0x41 => tcs4838; cluster1 cpu-supply)"
 	finish "$_v" "0x34 on i2c-${_pbus}; decode=${_dec}; CPU-reg ACK:${_cpu:- none}" \
 		"pmic@34 'compatible'; reg_dcdc3 (vdd-dram 1.10 V); cluster1 cpu-supply (tcs4838@0x41)" \
-		"axp717 vs axp2202 decides the mainline PMIC driver. tcs4838 has no mainline driver yet (fan53555 lacks it) — boot at bootloader voltage."
+		"axp717 vs axp2202 decides the mainline PMIC driver. tcs4838 (fan53555-family, no public datasheet) has no mainline driver yet — this test dumps 0x41 to finish it (docs/TCS4838-NOTES.md); until then the big cluster boots at bootloader voltage."
 }
 
 # ----------------------------------------------------------------------------

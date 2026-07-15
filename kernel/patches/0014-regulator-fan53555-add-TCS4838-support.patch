@@ -1,0 +1,115 @@
+From 4dec56925d3128ea3ab9a8ff8788d2794fa95e68 Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Wed, 15 Jul 2026 10:23:41 +0200
+Subject: [PATCH] regulator: fan53555: add TCS4838 support
+
+The TCS4838 is a FAN53555-family single-phase buck used as the big-cluster CPU
+supply on Allwinner A523 handhelds (e.g. the Trimui Smart Pro S). It has no
+public datasheet and is not auto-detected by chip ID, so it is matched purely
+by compatible.
+
+Its parameters (from the Allwinner BSP, cross-checked against the vendor DTB
+constraints) are a 0.7125 V .. 1.5 V linear range, 12.5 mV step, 64 selectors,
+with the standard FAN53555 register layout (VSEL0/1 + CONTROL) - electrically
+identical to the Silergy SYR82x/SYR83x. Add a dedicated vendor so the voltage
+table is fixed by compatible rather than by a chip-ID switch. Also document the
+tcs,tcs4838 compatible in the binding.
+
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ .../bindings/regulator/fcs,fan53555.yaml      |  1 +
+ drivers/regulator/fan53555.c                  | 31 +++++++++++++++++++
+ 2 files changed, 32 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/regulator/fcs,fan53555.yaml b/Documentation/devicetree/bindings/regulator/fcs,fan53555.yaml
+index 69bae90..1b63123 100644
+--- a/Documentation/devicetree/bindings/regulator/fcs,fan53555.yaml
++++ b/Documentation/devicetree/bindings/regulator/fcs,fan53555.yaml
+@@ -23,6 +23,7 @@ properties:
+           - silergy,syr827
+           - silergy,syr828
+           - tcs,tcs4525
++          - tcs,tcs4838
+       - items:
+           - const: rockchip,rk8601
+           - const: rockchip,rk8600
+diff --git a/drivers/regulator/fan53555.c b/drivers/regulator/fan53555.c
+index c282236..d392acb 100644
+--- a/drivers/regulator/fan53555.c
++++ b/drivers/regulator/fan53555.c
+@@ -72,6 +72,7 @@ enum fan53555_vendor {
+ 	RK8602_VENDOR_ROCKCHIP,		/* RK8602, RK8603 */
+ 	FAN53555_VENDOR_SILERGY,
+ 	FAN53526_VENDOR_TCS,
++	FAN53555_VENDOR_TCS_4838,
+ };
+ 
+ enum {
+@@ -413,6 +414,28 @@ static int fan53555_voltages_setup_silergy(struct fan53555_device_info *di)
+ 	return 0;
+ }
+ 
++static int fan53555_voltages_setup_tcs4838(struct fan53555_device_info *di)
++{
++	/*
++	 * The TCS4838 has no public datasheet and is not auto-detected by chip
++	 * ID, so it is selected purely by compatible. Values are from the
++	 * Allwinner BSP: a 0.7125 V .. 1.5 V linear range, 12.5 mV step, 64
++	 * selectors (0x00-0x3F). This is electrically identical to the Silergy
++	 * SYR82x/SYR83x and uses the standard FAN53555 register layout (VSEL0/1
++	 * plus CONTROL).
++	 */
++	di->vsel_min = 712500;
++	di->vsel_step = 12500;
++	di->vsel_count = FAN53555_NVOLTAGES;
++	di->slew_reg = FAN53555_CONTROL;
++	di->slew_mask = CTL_SLEW_MASK;
++	di->ramp_delay_table = slew_rates;
++	di->n_ramp_values = ARRAY_SIZE(slew_rates);
++	di->enable_time = 400;
++
++	return 0;
++}
++
+ static int fan53526_voltages_setup_tcs(struct fan53555_device_info *di)
+ {
+ 	switch (di->chip_id) {
+@@ -452,6 +475,7 @@ static int fan53555_device_setup(struct fan53555_device_info *di,
+ 	case FAN53555_VENDOR_FAIRCHILD:
+ 	case FAN53555_VENDOR_ROCKCHIP:
+ 	case FAN53555_VENDOR_SILERGY:
++	case FAN53555_VENDOR_TCS_4838:
+ 		switch (pdata->sleep_vsel_id) {
+ 		case FAN53555_VSEL_ID_0:
+ 			di->sleep_reg = FAN53555_VSEL0;
+@@ -526,6 +550,7 @@ static int fan53555_device_setup(struct fan53555_device_info *di,
+ 	case FAN53555_VENDOR_FAIRCHILD:
+ 	case FAN53555_VENDOR_ROCKCHIP:
+ 	case FAN53555_VENDOR_SILERGY:
++	case FAN53555_VENDOR_TCS_4838:
+ 		di->mode_reg = di->vol_reg;
+ 		di->mode_mask = VSEL_MODE;
+ 		break;
+@@ -575,6 +600,9 @@ static int fan53555_device_setup(struct fan53555_device_info *di,
+ 	case FAN53555_VENDOR_SILERGY:
+ 		ret = fan53555_voltages_setup_silergy(di);
+ 		break;
++	case FAN53555_VENDOR_TCS_4838:
++		ret = fan53555_voltages_setup_tcs4838(di);
++		break;
+ 	case FAN53526_VENDOR_TCS:
+ 		ret = fan53526_voltages_setup_tcs(di);
+ 		break;
+@@ -666,6 +694,9 @@ static const struct of_device_id __maybe_unused fan53555_dt_ids[] = {
+ 	}, {
+ 		.compatible = "tcs,tcs4526",
+ 		.data = (void *)FAN53526_VENDOR_TCS
++	}, {
++		.compatible = "tcs,tcs4838",
++		.data = (void *)FAN53555_VENDOR_TCS_4838
+ 	},
+ 	{ }
+ };
+-- 
+2.39.5
+

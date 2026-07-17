@@ -1,59 +1,119 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR MIT)
 // Copyright (C) 2026 Midgy BALON
 /*
- * STAGING — active-cooling (pwm-fan) map for the A523 thermal zones. DRAFT.
- * Does NOT build against today's baseline. See dts/staging/README.md and
- * docs/THERMAL-DVFS-NOTES.md.
+ * A523 thermal — THS sensors + thermal-zones + active pwm-fan cooling.
  *
- * BLOCKED ON: the A523 THS (thermal sensor) series is not upstream yet.
- * Latest is Mikhail Kalashnikov's "[PATCH v5] Allwinner: A523: add support for
- * A523 THS0/1 controllers" (based on 7.2-rc1; Reviewed-by Chen-Yu Tsai on 3/5
- * patches — close to merge, but not in v7.2-rc1). That series adds:
- *   - thermal-sensor@2009400 (ths1: big=idx0, little=idx1, gpu=idx2)
- *   - thermal-sensor@200a000 (ths0: dram)
- *   - thermal-zones: cpu0_thermal, cpu4_thermal, gpu-thermal, ddr-thermal
- * with passive cpufreq throttling only (each cpu has #cooling-cells = <2>).
+ * The THS *driver* is adopted from ut-slayer (kernel/patches/0021-0023,
+ * allwinner,sun55i-a523-ths + -ths-ddr). Their SoC-dtsi patch (0087/0089)
+ * doesn't apply to v7.2's shifted context, so we express the same nodes here
+ * as board-level additions (THS via /soc, the calibration cell via &sid, the
+ * zones + our pwm-fan cooling-maps). Node/zone/trip values are transcribed from
+ * ut-slayer (BSP-derived); trip temps VERIFY/tune on hardware.
  *
- * WHAT THIS ADDS (the missing piece): the board has a real pwm-fan
- * (label pwm_fan, 33 cooling states) that the upstream zones do NOT bind. This
- * fragment attaches the fan as an ACTIVE cooling device to the CPU zones, so
- * the device spins its fan up instead of only throttling. Include it from the
- * board DTS *after* the THS series is in the kernel tree (its zone/trip labels
- * must already exist), and add `#include <dt-bindings/thermal/thermal.h>`.
- *
- * CAVEATS (resolve on hardware):
- *  - GOVERNOR (was the open question, now addressed): the upstream cpu zones set
- *    `sustainable-power` (selects IPA / power_allocator). We now add
- *    `dynamic-power-coefficient` to the CPUs (dts/staging/trimui-cpu-opp.dtsi:
- *    little=286, big=354, from the vendor DTB) so the cpufreq cooling devices are
- *    real power actors that IPA can model + throttle. The pwm-fan is then a "bound"
- *    cooling device under IPA (on/off at the map trip). step_wise stays the simple
- *    fallback (drop sustainable-power). Both governors are built in
- *    kernel/trimui.config. Tune the DPCs/weights/trips once THS reads real temps.
- *  - Trip points (70/90 C passive) come from the vendor BSP via the THS series;
- *    the vendor userspace thermald starts the fan far lower (auto mode). Pick the
- *    fan-start trip to taste after measuring idle/load temps.
- *  - Upstream v5 has a known bug (gpu-thermal trips node is misnamed `gpu-trips`
- *    instead of `trips`, so gpu trips are ignored) — adopt the MERGED version,
- *    not v5 verbatim. Once fixed, a gpu fan map can be added the same way.
+ * Enable by `#include`ing this from the board DTS (needs the 0021-0023 patches +
+ * CONFIG_SUN8I_THERMAL + CONFIG_THERMAL_GOV_*). The fan map hooks the pwm-fan on
+ * the cpu-hot (90 C) trips; with the CPUs' dynamic-power-coefficient (see
+ * trimui-cpu-opp.dtsi) IPA can also throttle cpufreq. See docs/THERMAL-DVFS-NOTES.md.
  */
 
-/* Ramp the fan on the little-cluster zone (also covers idle SoC temp). */
-&cpu0_thermal {
-	cooling-maps {
-		map-fan {
-			trip = <&cpu0_threshold>;	/* 70 C passive */
-			cooling-device = <&pwm_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-		};
+#include <dt-bindings/thermal/thermal.h>
+
+/* THS calibration lives in the SID efuse (0x38, 20 bytes). */
+&sid {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	ths_calibration: thermal-sensor-calibration@38 {
+		reg = <0x38 0x14>;
 	};
 };
 
-/* Ramp the fan on the big-cluster zone (the hot one under load). */
-&cpu4_thermal {
-	cooling-maps {
-		map-fan {
-			trip = <&cpu4_threshold>;	/* 70 C passive */
-			cooling-device = <&pwm_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+/ {
+	soc {
+		ths: thermal-sensor@2009400 {
+			compatible = "allwinner,sun55i-a523-ths";
+			reg = <0x02009400 0x400>;
+			clocks = <&ccu CLK_BUS_THS>, <&ccu CLK_GPADC1>;
+			clock-names = "bus", "mod";
+			resets = <&ccu RST_BUS_THS>;
+			nvmem-cells = <&ths_calibration>;
+			nvmem-cell-names = "calibration";
+			#thermal-sensor-cells = <1>;
+		};
+
+		ths_ddr: thermal-sensor@200a000 {
+			compatible = "allwinner,sun55i-a523-ths-ddr";
+			reg = <0x0200a000 0x400>;
+			clocks = <&ccu CLK_BUS_THS>, <&ccu CLK_GPADC0>;
+			clock-names = "bus", "mod";
+			resets = <&ccu RST_BUS_THS>;
+			nvmem-cells = <&ths_calibration>;
+			nvmem-cell-names = "calibration";
+			#thermal-sensor-cells = <1>;
+		};
+	};
+
+	thermal-zones {
+		cpul_thermal: cpul-thermal {
+			polling-delay-passive = <100>;
+			polling-delay = <1000>;
+			thermal-sensors = <&ths 1>;	/* little cluster */
+
+			trips {
+				cpul_warn: cpu-warn { temperature = <70000>; hysteresis = <2000>; type = "passive"; };
+				cpul_hot: cpu-hot { temperature = <90000>; hysteresis = <2000>; type = "passive"; };
+				cpul_crit: cpu-crit { temperature = <110000>; hysteresis = <0>; type = "critical"; };
+			};
+
+			cooling-maps {
+				map-fan {
+					trip = <&cpul_hot>;
+					cooling-device = <&pwm_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		cpub_thermal: cpub-thermal {
+			polling-delay-passive = <100>;
+			polling-delay = <1000>;
+			thermal-sensors = <&ths 0>;	/* big cluster (the hot one) */
+
+			trips {
+				cpub_warn: cpu-warn { temperature = <70000>; hysteresis = <2000>; type = "passive"; };
+				cpub_hot: cpu-hot { temperature = <90000>; hysteresis = <2000>; type = "passive"; };
+				cpub_crit: cpu-crit { temperature = <110000>; hysteresis = <0>; type = "critical"; };
+			};
+
+			cooling-maps {
+				map-fan {
+					trip = <&cpub_hot>;
+					cooling-device = <&pwm_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		gpu_thermal: gpu-thermal {
+			polling-delay-passive = <100>;
+			polling-delay = <1000>;
+			thermal-sensors = <&ths 2>;
+
+			trips {
+				gpu_warn: gpu-warn { temperature = <60000>; hysteresis = <2000>; type = "passive"; };
+				gpu_hot: gpu-hot { temperature = <90000>; hysteresis = <2000>; type = "passive"; };
+				gpu_crit: gpu-crit { temperature = <110000>; hysteresis = <0>; type = "critical"; };
+			};
+		};
+
+		npu-thermal {
+			polling-delay-passive = <100>;
+			polling-delay = <1000>;
+			thermal-sensors = <&ths 3>;
+		};
+
+		ddr-thermal {
+			polling-delay-passive = <0>;
+			polling-delay = <1000>;
+			thermal-sensors = <&ths_ddr 0>;
 		};
 	};
 };

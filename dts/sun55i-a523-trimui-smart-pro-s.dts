@@ -258,10 +258,25 @@
 	};
 
 	/*
-	 * TODO: external "big" cluster CPU regulator tcs4838@0x41 (vendor
-	 * cpu-supply for cluster1). No mainline driver (fan53555 has only
-	 * tcs4525/4526) -> deferred. Boot runs at bootloader-set voltage.
+	 * External "big" cluster CPU supply: TCS4838 buck @ 0x41 (vendor
+	 * cpu-supply for cluster1 / cpu4-7). A FAN53555-family single-output buck,
+	 * matched purely by compatible (tcs,tcs4838, added in patch 0014 — no
+	 * chip-ID probe). The 0.7125-1.5 V envelope is the vendor DTB constraint;
+	 * the big-cluster OPP ladder (dts/staging/trimui-cpu-opp.dtsi) caps the
+	 * actual operating voltage at 1.15 V nominal. always-on: it is the live
+	 * big-core rail. VERIFY on hardware (i2cdump 0x41 ID1/ID2 + live VSEL, see
+	 * docs/TCS4838-NOTES.md) before trusting DVFS on this cluster.
 	 */
+	reg_tcs4838_dcdc0: regulator@41 {
+		compatible = "tcs,tcs4838";
+		reg = <0x41>;
+		regulator-name = "vdd-cpu-big";
+		regulator-min-microvolt = <712500>;
+		regulator-max-microvolt = <1500000>;
+		regulator-ramp-delay = <520>;	/* vendor DTB; driver rounds to the fan53555 500 uV/us slew */
+		regulator-boot-on;
+		regulator-always-on;
+	};
 };
 
 /* microSD */

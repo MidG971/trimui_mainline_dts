@@ -2,27 +2,23 @@
 // Copyright (C) 2026 Midgy BALON
 #include <dt-bindings/clock/sun55i-a523-cpu-ccu.h>	/* CLK_CPUL/CLK_CPUB, from patches 0015-0020 */
 /*
- * STAGING — per-cluster CPU DVFS (cpufreq-dt) OPP tables. DRAFT. The CPU clock is
- * NOW RESOLVED: we adopted ut-slayer's A523 CPU-CCU (kernel/patches/0015-0020,
- * `&cpu_ccu` = clock-controller@8817000). This fragment is buildable once those
- * patches + the tcs4838 board node are in; big-cluster cpu-supply stays commented
- * until the tcs4838 regulator node is wired. See docs/CPUPLL-NOTES.md, dts/staging/README.md.
+ * STAGING — per-cluster CPU DVFS (cpufreq-dt) OPP tables. Both former blockers are
+ * now RESOLVED, so this fragment is fully wireable and builds. It stays in staging
+ * only because CPU DVFS is boot-critical and HW-UNVERIFIED — the CPU-CCU reprograms
+ * the cluster PLLs and the OPP voltages are vendor-transcribed; enable + tune on the
+ * device ([[hardware-testing-prevails]]). Include it from the board DTS to turn on
+ * cpufreq. See docs/CPUPLL-NOTES.md, docs/TCS4838-NOTES.md, dts/staging/README.md.
  *
- * BLOCKED ON (both must be resolved before this is real):
+ * RESOLVED (both former blockers):
  *
- *  1. NO A523 CPU CLOCK IN MAINLINE. include/dt-bindings/clock/sun55i-a523-ccu.h
- *     exports no CPU clock macro (no CLK_CPUX / CLK_PLL_CPU; only CLK_AHB etc.),
- *     and the cpu@N nodes upstream have no `clocks`. cpufreq-dt needs a per-
- *     cluster CPU clock to scale. The `clocks = <&ccu CLK_CPU_L/_B>` lines below
- *     use PLACEHOLDER MACRO NAMES THAT DO NOT EXIST YET — rename them to the real
- *     macros once the A523 CPU clock is exposed (CCU patch or a dedicated
- *     cpu-clk controller node). This is the hard blocker.
+ *  1. A523 CPU CLOCK — adopted from ut-slayer's CPU-CCU (kernel/patches/0015-0020,
+ *     `&cpu_ccu` = clock-controller@8817000). The cpu nodes below use the real
+ *     macros `&cpu_ccu CLK_CPUL` (cluster0) / `CLK_CPUB` (cluster1) from
+ *     <dt-bindings/clock/sun55i-a523-cpu-ccu.h>.
  *
- *  2. BIG-CLUSTER REGULATOR HAS NO DRIVER. cluster1 cpu-supply = tcs4838@0x41 on
- *     r_i2c0 (vendor). Mainline has no tcs4838 driver (fan53555 covers only
- *     tcs4525/4526), and there is no reg node for it. Until that exists, cluster1
- *     cannot do voltage-tracked DVFS, so its cpu-supply is left COMMENTED below.
- *     cluster0 is fine: AXP717/2202 dcdc1 = reg_dcdc1 (already in the board DTS).
+ *  2. BIG-CLUSTER REGULATOR — the tcs4838@0x41 buck on r_i2c0 now has a mainline
+ *     driver (fan53555 variant, patch 0014) and a board node (`&reg_tcs4838_dcdc0`),
+ *     so cluster1 does voltage-tracked DVFS. cluster0 uses reg_dcdc1 (axp717 dcdc1).
  *
  * FREQ/VOLTAGE POINTS — RESOLVED (was blocker #3). These are the REAL vendor
  * ladders, transcribed from the stock firmware `cluster0-opp-table` /
@@ -155,8 +151,7 @@
 };
 
 /*
- * cluster0 (little) — cpu0..cpu3.
- * CLK_CPU_L is a PLACEHOLDER macro name (see blocker #1).
+ * cluster0 (little) — cpu0..cpu3. Clock = &cpu_ccu CLK_CPUL; cpu-supply = reg_dcdc1.
  */
 &cpu0 {
 	clocks = <&cpu_ccu CLK_CPUL>;
@@ -191,15 +186,13 @@
 };
 
 /*
- * cluster1 (big) — cpu4..cpu7.
- * CLK_CPU_B is a PLACEHOLDER macro name (blocker #1).
- * cpu-supply is COMMENTED until the tcs4838@0x41 regulator has a mainline
- * driver + DT node (blocker #2). Without it, do NOT scale frequency here.
+ * cluster1 (big) — cpu4..cpu7. Clock = &cpu_ccu CLK_CPUB; cpu-supply =
+ * reg_tcs4838_dcdc0 (both resolved). Voltages are vendor-transcribed — tune on HW.
  */
 &cpu4 {
 	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
-	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
+	cpu-supply = <&reg_tcs4838_dcdc0>;
 	operating-points-v2 = <&cpu_opp_b>;
 	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
@@ -207,7 +200,7 @@
 &cpu5 {
 	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
-	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
+	cpu-supply = <&reg_tcs4838_dcdc0>;
 	operating-points-v2 = <&cpu_opp_b>;
 	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
@@ -215,7 +208,7 @@
 &cpu6 {
 	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
-	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
+	cpu-supply = <&reg_tcs4838_dcdc0>;
 	operating-points-v2 = <&cpu_opp_b>;
 	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
@@ -223,7 +216,7 @@
 &cpu7 {
 	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
-	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
+	cpu-supply = <&reg_tcs4838_dcdc0>;
 	operating-points-v2 = <&cpu_opp_b>;
 	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };

@@ -73,13 +73,23 @@ static int fan53555_voltages_setup_tcs4838(struct fan53555_device_info *di) {
  * (standard VSEL0/1 + CONTROL layout); enable BIT(7)/mode BIT(6) of VSEL. */
 ```
 
-## Remaining wiring once the driver lands
-1. Add the **tcs4838 regulator node** to the board DTS on `&r_i2c0` (`@0x41`, the
-   `dcdc0` rail, constraints above).
-2. **Uncomment** `cluster1` `cpu-supply = <&tcs4838_dcdc0>` in
-   `dts/staging/trimui-cpu-opp.dtsi` and promote it.
-3. Needs the A523 **CPU clock** (`CLK_CPUX`) too — the *other* cpufreq blocker
-   (tracked separately).
+## Board wiring — DONE (build-verified)
+1. ✅ **tcs4838 regulator node** added to the board DTS on `&r_i2c0`:
+   `reg_tcs4838_dcdc0: regulator@41`, `compatible = "tcs,tcs4838"`, `vdd-cpu-big`,
+   0.7125–1.5 V, `regulator-ramp-delay = <520>`, always-on / boot-on.
+2. ✅ `cluster1` `cpu-supply = <&reg_tcs4838_dcdc0>` **un-commented** for cpu4–7 in
+   `dts/staging/trimui-cpu-opp.dtsi`.
+3. ✅ The A523 **CPU clock** — the *other* cpufreq blocker — is also resolved: the
+   CPU-CCU is adopted (patches 0015–0020, `&cpu_ccu CLK_CPUB`). See
+   [CPUPLL-NOTES](CPUPLL-NOTES.md).
 
-**Safety:** never ship guessed VSEL/table values for this rail. Build-verify the
-driver, but the values are HW/BSP-confirmed only.
+**Build-verified:** the board DTB builds with `trimui-cpu-opp.dtsi` included and
+`cpu@400` resolves `cpu-supply` → `reg_tcs4838_dcdc0`, `clocks` → `&cpu_ccu
+CLK_CPUB`, `operating-points-v2` → `cpu_opp_b`. `trimui-cpu-opp.dtsi` stays in
+staging (opt-in via a board-DTS `#include`) because CPU DVFS is boot-critical and
+HW-unverified.
+
+**Safety:** never ship guessed VSEL/table values for this rail. The driver is
+build-verified and the table is BSP-confirmed, but confirm on hardware
+(`i2cdump 0x41` ID1/ID2 + live VSEL) before trusting DVFS on the big cluster
+([[hardware-testing-prevails]]).

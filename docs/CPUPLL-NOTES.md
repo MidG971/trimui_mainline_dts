@@ -46,13 +46,16 @@ Register map (PLL_CPU0@0x00, PLL_CPUB@0x0c, CPUB@0x64) matched the earlier BSP m
   no cpu-ccu node.
 
 ## Remaining
-1. **Verify the full series co-applies** (our `0001–0020`) + the board DTB builds on
-   v7.2 (the CPU-CCU dtsi node `0016` vs our other `sun55i-a523.dtsi` patches — expected
-   fine, non-overlapping, but confirm in the build).
-2. **Big-cluster `cpu-supply`** stays commented in `trimui-cpu-opp.dtsi` until the
-   **tcs4838 regulator node** is added to the board DTS (the driver is done — see
-   [TCS4838-NOTES](TCS4838-NOTES.md)). Little cluster uses `reg_dcdc1` (upstream axp717).
-3. **On-hardware:** boot, confirm both cpufreq domains scale, tune the OPP voltages.
+1. ~~Verify the full series co-applies + the board DTB builds~~ **DONE** — `0001–0023`
+   co-apply to v7.2-rc3 and the board DTB builds with `trimui-cpu-opp.dtsi` +
+   `trimui-thermal.dtsi` included (the CPU-CCU node `0016` is non-overlapping).
+2. ~~Big-cluster `cpu-supply`~~ **DONE** — the tcs4838 regulator node
+   (`reg_tcs4838_dcdc0`) is now in the board DTS and the big-cluster `cpu-supply` is
+   wired for cpu4–7 (build-verified: `cpu@400` → `reg_tcs4838_dcdc0`). See
+   [TCS4838-NOTES](TCS4838-NOTES.md). Little cluster uses `reg_dcdc1` (upstream axp717).
+3. **On-hardware (the only thing left):** include `trimui-cpu-opp.dtsi` from the board
+   DTS, boot, confirm both cpufreq domains scale (policy0 = cpu0, policy4 = cpu4), and
+   tune the OPP voltages. Boot-critical → HW-gated ([[hardware-testing-prevails]]).
 
 ## Upstream status
 ut-slayer's series is **posted to linux-sunxi for review/feedback, not submitted or

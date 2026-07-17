@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR MIT)
 // Copyright (C) 2026 Midgy BALON
+#include <dt-bindings/clock/sun55i-a523-cpu-ccu.h>	/* CLK_CPUL/CLK_CPUB, from patches 0015-0020 */
 /*
- * STAGING — per-cluster CPU DVFS (cpufreq-dt) OPP tables. DRAFT. Does NOT build
- * or work yet. See dts/staging/README.md.
+ * STAGING — per-cluster CPU DVFS (cpufreq-dt) OPP tables. DRAFT. The CPU clock is
+ * NOW RESOLVED: we adopted ut-slayer's A523 CPU-CCU (kernel/patches/0015-0020,
+ * `&cpu_ccu` = clock-controller@8817000). This fragment is buildable once those
+ * patches + the tcs4838 board node are in; big-cluster cpu-supply stays commented
+ * until the tcs4838 regulator node is wired. See docs/CPUPLL-NOTES.md, dts/staging/README.md.
  *
  * BLOCKED ON (both must be resolved before this is real):
  *
@@ -155,7 +159,7 @@
  * CLK_CPU_L is a PLACEHOLDER macro name (see blocker #1).
  */
 &cpu0 {
-	clocks = <&ccu CLK_CPU_L>;
+	clocks = <&cpu_ccu CLK_CPUL>;
 	clock-names = "cpu";
 	cpu-supply = <&reg_dcdc1>;
 	operating-points-v2 = <&cpu_opp_l>;
@@ -163,7 +167,7 @@
 };
 
 &cpu1 {
-	clocks = <&ccu CLK_CPU_L>;
+	clocks = <&cpu_ccu CLK_CPUL>;
 	clock-names = "cpu";
 	cpu-supply = <&reg_dcdc1>;
 	operating-points-v2 = <&cpu_opp_l>;
@@ -171,7 +175,7 @@
 };
 
 &cpu2 {
-	clocks = <&ccu CLK_CPU_L>;
+	clocks = <&cpu_ccu CLK_CPUL>;
 	clock-names = "cpu";
 	cpu-supply = <&reg_dcdc1>;
 	operating-points-v2 = <&cpu_opp_l>;
@@ -179,7 +183,7 @@
 };
 
 &cpu3 {
-	clocks = <&ccu CLK_CPU_L>;
+	clocks = <&cpu_ccu CLK_CPUL>;
 	clock-names = "cpu";
 	cpu-supply = <&reg_dcdc1>;
 	operating-points-v2 = <&cpu_opp_l>;
@@ -193,7 +197,7 @@
  * driver + DT node (blocker #2). Without it, do NOT scale frequency here.
  */
 &cpu4 {
-	clocks = <&ccu CLK_CPU_B>;
+	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
 	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
 	operating-points-v2 = <&cpu_opp_b>;
@@ -201,7 +205,7 @@
 };
 
 &cpu5 {
-	clocks = <&ccu CLK_CPU_B>;
+	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
 	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
 	operating-points-v2 = <&cpu_opp_b>;
@@ -209,7 +213,7 @@
 };
 
 &cpu6 {
-	clocks = <&ccu CLK_CPU_B>;
+	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
 	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
 	operating-points-v2 = <&cpu_opp_b>;
@@ -217,7 +221,7 @@
 };
 
 &cpu7 {
-	clocks = <&ccu CLK_CPU_B>;
+	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
 	/* cpu-supply = <&reg_tcs4838_dcdc0>; */
 	operating-points-v2 = <&cpu_opp_b>;

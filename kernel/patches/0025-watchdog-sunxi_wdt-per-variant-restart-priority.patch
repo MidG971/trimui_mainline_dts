@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Juan Manuel Lopez Carrillo <juanmanuellopezcarrillo@gmail.com>
+Date: Sat, 18 Jul 2026 00:00:01 +0000
+Subject: [PATCH] watchdog: sunxi_wdt: per-variant restart priority
+
+On the T527/sun55iw3 the vendor ATF's PSCI SYSTEM_RESET hangs without
+returning, and at the default restart-handler priority (128, below the PSCI
+handler's 129) the sunxi watchdog handler never ran -- so `reboot` froze the
+board. Raise the priority above PSCI, but only where the variant asks for it,
+via a new restart_priority field in struct sunxi_wdt_reg (sun55i = 200). Other
+SoCs (A64/H3/H6...) keep the vanilla behaviour where PSCI wins.
+
+Adopted for the Trimui Smart Pro S: forward-ported to v7.2 and squashed from the
+ut-slayer/orangepi-4a-mainline series (patches 0019 + 0079). Needs
+CONFIG_SUNXI_WATCHDOG built in for the restart handler to be present.
+Compile-verified (drivers/watchdog/sunxi_wdt.o).
+
+Signed-off-by: Juan Manuel Lopez Carrillo <juanmanuellopezcarrillo@gmail.com>
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+diff --git a/drivers/watchdog/sunxi_wdt.c b/drivers/watchdog/sunxi_wdt.c
+index b6c761acc..7188d01f7 100644
+--- a/drivers/watchdog/sunxi_wdt.c
++++ b/drivers/watchdog/sunxi_wdt.c
+@@ -48,6 +48,12 @@ struct sunxi_wdt_reg {
+ 	u8 wdt_reset_mask;
+ 	u8 wdt_reset_val;
+ 	u32 wdt_key_val;
++	/*
++	 * Prioridad del restart handler. 0 = por defecto (128, pierde contra
++	 * PSCI 129). En SoCs cuyo firmware EL3 cuelga en SYSTEM_RESET (T527:
++	 * ATF BSP) hay que ganar a PSCI para que `reboot` funcione.
++	 */
++	int restart_priority;
+ };
+ 
+ struct sunxi_wdt_dev {
+@@ -244,6 +250,7 @@ static const struct sunxi_wdt_reg sun55i_wdt_reg = {
+ 	.wdt_reset_mask = 0x03,
+ 	.wdt_reset_val = 0x01,
+ 	.wdt_key_val = 0x16aa0000,
++	.restart_priority = 200,
+ };
+ 
+ static const struct of_device_id sunxi_wdt_dt_ids[] = {
+@@ -282,7 +289,17 @@ static int sunxi_wdt_probe(struct platform_device *pdev)
+ 
+ 	watchdog_init_timeout(&sunxi_wdt->wdt_dev, timeout, dev);
+ 	watchdog_set_nowayout(&sunxi_wdt->wdt_dev, nowayout);
+-	watchdog_set_restart_priority(&sunxi_wdt->wdt_dev, 128);
++	/*
++	 * Prioridad > 129 (la del handler PSCI) SOLO donde la variante lo
++	 * pide: en el T527/OPi4A el SYSTEM_RESET del ATF BSP se cuelga sin
++	 * retornar, y con la prioridad estandar (128 < 129) este handler
++	 * nunca llegaba a ejecutarse -> `reboot` congelaba la placa. El BSP
++	 * 5.15 tambien resetea via watchdog. Los demas SoCs (A64/H3/H6...)
++	 * conservan el comportamiento vanilla (PSCI gana).
++	 */
++	if (sunxi_wdt->wdt_regs->restart_priority)
++		watchdog_set_restart_priority(&sunxi_wdt->wdt_dev,
++					      sunxi_wdt->wdt_regs->restart_priority);
+ 
+ 	watchdog_set_drvdata(&sunxi_wdt->wdt_dev, sunxi_wdt);
+ 

@@ -33,7 +33,7 @@ cp -v "$D/pwm-sun20i.c"                  "$KSRC/drivers/pwm/"
 cp -v "$D/panel-trimui-smart-pro-s.c"    "$KSRC/drivers/gpu/drm/panel/"
 cp -v "$D/sun55i-codec.c"                "$KSRC/sound/soc/sunxi/"
 
-echo "== apply patch series (0001..0008) =="
+echo "== apply patch series (0001..NNNN) =="
 for p in "$P"/0*.patch; do
 	if patch -d "$KSRC" -p1 --forward --dry-run <"$p" >/dev/null 2>&1; then
 		patch -d "$KSRC" -p1 --forward <"$p"
@@ -46,7 +46,8 @@ done
 echo "== board DTS + panel fragment =="
 cp -v "$REPO/dts/sun55i-a523-trimui-smart-pro-s.dts" "$DTS/"
 cp -v "$REPO/dts/trimui-panel.dtsi"                  "$DTS/"
-grep -q 'trimui-panel.dtsi' "$DTS/sun55i-a523-trimui-smart-pro-s.dts" \
+# match the actual #include directive, not the header-comment mention of the file
+grep -q '#include "trimui-panel.dtsi"' "$DTS/sun55i-a523-trimui-smart-pro-s.dts" \
 	|| printf '\n#include "trimui-panel.dtsi"\n' >>"$DTS/sun55i-a523-trimui-smart-pro-s.dts"
 grep -q 'sun55i-a523-trimui-smart-pro-s.dtb' "$DTS/Makefile" \
 	|| echo 'dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a523-trimui-smart-pro-s.dtb' >>"$DTS/Makefile"

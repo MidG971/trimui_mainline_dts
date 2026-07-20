@@ -20,3 +20,6 @@ u-boot-sunxi-with-spl*
 a523_trm.pdf
 A523_User_Manual*
 .aider*
+
+# Unsent outreach draft — keep local, send directly on GitHub (do not publish here)
+docs/UPSTREAM-COLLAB-DRAFT.md

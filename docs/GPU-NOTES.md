@@ -102,3 +102,35 @@ by Juan Manuel López Carrillo (ut-slayer) and confirmed by Chen-Yu Tsai:
   brought up by the DE3.5/DSI/TCON work. You can have a KMS framebuffer with no GPU, and
   Panfrost does nothing to scan out pixels. → enable it whenever; it's off the critical path.
 - Precedent: H616/H700 handhelds run Panfrost on mainline (Mali-G31). Same driver family.
+
+## Measuring the *real* GPU clock on hardware (the method that caught the maskdiv bug)
+The maskdiv bug above is invisible to `clk_summary`, which only shows the *programmed*
+rate — i.e. the kernel's wrong belief. Juan (ut-slayer) caught it by measuring the
+**actual** GPU frequency with the Mali's hardware **cycle counter** and comparing. We
+want the same method in our bring-up kit to independently confirm the fix (and GPU DVFS
+generally) on *our* silicon before trusting any GPU OPP. On mainline Panfrost:
+
+- **Principle:** the Mali has a hardware cycle / `GPU_ACTIVE` counter that ticks at the
+  *real* GPU clock. Run a sustained GPU load, read Δcycles over a known Δt →
+  `real_MHz ≈ Δcycles / Δt`. Compare against `/sys/kernel/debug/clk/clk_summary` (the
+  programmed rate). **A mismatch = clock mismodel** (exactly the linear-vs-masking bug —
+  "400 MHz" programmed vs ~750 MHz measured).
+- **Reading the counter — pick one:**
+  - **fdinfo (simplest):** mainline Panfrost exposes `drm-cycles-fragment` /
+    `drm-cycles-vertex-tiler` (plus `drm-curfreq-*` and `drm-maxfreq-*`) per engine in
+    `/proc/<pid>/fdinfo/<fd>` of a running GPU client. `drm-curfreq` is the kernel's
+    (possibly wrong) notion; the raw `drm-cycles-*` delta over wall-time is the hardware
+    truth. Uses the "wire cycle counters + timestamp to userspace" Panfrost uAPI.
+  - **Perfetto + gfx-pps** (Collabora): the Panfrost PPS producer samples Mali HW perf
+    counters incl. GPU active-cycles. Needs Panfrost unstable ioctls
+    (`panfrost.unstable_ioctls=1`). The heavier "proper profiler" path.
+  - **Mesa timestamp queries:** `GL_ARB_shader_clock` / GL & Vulkan timestamp queries
+    read the same wired-up counter in-shader; a known-cycle workload + wall time also
+    yields real MHz.
+- **Sweep each OPP like Juan did:** devfreq sysfs at `/sys/class/devfreq/1800000.gpu/` —
+  set `governor` to `userspace` and write `set_freq`, or pin `min_freq`/`max_freq` — then
+  read the cycle-counter real rate at each step and tabulate programmed-vs-measured.
+- **Load generator:** `glmark2` or any sustained GLES/compute workload.
+
+This belongs in the hardware bring-up kit (hardware testing prevails): it's how we
+confirm the GPU clock is honest on the Trimui, independent of what the driver reports.

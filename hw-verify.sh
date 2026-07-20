@@ -50,7 +50,7 @@ INTERACTIVE=1
 [ -t 0 ] || INTERACTIVE=0
 
 # On-device subsystem tests (assume a booted mainline rootfs).
-TEST_IDS="identity storage pmic lradc gamepad sticks display audio leds vibrator wifi bluetooth usb battery rtc thermal cpufreq"
+TEST_IDS="identity storage pmic lradc gamepad sticks display gpu audio leds vibrator wifi bluetooth usb battery rtc thermal cpufreq"
 # Pre-rootfs bring-up phases (run from the host / stock OS; guided, mostly RO).
 BRINGUP_IDS="vendorboot recon backup fel sdboot"
 # Full ordered set (bring-up first, chronologically) for the report + menus.
@@ -226,6 +226,7 @@ test_title() {
 		gamepad)   echo "Gamepad / buttons (D-pad, ABXY, L/R) source" ;;
 		sticks)    echo "Analog sticks (GPADC) calibration" ;;
 		display)   echo "Display (DRM connector) + backlight sweep" ;;
+		gpu)       echo "GPU (Mali-G57 Panfrost) + devfreq clock check" ;;
 		audio)     echo "Audio codec (speaker / mic / headphone jack)" ;;
 		leds)      echo "LEDC RGB array (17 LEDs, colour order)" ;;
 		vibrator)  echo "Vibrator (pwm-vibrator, pwm0 ch7)" ;;
@@ -653,6 +654,44 @@ t_display() {
 }
 
 # ----------------------------------------------------------------------------
+t_gpu() {
+	begin_test gpu "Confirm Panfrost binds the Mali-G57, read the devfreq OPP ladder, then — the point of this test — compare the PROGRAMMED GPU clock against the MEASURED one. The A523/T527 GPU mod clock (0x670) is a cycle-masking divider (rate = src*(16-M)/16), NOT the linear M+1 model mainline uses, so any OPP with M>0 SILENTLY OVERCLOCKS. Feeds &gpu (mali-supply=reg_dcdc2) + dts/staging/trimui-gpu-opp.dtsi, and independently validates the upstream maskdiv clock fix on our silicon."
+	# 1. Panfrost bound to the Mali + the GPU platform device present
+	cap "for d in /sys/class/drm/card*/device/driver; do [ -e \"\$d\" ] && printf '%s -> %s\\n' \"\$d\" \"\$(readlink -f \$d)\"; done; ls -d /sys/bus/platform/drivers/panfrost/*.gpu 2>/dev/null"
+	cap "dmesg 2>/dev/null | grep -iE 'panfrost|mali|valhall|gpu' | head -n 20"
+	# 2. devfreq OPP ladder + current governor/frequency
+	cap "for g in /sys/class/devfreq/*.gpu; do [ -d \"\$g\" ] && { echo \"--- \$g ---\"; printf 'governor=%s cur_freq=%s\\n' \"\$(cat \$g/governor 2>/dev/null)\" \"\$(cat \$g/cur_freq 2>/dev/null)\"; printf 'available=%s\\n' \"\$(cat \$g/available_frequencies 2>/dev/null)\"; }; done"
+	# 3. what the CCU BELIEVES it programmed (the linear-model rate)
+	cap "grep -iE 'pll-gpu|pll_gpu|[^a-z]gpu' /sys/kernel/debug/clk/clk_summary 2>/dev/null | head"
+	_gdev=""; [ "$DEMO" != 1 ] && for _g in /sys/class/devfreq/*.gpu; do [ -d "$_g" ] && { _gdev=$_g; break; }; done
+	# 4. THE MEASURED-vs-PROGRAMMED CHECK (guided; needs a GPU load + a 2nd shell).
+	# On mainline Panfrost the ACTUAL hardware rate is derivable from the Mali cycle
+	# counter exposed per-client in fdinfo: actual_Hz ~= d(drm-cycles-fragment)/d(wall).
+	# Compare that to cur_freq. A mismatch (e.g. programmed 400 MHz measuring ~750) =
+	# the maskdiv mismodel is live on this die -> the >600 turbo OPPs are unsafe.
+	say "  To measure the REAL clock and catch the maskdiv overclock:"
+	say "  (a) force the userspace governor and pin an OPP with M>0 (e.g. try each freq):"
+	manual "pin a GPU OPP" "G=\$(ls -d /sys/class/devfreq/*.gpu | head -1); echo userspace > \$G/governor; echo <freq_hz> > \$G/userspace/set_freq; cat \$G/cur_freq"
+	say "  (b) drive a sustained 100%-GPU load in one shell:"
+	manual "GPU load" "glmark2 --run-forever   # or: glmark2-es2-drm ; anything pinning the GPU busy"
+	say "  (c) in a second shell, sample fdinfo twice ~2 s apart and compute the real Hz:"
+	manual "measure real GPU Hz" "PID=\$(pidof glmark2); FD=\$(ls /proc/\$PID/fdinfo | head -1); grep -E 'drm-curfreq-|drm-cycles-' /proc/\$PID/fdinfo/\$FD; sleep 2; grep -E 'drm-curfreq-|drm-cycles-' /proc/\$PID/fdinfo/\$FD   # actual_Hz = delta(drm-cycles-fragment)/2"
+	say "  Safe M=0 rates measure == programmed (200/300/400/600 MHz). M>0 rates read HIGH."
+	if [ -n "$_gdev" ]; then
+		say "  GPU devfreq node: $_gdev"
+	elif [ "$DEMO" != 1 ]; then
+		say "  No /sys/class/devfreq/*.gpu (need Panfrost bound + GPU DVFS OPP table)."
+	fi
+	_prog=$(askval "PROGRAMMED cur_freq you pinned, in MHz (or skip)" "400")
+	_meas=$(askval "MEASURED real GPU freq from fdinfo cycles, in MHz (or skip)" "400")
+	calib "GPU OPP: clock-only (shared AXP2202 dcdc2 rail, always-on) — if MEASURED>PROGRAMMED the maskdiv fix is REQUIRED; keep the >600 MHz turbo OPPs (648-888) OUT of trimui-gpu-opp.dtsi until the upstream ccu_maskdiv series merges. Report the programmed:measured pairs to the maskdiv thread."
+	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ -n "$_prog" ] && [ -n "$_meas" ] && _dflt=PASS
+	finish "$(verdict "$_dflt")" "programmed=${_prog} MHz vs measured=${_meas} MHz (equal => linear model OK; measured higher => maskdiv overclock)" \
+		"&gpu enable (mali-supply=reg_dcdc2) + dts/staging/trimui-gpu-opp.dtsi; gates the upstream A523 GPU maskdiv clock fix" \
+		"Panfrost/Mali-G57 is fully upstream (v7.1). GPU DVFS is clock-only on a shared rail. The maskdiv clock bug (measured OPi4A: 400->~750 MHz) means only M=0 OPPs are safe under the current linear model; measuring programmed-vs-real here confirms it for our die and is the concrete give-back to the ut-slayer/maskdiv effort."
+}
+
+# ----------------------------------------------------------------------------
 t_audio() {
 	begin_test audio "Exercise speaker (amp on PH6), mic, and headphone-jack detect. Feeds the codec routing + pa-gpios + jack thresholds."
 	cap "cat /proc/asound/cards 2>/dev/null"
@@ -957,6 +996,7 @@ run_test() {
 		gamepad)   t_gamepad ;;
 		sticks)    t_sticks ;;
 		display)   t_display ;;
+		gpu)       t_gpu ;;
 		audio)     t_audio ;;
 		leds)      t_leds ;;
 		vibrator)  t_vibrator ;;

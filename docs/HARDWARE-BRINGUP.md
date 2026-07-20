@@ -257,7 +257,9 @@ HW tuning. See `kernel/DE35-NOTES.md`.
 - **cpufreq/OPP, GPU** — Mali-G57 (Valhall JM) via **Panfrost** (NOT Panthor), already
   fully upstream (node+binding+driver). Board work = `&gpu { mali-supply = <…>; status =
   "okay"; }` once the GPU rail is confirmed on HW (vendor `mali-supply` phandle 0x20). See
-  `GPU-NOTES.md`.
+  `GPU-NOTES.md`. Verify with **`hw-verify.sh gpu`** — it binds Panfrost, reads the devfreq
+  OPP ladder, and does the programmed-vs-measured clock check that catches the A523 GPU
+  **maskdiv overclock** (only M=0 OPPs are safe until the upstream `ccu_maskdiv` fix merges).
 
 ---
 

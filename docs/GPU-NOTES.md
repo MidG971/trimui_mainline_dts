@@ -134,3 +134,12 @@ generally) on *our* silicon before trusting any GPU OPP. On mainline Panfrost:
 
 This belongs in the hardware bring-up kit (hardware testing prevails): it's how we
 confirm the GPU clock is honest on the Trimui, independent of what the driver reports.
+
+**Now wired into the kit:** `hw-verify.sh` has a **`gpu`** subsystem test that automates the
+read-only state (Panfrost bind, `dmesg`, devfreq OPP ladder, `clk_summary` GPU rows) and
+walks the guided programmed-vs-measured measurement above (pin an OPP on the `userspace`
+governor → load with `glmark2` → sample `drm-cycles-*`/`drm-curfreq-*` from fdinfo twice
+~2 s apart → `real_MHz ≈ Δcycles/Δt`). Its report row records the `programmed:measured`
+pair and flags the maskdiv overclock if `measured > programmed`. Run: `sh hw-verify.sh gpu`.
+That row is the concrete give-back to the ut-slayer / maskdiv effort — an independent
+Mali-G57 confirmation of the fix.

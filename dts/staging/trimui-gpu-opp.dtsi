@@ -3,10 +3,24 @@
 /*
  * STAGING — Mali-G57 GPU DVFS (devfreq) OPP table. Optional, off the critical path.
  *
- * UNLIKE the other dts/staging fragments, this one is NOT gated on upstream work:
- * it COMPILES against today's baseline (the gpu@1800000 node and CLK_GPU already
- * exist upstream). It lives here only because it is HW-UNVERIFIED. To use:
- * #include it from the board DTS after the &gpu enable, or paste these nodes in.
+ * GATED on an upstream clock fix (this was previously — wrongly — believed free-
+ * standing). The A523/T527 GPU mod clock (0x670) is a CYCLE-MASKING / fractional
+ * divider: rate = source * (16 - M) / 16, NOT a linear M+1 divider. Mainline still
+ * models it as linear, so every OPP needing M>0 SILENTLY OVERCLOCKS the Mali: on
+ * hardware "150 MHz" runs at ~487 MHz, "200"->648, "300"->560, "400"->750 (25% over
+ * the vendor ceiling — thermal throttling to "400" actually RAISES the clock).
+ * Measured by Juan Manuel Lopez Carrillo (ut-slayer) on an OrangePi 4A with the Mali
+ * cycle counter; the fractional model was confirmed by Chen-Yu Tsai.
+ *   -> DO NOT enable this table until the fix lands. His series "clk: sunxi-ng: fix
+ *      the A523/T527 GPU clock model, enable GPU DVFS" (linux-sunxi, v1 2026-07-19:
+ *      adds a ccu_maskdiv clock type + switches the A523 gpu_clk to it + drops the
+ *      pll-periph0-800M parent + parks the GPU on 600M during pll-gpu changes) is in
+ *      review and mainline-bound. Once it merges, a kernel rebase makes gpu_clk
+ *      correct and this table safe. Track it; do NOT carry the in-review v1 here.
+ *   -> Only 200/300/400/600 MHz map to M=0 (exact under either model). 150 MHz and
+ *      every turbo row below are wrong until the maskdiv fix (see the ceiling note).
+ * HW-UNVERIFIED regardless. To use (POST-fix): #include from the board DTS after the
+ * &gpu enable, or paste these nodes in.
  *
  * Frequencies = the VENDOR DTB `gpu-opp-table` (full 10-step ladder), confirmed
  * from the stock firmware. The vendor board DTB is BYTE-IDENTICAL between fw
@@ -27,10 +41,13 @@
  *      vendor voltages (for reference, if a dedicated rail appears) are:
  *      150–648 MHz @ 900 mV, 696 @ 920, 744/840 @ 1000, 888 @ 1050.
  *
- * HW-verify: that CLK_GPU actually reaches each rate (CCU divider granularity)
- * and that the top rates are stable on the device. The 744/840/888 MHz entries
- * are the vendor "turbo" steps; keep the default ceiling conservative (600 MHz)
- * and only raise it after on-device thermal/stability testing on the fixed rail.
+ * HW-verify: that CLK_GPU actually reaches each rate — this is exactly the linear-
+ * vs-masking bug above — and that the top rates are stable on the device. The 648+
+ * MHz entries are the vendor "turbo"/speed-bin steps: they run from pll-gpu (a live
+ * variable PLL, SID-efuse gated), which Juan's first series deliberately DEFERS to a
+ * follow-up, so they are DOUBLY gated (maskdiv fix + the pll-gpu speed-bin work).
+ * Keep the default ceiling conservative (600 MHz, the top M=0 universal rate) and
+ * only raise it after both land + on-device thermal/stability testing on the fixed rail.
  */
 
 &gpu {

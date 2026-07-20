@@ -69,7 +69,33 @@ A board override, mirroring the siblings:
   nothing to add there.
 - Kernel: `CONFIG_DRM_PANFROST=m`. Userspace: Mesa with Panfrost + PanVK.
 - **Optional later:** an `operating-points-v2` GPU OPP table for DVFS (vendor table:
-  150/200/300/400/600 MHz). Not required for basic accel; the siblings ship without one.
+  150/200/300/400/600 MHz, `dts/staging/trimui-gpu-opp.dtsi`). Not required for basic accel;
+  the siblings ship without one — and see the clock-model gate below before enabling it.
+
+## GPU clock model — DVFS is gated on an upstream fix (tracking)
+Basic Panfrost accel runs the GPU at the boot clock and needs none of this. But **GPU
+DVFS (an OPP table) is gated on a clock-driver fix**, discovered/posted upstream 2026-07-19
+by Juan Manuel López Carrillo (ut-slayer) and confirmed by Chen-Yu Tsai:
+
+- The A523/T527 **GPU mod clock (`0x670`) is a cycle-masking / fractional divider**
+  (`rate = source * (16 - M) / 16`, T527 UM v0.92 §2.7.6.58), **not** the linear `M+1`
+  divider mainline currently models it as.
+- With the linear model **every OPP that needs `M>0` silently overclocks** — measured on an
+  OrangePi 4A: "150 MHz"→~487, "200"→648, "300"→560, "400"→**750** (25% over the 600 MHz
+  vendor ceiling; *throttling to "400 MHz" raises the clock*). Only `M=0` rates
+  (200/300/400/600, exact from a periph output) are safe under the current model.
+- Fix in review: series **"clk: sunxi-ng: fix the A523/T527 GPU clock model, enable GPU
+  DVFS"** — a new `ccu_maskdiv` clock type, switch the A523 `gpu_clk` to it, drop the
+  `pll-periph0-800M` parent (BSP: "GPU job fault"), drop `CLK_SET_RATE_PARENT`, and a mux
+  notifier parking the GPU on `pll-periph0-600M` while `pll-gpu` retunes. Prep patch
+  `clk: sunxi-ng: div: implement set_rate_and_parent` already has Chen-Yu's Reviewed-by.
+- **Our stance:** *track, don't carry.* It's mainline-bound (generic `ccu_maskdiv` + the
+  A523 CCU), still churning (v1; Sashiko AI flagged issues → expect v2+), and we can't
+  runtime-verify without the device — so it flows in for free on a kernel rebase once merged,
+  rather than as an out-of-tree patch. `dts/staging/trimui-gpu-opp.dtsi` is now gated on it.
+  The turbo/speed-bin rows (648–888 MHz) run from `pll-gpu` and are **doubly** gated (they
+  need the deferred follow-up too). This also *validates our clock-only OPP choice*: Juan's
+  OPPs sit at a fixed 920 mV (the AXP `dcdc2` rail), exactly our shared-rail reasoning.
 
 ## Framing
 - The GPU is **orthogonal to lighting the panel.** Panfrost gives 3D accel; the panel is

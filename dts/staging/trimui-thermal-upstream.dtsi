@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+// Copyright (C) 2026 Midgy BALON
+/*
+ * A523 thermal — active pwm-fan cooling layered on the UPSTREAM THS zones.
+ *
+ * REBASED fragment for once Mikhail Kalashnikov's A523 THS series merges
+ * (lore 20260704171411, [PATCH v5], based on 7.2-rc1 — converging: Reviewed-by
+ * from Chen-Yu Tsai + Philipp Zabel; a v6 for K. Kozlowski's binding nits is
+ * expected before it lands). That series adds, straight into sun55i-a523.dtsi:
+ *   - the ths0 (@200a000) and ths1 (@2009400) sensors + the two calibration
+ *     nvmem cells (ths_calibration0@38, ths_calibration1@44),
+ *   - the cpu0_thermal / cpu4_thermal / gpu-thermal / ddr-thermal zones, with
+ *     the CPU-DVFS cooling-maps and 70/90/110 C trips.
+ *
+ * So — unlike trimui-thermal.dtsi, which carries the ut-slayer THS driver
+ * (kernel/patches/0021-0023, compatibles sun55i-a523-ths/-ths-ddr, single 20-byte
+ * calibration cell) and re-defines all of the above for the LOCAL build — once the
+ * upstream series is in the tree the board's ONLY remaining job is to add our
+ * active fan as a cooling device on the upstream CPU zones. This file does exactly
+ * that and nothing else.
+ *
+ * SWITCH-OVER (when Kalashnikov's series is in your kernel tree):
+ *   1. drop kernel/patches/0021-0023 (the ut-slayer THS driver) from the series;
+ *   2. in the board DTS, `#include "trimui-thermal-upstream.dtsi"` INSTEAD of
+ *      "trimui-thermal.dtsi".
+ * Until then, keep using trimui-thermal.dtsi. See docs/THERMAL-DVFS-NOTES.md and
+ * the linux-sunxi maintainer guidance (adopt in-flight series, don't duplicate).
+ *
+ * Policy: the fan spins at the first passive CPU trip (70 C, cpu{0,4}_threshold),
+ * BEFORE upstream's CPU-DVFS map throttles cpufreq at the 90 C target
+ * (cpu{0,4}_target) — fan first, throttle later. Upstream's map0 (CPU DVFS) is
+ * preserved; our map-fan merges into the same cooling-maps node by name override.
+ * The CPUs also carry a dynamic-power-coefficient (dts/staging/trimui-cpu-opp.dtsi)
+ * so IPA can drive both the fan and cpufreq as power actors.
+ */
+
+#include <dt-bindings/thermal/thermal.h>
+
+/* Little cluster (cpu0-3): add the fan alongside upstream's DVFS cooling-map. */
+&cpu0_thermal {
+	cooling-maps {
+		map-fan {
+			trip = <&cpu0_threshold>;
+			cooling-device = <&pwm_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+/* Big cluster (cpu4-7): the hot one; same fan policy. */
+&cpu4_thermal {
+	cooling-maps {
+		map-fan {
+			trip = <&cpu4_threshold>;
+			cooling-device = <&pwm_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+/*
+ * NOTE - GPU fan cooling is intentionally NOT wired here: upstream's `gpu-thermal`
+ * zone is UNLABELLED, so a board override cannot reach it. The fan still cools the
+ * GPU physically (shared heatsink) and spins whenever either CPU cluster passes
+ * 70 C, which covers sustained gaming (CPU load tracks GPU load on this class of
+ * device). A clean, per-zone GPU fan-map would need a label on the upstream
+ * gpu-thermal node — a small, reasonable request to send to the THS series author
+ * (it would help any A523/T527 board with active cooling, not just this one).
+ * Same applies to ddr-thermal (also unlabelled; DDR is passively cooled anyway).
+ */

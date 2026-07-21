@@ -1,0 +1,38 @@
+From ae0c6cddcda0612cea614560354627f6aa49b844 Mon Sep 17 00:00:00 2001
+From: Chen-Yu Tsai <wens@kernel.org>
+Date: Wed, 18 Feb 2026 00:58:22 +0800
+Subject: [PATCH 2/6] ASoC: sun4i-codec: Sort sound related #include statements
+
+Some the the sound related #include statements are not ordered in
+alphabetically order.
+
+Sort them. This results in no functional change.
+
+Signed-off-by: Chen-Yu Tsai <wens@kernel.org>
+---
+ sound/soc/sunxi/sun4i-codec.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-codec.c b/sound/soc/sunxi/sun4i-codec.c
+index 93f511fb61..2c5cf12f1a 100644
+--- a/sound/soc/sunxi/sun4i-codec.c
++++ b/sound/soc/sunxi/sun4i-codec.c
+@@ -22,13 +22,13 @@
+ #include <linux/gpio/consumer.h>
+ 
+ #include <sound/core.h>
++#include <sound/dmaengine_pcm.h>
++#include <sound/initval.h>
+ #include <sound/jack.h>
+ #include <sound/pcm.h>
+ #include <sound/pcm_params.h>
+ #include <sound/soc.h>
+ #include <sound/tlv.h>
+-#include <sound/initval.h>
+-#include <sound/dmaengine_pcm.h>
+ 
+ /* Codec DAC digital controls and FIFO registers */
+ #define SUN4I_CODEC_DAC_DPC			(0x00)
+-- 
+2.39.5
+

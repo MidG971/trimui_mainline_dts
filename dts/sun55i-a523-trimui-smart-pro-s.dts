@@ -473,26 +473,37 @@
  * (see docs/AUDIO-CODEC-NOTES.md).
  */
 &codec {
-	allwinner,pa-gpios = <&pio 7 6 GPIO_ACTIVE_HIGH>;	/* PH6 speaker amp */
-	allwinner,audio-routing =
-		"LINEOUTL", "LINEOUTLP_PIN",
-		"LINEOUTL", "LINEOUTLN_PIN",
-		"LINEOUTR", "LINEOUTRP_PIN",
-		"LINEOUTR", "LINEOUTRN_PIN",
-		"SPK", "LINEOUTLP_PIN",
-		"SPK", "LINEOUTLN_PIN",
-		"SPK", "LINEOUTRP_PIN",
-		"SPK", "LINEOUTRN_PIN",
-		"HPOUT", "HPOUTL_PIN",
-		"HPOUT", "HPOUTR_PIN",
-		"MIC1P_PIN", "MIC1",
-		"MIC1N_PIN", "MIC1",
-		"MIC2P_PIN", "MIC2",
-		"MIC2N_PIN", "MIC2",
-		"MIC3P_PIN", "MIC3",
-		"MIC3N_PIN", "MIC3";
+	/*
+	 * Card wired for Chen-Yu Tsai's upstream sun4i-codec A523 variant, which
+	 * parses the card from the GENERIC "widgets"/"audio-routing" on this node
+	 * (not the old allwinner,* names our previous standalone driver used).
+	 * Speaker is driven from LINEOUT, headphone from HP, mic on MIC1 (matches
+	 * the vendor topology). avcc = analog 1.8 V (AXP2202 aldo4).
+	 */
+	widgets = "Speaker", "Speaker",
+		  "Headphone", "Headphone",
+		  "Microphone", "Mic";
+	audio-routing = "Speaker", "LINEOUT",
+			"Headphone", "HP",
+			"MIC1", "Mic";
 	avcc-supply = <&reg_aldo4>;
 	status = "okay";
+};
+
+/*
+ * Speaker power-amp enable = PH6 (active high). Chen-Yu's codec card has no
+ * pa-gpios / aux-amplifier support yet, so hog PH6 high as an interim so the
+ * speaker plays. TODO (feedback to the codec author): add pa-gpios (or a
+ * simple-audio-amplifier aux-dev) so this becomes a DAPM-gated, power-aware
+ * enable (cf. the fan/power-profile notes) instead of an always-on hog.
+ */
+&pio {
+	spk_amp_hog {
+		gpio-hog;
+		gpios = <7 6 GPIO_ACTIVE_HIGH>;	/* PH6 */
+		output-high;
+		line-name = "speaker-amp-enable";
+	};
 };
 
 /*

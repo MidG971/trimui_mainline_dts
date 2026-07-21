@@ -1,0 +1,128 @@
+From 1cdb4d4846ffaddce6d648dbbfcdcca78f8a0bcc Mon Sep 17 00:00:00 2001
+From: Chen-Yu Tsai <wens@kernel.org>
+Date: Mon, 23 Feb 2026 21:30:06 +0800
+Subject: [PATCH 6/6] [WIP] ASoC: sun4i: Support capture on A523
+
+Signed-off-by: Chen-Yu Tsai <wens@kernel.org>
+---
+ sound/soc/sunxi/sun4i-codec.c | 69 +++++++++++++++++++++++++++++++++--
+ 1 file changed, 66 insertions(+), 3 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-codec.c b/sound/soc/sunxi/sun4i-codec.c
+index d7ef6cfb04..fe0b39f982 100644
+--- a/sound/soc/sunxi/sun4i-codec.c
++++ b/sound/soc/sunxi/sun4i-codec.c
+@@ -328,7 +328,19 @@
+ /* A523 family specific registers */
+ #define SUN55I_CODEC_DAC_FIFOC		(0x10)
+ #define SUN55I_CODEC_DAC_TXDATA		(0x20)
+-
++#define SUN55I_CODEC_ADC_FIFOC		(0x30)
++#define SUN55I_CODEC_ADC_RXDATA		(0x40)
++#define SUN55I_CODEC_ADC_DIG_CTRL	(0x50)
++#define SUN55I_CODEC_ADC_DIG_CTRL_ADC1_EN	(0)
++#define SUN55I_CODEC_ADC_DIG_CTRL_ADC2_EN	(1)
++#define SUN55I_CODEC_ADC_DIG_CTRL_ADC3_EN	(2)
++
++#define SUN55I_CODEC_ADC1		(0x300)
++#define SUN55I_CODEC_ADC1_ADC1EN		(31)
++#define SUN55I_CODEC_ADC1_MIC1_PGA_EN		(30)
++#define SUN55I_CODEC_ADC1_MIC1_PGA_GAIN		(8)
++#define SUN55I_CODEC_ADC2		(0x304)
++#define SUN55I_CODEC_ADC3		(0x308)
+ #define SUN55I_CODEC_DAC		(0x310)
+ #define SUN55I_CODEC_DAC_HP_GAIN		(28)
+ #define SUN55I_CODEC_DAC_DACL_EN		(15)
+@@ -2121,6 +2133,11 @@ static const DECLARE_TLV_DB_RANGE(sun55i_codec_lineout_vol_scale,
+ 	0, 1, TLV_DB_SCALE_ITEM(TLV_DB_GAIN_MUTE, 0, 1),
+ 	2, 31, TLV_DB_SCALE_ITEM(-4350, 150, 0),
+ );
++static const DECLARE_TLV_DB_RANGE(sun55i_codec_adc_gain_scale,
++	0, 0, TLV_DB_SCALE_ITEM(0, 0, 0),
++	1, 3, TLV_DB_SCALE_ITEM(6, 0, 0),
++	4, 31, TLV_DB_SCALE_ITEM(9, 1, 0),
++);
+ 
+ static const struct snd_kcontrol_new sun55i_codec_controls[] = {
+ 	SOC_SINGLE_TLV("Digital Playback Volume", SUN4I_CODEC_DAC_DPC,
+@@ -2132,6 +2149,15 @@ static const struct snd_kcontrol_new sun55i_codec_controls[] = {
+ 	SOC_SINGLE_TLV("Line Out Playback Volume", SUN55I_CODEC_DAC,
+ 		       SUN55I_CODEC_DAC_LINEOUT_VC, 0x1f, 0,
+ 		       sun55i_codec_lineout_vol_scale),
++	SOC_SINGLE_TLV("Mic1 PGA Gain Capture Volume", SUN55I_CODEC_ADC1,
++		       SUN55I_CODEC_ADC1_MIC1_PGA_GAIN, 0x1f, 0,
++		       sun55i_codec_adc_gain_scale),
++	SOC_SINGLE_TLV("Mic2 PGA Gain Capture Volume", SUN55I_CODEC_ADC2,
++		       SUN55I_CODEC_ADC1_MIC1_PGA_GAIN, 0x1f, 0,
++		       sun55i_codec_adc_gain_scale),
++	SOC_SINGLE_TLV("Mic3 PGA Gain Capture Volume", SUN55I_CODEC_ADC3,
++		       SUN55I_CODEC_ADC1_MIC1_PGA_GAIN, 0x1f, 0,
++		       sun55i_codec_adc_gain_scale),
+ };
+ 
+ static const struct snd_kcontrol_new sun55i_codec_lineout_mute =
+@@ -2150,6 +2176,32 @@ static const struct snd_soc_dapm_widget sun55i_codec_dapm_widgets[] = {
+ 	SND_SOC_DAPM_SUPPLY("MBIAS", SUN55I_CODEC_MICBIAS,
+ 			    SUN55I_CODEC_MICBIAS_MBIASEN, 0, NULL, 0),
+ 
++	/* Mic input path */
++	SND_SOC_DAPM_PGA("Mic1 PGA", SUN55I_CODEC_ADC1,
++			 SUN55I_CODEC_ADC1_MIC1_PGA_EN, 0, NULL, 0),
++	SND_SOC_DAPM_PGA("Mic2 PGA", SUN55I_CODEC_ADC2,
++			 SUN55I_CODEC_ADC1_MIC1_PGA_EN, 0, NULL, 0),
++	SND_SOC_DAPM_PGA("Mic3 PGA", SUN55I_CODEC_ADC3,
++			 SUN55I_CODEC_ADC1_MIC1_PGA_EN, 0, NULL, 0),
++
++	/* Digital parts of the ADCs */
++	SND_SOC_DAPM_SUPPLY("ADC Enable", SUN6I_CODEC_ADC_FIFOC,
++			    SUN6I_CODEC_ADC_FIFOC_EN_AD, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("ADC1 Enable", SUN55I_CODEC_ADC_DIG_CTRL,
++			    SUN55I_CODEC_ADC_DIG_CTRL_ADC1_EN, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("ADC2 Enable", SUN55I_CODEC_ADC_DIG_CTRL,
++			    SUN55I_CODEC_ADC_DIG_CTRL_ADC2_EN, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("ADC3 Enable", SUN55I_CODEC_ADC_DIG_CTRL,
++			    SUN55I_CODEC_ADC_DIG_CTRL_ADC3_EN, 0, NULL, 0),
++
++	/* Analog parts of the ADCs */
++	SND_SOC_DAPM_ADC("ADC1", "Codec Capture", SUN55I_CODEC_ADC1,
++			 SUN55I_CODEC_ADC1_ADC1EN, 0),
++	SND_SOC_DAPM_ADC("ADC2", "Codec Capture", SUN55I_CODEC_ADC2,
++			 SUN55I_CODEC_ADC1_ADC1EN, 0),
++	SND_SOC_DAPM_ADC("ADC3", "Codec Capture", SUN55I_CODEC_ADC3,
++			 SUN55I_CODEC_ADC1_ADC1EN, 0),
++
+ 	/* Digital parts of the DACs */
+ 	SND_SOC_DAPM_SUPPLY("DAC Enable", SUN4I_CODEC_DAC_DPC,
+ 			    SUN4I_CODEC_DAC_DPC_EN_DA, 0,
+@@ -2181,6 +2233,19 @@ static const struct snd_soc_dapm_widget sun55i_codec_dapm_widgets[] = {
+ };
+ 
+ static const struct snd_soc_dapm_route sun55i_codec_dapm_routes[] = {
++	/* Microphone Routes */
++	{ "Mic1 PGA", NULL, "MIC1"},
++	{ "Mic2 PGA", NULL, "MIC2"},
++	{ "Mic3 PGA", NULL, "MIC3"},
++
++	/* ADC Routes */
++	{ "ADC1 Enable", NULL, "ADC Enable" },
++	{ "ADC2 Enable", NULL, "ADC Enable" },
++	{ "ADC3 Enable", NULL, "ADC Enable" },
++	{ "ADC1", NULL, "Mic1 PGA" },
++	{ "ADC2", NULL, "Mic2 PGA" },
++	{ "ADC3", NULL, "Mic3 PGA" },
++
+ 	/* DAC Routes */
+ 	{ "Left DAC", NULL, "DAC Enable" },
+ 	{ "Right DAC", NULL, "DAC Enable" },
+@@ -2421,8 +2486,6 @@ static const struct sun4i_codec_quirks sun55i_a523_codec_quirks = {
+ 	.reg_dac_txdata	= SUN55I_CODEC_DAC_TXDATA,
+ 	.reg_adc_rxdata	= SUN55I_CODEC_ADC_RXDATA,
+ 	.has_reset	= true,
+-	/* TODO: support capture side */
+-	.playback_only	= true,
+ 	.has_split_clks = true,
+ 	.dma_max_burst	= SUN4I_DMA_MAX_BURST,
+ };
+-- 
+2.39.5
+

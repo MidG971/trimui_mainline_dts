@@ -1,0 +1,108 @@
+From 788a3a7c395e37483ce332ada49b5e5982d75df2 Mon Sep 17 00:00:00 2001
+From: Chen-Yu Tsai <wens@kernel.org>
+Date: Wed, 18 Feb 2026 01:00:22 +0800
+Subject: [PATCH 3/6] ASoC: sun4i-codec: Support separate clocks for DAC and
+ ADC sides
+
+On the latest Allwinner SoCs, the codec now has separate clocks for the
+DAC and ADC, allowing the system to simultaneously play and capture
+audio for different sample rate families (44.1 kHz vs 48 kHz).
+
+Add a quirks flag and associated code on the capture side to handle
+this.
+
+Signed-off-by: Chen-Yu Tsai <wens@kernel.org>
+---
+ sound/soc/sunxi/sun4i-codec.c | 40 +++++++++++++++++++++++++++++------
+ 1 file changed, 33 insertions(+), 7 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-codec.c b/sound/soc/sunxi/sun4i-codec.c
+index 2c5cf12f1a..da3daf5476 100644
+--- a/sound/soc/sunxi/sun4i-codec.c
++++ b/sound/soc/sunxi/sun4i-codec.c
+@@ -329,7 +329,9 @@ struct sun4i_codec {
+ 	struct device	*dev;
+ 	struct regmap	*regmap;
+ 	struct clk	*clk_apb;
++	/* on split clock devices this is the dac clock */
+ 	struct clk	*clk_module;
++	struct clk	*clk_adc;
+ 	struct reset_control *rst;
+ 	struct gpio_desc *gpio_pa;
+ 	struct gpio_desc *gpio_hp;
+@@ -661,7 +663,10 @@ static int sun4i_codec_hw_params(struct snd_pcm_substream *substream,
+ 	if (!clk_freq)
+ 		return -EINVAL;
+ 
+-	ret = clk_set_rate(scodec->clk_module, clk_freq);
++	if (scodec->clk_adc && substream->stream == SNDRV_PCM_STREAM_CAPTURE)
++		ret = clk_set_rate(scodec->clk_adc, clk_freq);
++	else
++		ret = clk_set_rate(scodec->clk_module, clk_freq);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -690,7 +695,10 @@ static int sun4i_codec_startup(struct snd_pcm_substream *substream,
+ 	regmap_field_set_bits(scodec->reg_dac_fifoc,
+ 			      3 << SUN4I_CODEC_DAC_FIFOC_DRQ_CLR_CNT);
+ 
+-	return clk_prepare_enable(scodec->clk_module);
++	if (scodec->clk_adc && substream->stream == SNDRV_PCM_STREAM_CAPTURE)
++		return clk_prepare_enable(scodec->clk_adc);
++	else
++		return clk_prepare_enable(scodec->clk_module);
+ }
+ 
+ static void sun4i_codec_shutdown(struct snd_pcm_substream *substream,
+@@ -699,7 +707,10 @@ static void sun4i_codec_shutdown(struct snd_pcm_substream *substream,
+ 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+ 	struct sun4i_codec *scodec = snd_soc_card_get_drvdata(rtd->card);
+ 
+-	clk_disable_unprepare(scodec->clk_module);
++	if (scodec->clk_adc && substream->stream == SNDRV_PCM_STREAM_CAPTURE)
++		clk_disable_unprepare(scodec->clk_adc);
++	else
++		clk_disable_unprepare(scodec->clk_module);
+ }
+ 
+ static const struct snd_soc_dai_ops sun4i_codec_dai_ops = {
+@@ -2148,6 +2159,7 @@ struct sun4i_codec_quirks {
+ 	unsigned int reg_adc_rxdata;	/* RX FIFO offset for DMA config */
+ 	bool has_reset;
+ 	bool playback_only;
++	bool has_split_clks;
+ 	u32 dma_max_burst;
+ };
+ 
+@@ -2329,10 +2341,24 @@ static int sun4i_codec_probe(struct platform_device *pdev)
+ 		return PTR_ERR(scodec->clk_apb);
+ 	}
+ 
+-	scodec->clk_module = devm_clk_get(&pdev->dev, "codec");
+-	if (IS_ERR(scodec->clk_module)) {
+-		dev_err(&pdev->dev, "Failed to get the module clock\n");
+-		return PTR_ERR(scodec->clk_module);
++	if (quirks->has_split_clks) {
++		scodec->clk_module = devm_clk_get(&pdev->dev, "dac");
++		if (IS_ERR(scodec->clk_module)) {
++			dev_err(&pdev->dev, "Failed to get the module dac clock\n");
++			return PTR_ERR(scodec->clk_module);
++		}
++
++		scodec->clk_adc = devm_clk_get(&pdev->dev, "adc");
++		if (IS_ERR(scodec->clk_adc)) {
++			dev_err(&pdev->dev, "Failed to get the module adc clock\n");
++			return PTR_ERR(scodec->clk_adc);
++		}
++	} else {
++		scodec->clk_module = devm_clk_get(&pdev->dev, "codec");
++		if (IS_ERR(scodec->clk_module)) {
++			dev_err(&pdev->dev, "Failed to get the module clock\n");
++			return PTR_ERR(scodec->clk_module);
++		}
+ 	}
+ 
+ 	if (quirks->has_reset) {
+-- 
+2.39.5
+

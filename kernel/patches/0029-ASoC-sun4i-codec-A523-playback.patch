@@ -1,0 +1,243 @@
+From ef6aea06096134a7e805db2283ed108274414319 Mon Sep 17 00:00:00 2001
+From: Chen-Yu Tsai <wens@kernel.org>
+Date: Wed, 18 Feb 2026 01:02:47 +0800
+Subject: [PATCH 4/6] ASoC: sun4i-codec: Support playback for A523 SoC family's
+ audio codec
+
+The A523 SoC family has a slightly different audio codec compared to
+previous generations:
+
+- Separate module clocks for DAC and ADC
+- No analog mixer or analog mute before headphone output
+- No analog passthrough from capture side to playback side
+- No analog mixer before ADC
+- 3 separate ADC channels, corresponding to MIC1, MIC2, and MIC3
+  external pins
+
+Add support for the playback side of the audio codec for now.
+
+Signed-off-by: Chen-Yu Tsai <wens@kernel.org>
+---
+ sound/soc/sunxi/sun4i-codec.c | 178 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 178 insertions(+)
+
+diff --git a/sound/soc/sunxi/sun4i-codec.c b/sound/soc/sunxi/sun4i-codec.c
+index da3daf5476..d7ef6cfb04 100644
+--- a/sound/soc/sunxi/sun4i-codec.c
++++ b/sound/soc/sunxi/sun4i-codec.c
+@@ -325,6 +325,27 @@
+ 
+ #define SUNIV_CODEC_ADC_DBG		(0x4c)
+ 
++/* A523 family specific registers */
++#define SUN55I_CODEC_DAC_FIFOC		(0x10)
++#define SUN55I_CODEC_DAC_TXDATA		(0x20)
++
++#define SUN55I_CODEC_DAC		(0x310)
++#define SUN55I_CODEC_DAC_HP_GAIN		(28)
++#define SUN55I_CODEC_DAC_DACL_EN		(15)
++#define SUN55I_CODEC_DAC_DACR_EN		(14)
++#define SUN55I_CODEC_DAC_LINEOUTL_EN		(13)
++#define SUN55I_CODEC_DAC_LMUTE			(12)
++#define SUN55I_CODEC_DAC_LINEOUTR_EN		(11)
++#define SUN55I_CODEC_DAC_RMUTE			(10)
++#define SUN55I_CODEC_DAC_CPLDO_EN		(7)
++#define SUN55I_CODEC_DAC_LINEOUT_VC		(0)
++#define SUN55I_CODEC_MICBIAS		(0x318)
++#define SUN55I_CODEC_MICBIAS_HBIASEN		(15)
++#define SUN55I_CODEC_MICBIAS_MBIASEN		(7)
++#define SUN55I_CODEC_HP			(0x324)
++#define SUN55I_CODEC_HP_HPPA_EN			(15)
++#define SUN55I_CODEC_POWER		(0x348)
++
+ struct sun4i_codec {
+ 	struct device	*dev;
+ 	struct regmap	*regmap;
+@@ -2092,6 +2113,136 @@ static struct snd_soc_card *suniv_codec_create_card(struct device *dev)
+ 	return card;
+ };
+ 
++/* volume / mute controls */
++static const DECLARE_TLV_DB_SCALE(sun55i_codec_dvol_scale, -7308, 116, 0);
++static const DECLARE_TLV_DB_SCALE(sun55i_codec_ch_vol_scale, -11925, 75, 1);
++static const DECLARE_TLV_DB_SCALE(sun55i_codec_hp_vol_scale, -4200, 600, 0);
++static const DECLARE_TLV_DB_RANGE(sun55i_codec_lineout_vol_scale,
++	0, 1, TLV_DB_SCALE_ITEM(TLV_DB_GAIN_MUTE, 0, 1),
++	2, 31, TLV_DB_SCALE_ITEM(-4350, 150, 0),
++);
++
++static const struct snd_kcontrol_new sun55i_codec_controls[] = {
++	SOC_SINGLE_TLV("Digital Playback Volume", SUN4I_CODEC_DAC_DPC,
++		       SUN4I_CODEC_DAC_DPC_DVOL, 0x3f, 1,
++		       sun55i_codec_dvol_scale),
++	SOC_SINGLE_TLV("Headphone Playback Volume", SUN55I_CODEC_DAC,
++		       SUN55I_CODEC_DAC_HP_GAIN, 0x7, 1,
++		       sun55i_codec_hp_vol_scale),
++	SOC_SINGLE_TLV("Line Out Playback Volume", SUN55I_CODEC_DAC,
++		       SUN55I_CODEC_DAC_LINEOUT_VC, 0x1f, 0,
++		       sun55i_codec_lineout_vol_scale),
++};
++
++static const struct snd_kcontrol_new sun55i_codec_lineout_mute =
++	SOC_DAPM_DOUBLE("Line Out Playback Switch", SUN55I_CODEC_DAC,
++			SUN55I_CODEC_DAC_LMUTE, SUN55I_CODEC_DAC_RMUTE, 1, 0);
++
++static const struct snd_soc_dapm_widget sun55i_codec_dapm_widgets[] = {
++	/* Microphone inputs */
++	SND_SOC_DAPM_INPUT("MIC1"),
++	SND_SOC_DAPM_INPUT("MIC2"),
++	SND_SOC_DAPM_INPUT("MIC3"),
++
++	/* Microphone Bias */
++	SND_SOC_DAPM_SUPPLY("HBIAS", SUN55I_CODEC_MICBIAS,
++			    SUN55I_CODEC_MICBIAS_HBIASEN, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("MBIAS", SUN55I_CODEC_MICBIAS,
++			    SUN55I_CODEC_MICBIAS_MBIASEN, 0, NULL, 0),
++
++	/* Digital parts of the DACs */
++	SND_SOC_DAPM_SUPPLY("DAC Enable", SUN4I_CODEC_DAC_DPC,
++			    SUN4I_CODEC_DAC_DPC_EN_DA, 0,
++			    NULL, 0),
++
++	/* Analog parts of the DACs */
++	SND_SOC_DAPM_DAC("Left DAC", "Codec Playback",
++			 SUN55I_CODEC_DAC, SUN55I_CODEC_DAC_DACL_EN, 0),
++	SND_SOC_DAPM_DAC("Right DAC", "Codec Playback",
++			 SUN55I_CODEC_DAC, SUN55I_CODEC_DAC_DACR_EN, 0),
++
++	/* Headphone output path */
++	SND_SOC_DAPM_SUPPLY("CPLDO", SUN55I_CODEC_DAC,
++			    SUN55I_CODEC_DAC_CPLDO_EN, 0, NULL, 0),
++	SND_SOC_DAPM_OUT_DRV("Headphone Amp", SUN55I_CODEC_HP,
++			     SUN55I_CODEC_HP_HPPA_EN, 0, NULL, 0),
++	SND_SOC_DAPM_OUTPUT("HP"),
++
++	/* Line Out path */
++	SND_SOC_DAPM_SWITCH("Left Line Out Switch", SND_SOC_NOPM, 0, 0,
++			    &sun55i_codec_lineout_mute),
++	SND_SOC_DAPM_SWITCH("Right Line Out Switch", SND_SOC_NOPM, 0, 0,
++			    &sun55i_codec_lineout_mute),
++	SND_SOC_DAPM_OUT_DRV("Left Line Out Amp", SUN55I_CODEC_DAC,
++			     SUN55I_CODEC_DAC_LINEOUTL_EN, 0, NULL, 0),
++	SND_SOC_DAPM_OUT_DRV("Right Line Out Amp", SUN55I_CODEC_DAC,
++			     SUN55I_CODEC_DAC_LINEOUTR_EN, 0, NULL, 0),
++	SND_SOC_DAPM_OUTPUT("LINEOUT"),
++};
++
++static const struct snd_soc_dapm_route sun55i_codec_dapm_routes[] = {
++	/* DAC Routes */
++	{ "Left DAC", NULL, "DAC Enable" },
++	{ "Right DAC", NULL, "DAC Enable" },
++
++	/* Headphone Routes */
++	{ "Headphone Amp", NULL, "CPLDO" },
++	{ "Headphone Amp", NULL, "Left DAC" },
++	{ "Headphone Amp", NULL, "Right DAC" },
++	{ "HP", NULL, "Headphone Amp" },
++
++	/* Line Out Routes */
++	{ "Left Line Out Switch", "Line Out Playback Switch", "Left DAC" },
++	{ "Right Line Out Switch", "Line Out Playback Switch", "Right DAC" },
++	{ "Left Line Out Amp", NULL, "Left Line Out Switch" },
++	{ "Right Line Out Amp", NULL, "Right Line Out Switch" },
++	{ "LINEOUT", NULL, "Left Line Out Amp" },
++	{ "LINEOUT", NULL, "Right Line Out Amp" },
++};
++
++static const struct snd_soc_component_driver sun55i_codec_codec = {
++	.controls		= sun55i_codec_controls,
++	.num_controls		= ARRAY_SIZE(sun55i_codec_controls),
++	.dapm_widgets		= sun55i_codec_dapm_widgets,
++	.num_dapm_widgets	= ARRAY_SIZE(sun55i_codec_dapm_widgets),
++	.dapm_routes		= sun55i_codec_dapm_routes,
++	.num_dapm_routes	= ARRAY_SIZE(sun55i_codec_dapm_routes),
++	.idle_bias_on		= 1,
++	.use_pmdown_time	= 1,
++	.endianness		= 1,
++};
++
++static struct snd_soc_card *sun55i_codec_create_card(struct device *dev)
++{
++	struct snd_soc_card *card;
++	int ret;
++
++	card = devm_kzalloc(dev, sizeof(*card), GFP_KERNEL);
++	if (!card)
++		return ERR_PTR(-ENOMEM);
++
++	card->dai_link = sun4i_codec_create_link(dev, &card->num_links);
++	if (!card->dai_link)
++		return ERR_PTR(-ENOMEM);
++
++	card->dev		= dev;
++	card->owner		= THIS_MODULE;
++	card->name		= "A523 Audio Codec";
++	card->long_name         = "a523-audio-codec";
++	card->driver_name       = "sun4i-codec";
++	card->fully_routed	= true;
++
++	ret = snd_soc_of_parse_audio_simple_widgets(card, "widgets");
++	if (ret)
++		return ERR_PTR(ret);
++
++	ret = snd_soc_of_parse_audio_routing(card, "audio-routing");
++	if (ret)
++		return ERR_PTR(ret);
++
++	return card;
++};
++
+ static const struct regmap_config sun4i_codec_regmap_config = {
+ 	.reg_bits	= 32,
+ 	.reg_stride	= 4,
+@@ -2142,6 +2293,14 @@ static const struct regmap_config sun50i_h616_codec_regmap_config = {
+ 	.cache_type	= REGCACHE_NONE,
+ };
+ 
++static const struct regmap_config sun55i_codec_regmap_config = {
++	.reg_bits	= 32,
++	.reg_stride	= 4,
++	.val_bits	= 32,
++	.max_register	= SUN55I_CODEC_POWER,
++	.cache_type	= REGCACHE_NONE,
++};
++
+ static const struct regmap_config suniv_codec_regmap_config = {
+ 	.reg_bits	= 32,
+ 	.reg_stride	= 4,
+@@ -2253,6 +2412,21 @@ static const struct sun4i_codec_quirks sun50i_h616_codec_quirks = {
+ 	.dma_max_burst	= SUN4I_DMA_MAX_BURST,
+ };
+ 
++static const struct sun4i_codec_quirks sun55i_a523_codec_quirks = {
++	.regmap_config	= &sun55i_codec_regmap_config,
++	.codec		= &sun55i_codec_codec,
++	.create_card	= sun55i_codec_create_card,
++	.reg_adc_fifoc	= REG_FIELD(SUN55I_CODEC_ADC_FIFOC, 0, 31),
++	.reg_dac_fifoc	= REG_FIELD(SUN55I_CODEC_DAC_FIFOC, 0, 31),
++	.reg_dac_txdata	= SUN55I_CODEC_DAC_TXDATA,
++	.reg_adc_rxdata	= SUN55I_CODEC_ADC_RXDATA,
++	.has_reset	= true,
++	/* TODO: support capture side */
++	.playback_only	= true,
++	.has_split_clks = true,
++	.dma_max_burst	= SUN4I_DMA_MAX_BURST,
++};
++
+ static const struct sun4i_codec_quirks suniv_f1c100s_codec_quirks = {
+ 	.regmap_config	= &suniv_codec_regmap_config,
+ 	.codec		= &suniv_codec_codec,
+@@ -2294,6 +2468,10 @@ static const struct of_device_id sun4i_codec_of_match[] = {
+ 		.compatible = "allwinner,sun50i-h616-codec",
+ 		.data = &sun50i_h616_codec_quirks,
+ 	},
++	{
++		.compatible = "allwinner,sun55i-a523-codec",
++		.data = &sun55i_a523_codec_quirks,
++	},
+ 	{
+ 		.compatible = "allwinner,suniv-f1c100s-codec",
+ 		.data = &suniv_f1c100s_codec_quirks,
+-- 
+2.39.5
+

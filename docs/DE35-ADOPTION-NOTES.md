@@ -15,6 +15,15 @@ would conflict on `sun8i_mixer.c`, `sun4i_tcon.c`, and the SoC dtsi. And it is
 **HW-gated** — a lit pixel can only be confirmed on silicon
 ([[hardware-testing-prevails]]).
 
+> **This is a LOCAL screen-lighting path only — NOT the upstream route.** A. Przywara
+> (linux-sunxi, 2026-07-21) was explicit: display for A523 is **not urgent**, must wait
+> for the **H616 DE33 to merge upstream first**, and then A523 follows as a *clean
+> extension* — **BSP-derived DE/RCQ code is not upstreamable**. Since the ut-slayer DE
+> core is exactly that (Juan's BSP-derived RCQ debugging branch), adopting it here is
+> only to get *our* panel lit on *our* device. The upstream contribution is the clean
+> {DSI host / combo-PHY / TCON / panel} half; the DE mixer/CRTC waits on H616. See
+> [UPSTREAMING.md](UPSTREAMING.md).
+
 ## Patch triage (ut-slayer numbering)
 
 > **CORRECTED 2026-07-20 after an empirical apply/build pass on `compiler-rock3b`.**

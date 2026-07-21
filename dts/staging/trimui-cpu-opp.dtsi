@@ -3,13 +3,29 @@
 #include <dt-bindings/clock/sun55i-a523-cpu-ccu.h>	/* CLK_CPUL/CLK_CPUB, from patches 0015-0020 */
 /*
  * STAGING — per-cluster CPU DVFS (cpufreq-dt) OPP tables. Both former blockers are
- * now RESOLVED, so this fragment is fully wireable and builds. It stays in staging
- * only because CPU DVFS is boot-critical and HW-UNVERIFIED — the CPU-CCU reprograms
+ * now resolved LOCALLY, so this fragment is fully wireable and builds. It stays in
+ * staging because CPU DVFS is boot-critical and HW-UNVERIFIED — the CPU-CCU reprograms
  * the cluster PLLs and the OPP voltages are vendor-transcribed; enable + tune on the
  * device ([[hardware-testing-prevails]]). Include it from the board DTS to turn on
  * cpufreq. See docs/CPUPLL-NOTES.md, docs/TCS4838-NOTES.md, dts/staging/README.md.
  *
- * RESOLVED (both former blockers):
+ * UPSTREAM STATUS / why there is no separate "-upstream" rebase of this file
+ * (unlike trimui-thermal-upstream.dtsi): the only SoC-level dependency here is the
+ * A523 CPU-CCU, and — unlike the THS (Kalashnikov's near-merge series that redefines
+ * the sensor nodes) — the CPU-CCU is *not* an external in-flight series. It is
+ * ut-slayer's own UNMERGED work, adopted here verbatim as kernel/patches/0015-0020
+ * (node `cpu_ccu` + macros CLK_CPUL/CLK_CPUB). There is nothing in v7.2 /
+ * sunxi/for-next / linux-next (checked 2026-07-20). This file is therefore ALREADY
+ * the board-only form — it defines no SoC infrastructure to shed. When the CPU-CCU
+ * is properly upstreamed (Juan's to submit; per the linux-sunxi maintainer guidance),
+ * the switch-over is simply: DROP kernel/patches/0015-0020 (the node + header then
+ * come from mainline) and this file is used UNCHANGED — *provided* the upstream
+ * binding keeps the same names. WATCH for a rename in review: if CLK_CPUL/CLK_CPUB,
+ * the `allwinner,sun55i-a523-cpu-ccu` compatible, or the `cpu_ccu` label change
+ * upstream (Andre already warned Juan's approach "might not be the right one"), the
+ * `clocks = <&cpu_ccu CLK_CPU*>` references below must be updated to match.
+ *
+ * RESOLVED LOCALLY (both former blockers — via adoption, not yet upstream):
  *
  *  1. A523 CPU CLOCK — adopted from ut-slayer's CPU-CCU (kernel/patches/0015-0020,
  *     `&cpu_ccu` = clock-controller@8817000). The cpu nodes below use the real

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: (GPL-2.0-only OR MIT) -->
+<!-- Copyright (C) 2026 Midgy BALON -->
+<!--
+  usb-console.html — browser (WebSerial) reader for the Trimui mainline boot
+  console over the usb/dp port's USB gadget serial (/dev/ttyACM0). Same target as
+  usb-console.sh, but no CLI install — handy on a locked-down office machine.
+
+  REQUIRES:  a Chromium browser (Chrome / Edge / Opera — NOT Firefox/Safari), and a
+             secure context. Serve it from LOCALHOST (file:// will NOT work):
+                 python3 -m http.server 8000
+             then open  http://localhost:8000/usb-console.html
+  Device side: kernel built with kernel/usb-gadget-console.config + console=ttyGS0.
+  Each device reboot drops the port — just hit Connect again when it re-enumerates.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trimui USB console (WebSerial)</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+         background: #0d1117; color: #d0d7de; }
+  header { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;
+           padding: .6rem .8rem; background: #161b22; border-bottom: 1px solid #30363d; }
+  header h1 { font-size: .95rem; margin: 0 .5rem 0 0; font-weight: 600; color: #e6edf3; }
+  button, select, input { font: inherit; background: #21262d; color: #d0d7de;
+           border: 1px solid #30363d; border-radius: 6px; padding: .3rem .6rem; }
+  button:hover:not(:disabled) { background: #30363d; cursor: pointer; }
+  button:disabled { opacity: .5; }
+  button.primary { background: #238636; border-color: #2ea043; color: #fff; }
+  #status { margin-left: auto; font-size: .85rem; }
+  #status.on { color: #3fb950; } #status.off { color: #8b949e; } #status.err { color: #f85149; }
+  #log { white-space: pre-wrap; word-break: break-word; padding: .7rem .9rem;
+         font-size: .82rem; line-height: 1.4; height: calc(100vh - 8.5rem);
+         overflow-y: auto; }
+  #send { display: flex; gap: .5rem; padding: .5rem .8rem; border-top: 1px solid #30363d; background:#161b22; }
+  #send input { flex: 1; }
+  .warn { padding: 1rem; color: #f0883e; }
+  .k { color:#7ee787 } /* highlighted keywords */
+</style>
+
+<header>
+  <h1>Trimui USB console</h1>
+  <label>baud <select id="baud">
+    <option>115200</option><option>921600</option><option>500000</option>
+    <option>230400</option><option>57600</option><option>9600</option>
+  </select></label>
+  <button id="connect" class="primary">Connect</button>
+  <button id="save" disabled>Save log</button>
+  <button id="clear">Clear</button>
+  <span id="status" class="off">not connected</span>
+</header>
+
+<div id="log"></div>
+
+<div id="send">
+  <input id="line" placeholder="type a line to send (e.g. a U-Boot command) then Enter — optional" disabled>
+  <button id="sendbtn" disabled>Send</button>
+</div>
+
+<script>
+const logEl = document.getElementById('log');
+const statusEl = document.getElementById('status');
+const connectBtn = document.getElementById('connect');
+const saveBtn = document.getElementById('save');
+const clearBtn = document.getElementById('clear');
+const lineEl = document.getElementById('line');
+const sendBtn = document.getElementById('sendbtn');
+let port, reader, writer, keepReading = false;
+let buffer = '';               // full captured text (for Save)
+
+function setStatus(t, cls) { statusEl.textContent = t; statusEl.className = cls; }
+function append(text) {
+  buffer += text;
+  const atBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 40;
+  logEl.append(document.createTextNode(text));
+  if (atBottom) logEl.scrollTop = logEl.scrollHeight;
+}
+
+if (!('serial' in navigator)) {
+  logEl.innerHTML = '<div class="warn">This browser has no Web Serial API.<br><br>' +
+    'Use <b>Chrome / Edge / Opera</b>, and open this page over <b>http://localhost</b> ' +
+    '(e.g. <code>python3 -m http.server</code>) — not file://. ' +
+    'On Linux, if the port is denied, add yourself to the <code>dialout</code> group.</div>';
+  connectBtn.disabled = true;
+}
+
+async function connect() {
+  try {
+    port = await navigator.serial.requestPort();      // user picks /dev/ttyACM0
+    const baudRate = parseInt(document.getElementById('baud').value, 10);
+    await port.open({ baudRate, bufferSize: 65536 });
+    setStatus('connected @ ' + baudRate, 'on');
+    connectBtn.textContent = 'Disconnect';
+    saveBtn.disabled = false; lineEl.disabled = false; sendBtn.disabled = false;
+    writer = port.writable.getWriter();
+    readLoop();
+  } catch (e) {
+    if (e && e.name === 'NotFoundError') return;      // user cancelled the picker
+    setStatus('error: ' + (e && e.message || e), 'err');
+  }
+}
+
+async function readLoop() {
+  keepReading = true;
+  const decoder = new TextDecoder();
+  try {
+    reader = port.readable.getReader();
+    while (keepReading) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value) append(decoder.decode(value, { stream: true }));
+    }
+  } catch (e) {
+    append('\n[read error: ' + (e && e.message || e) + ' — device likely rebooted; hit Connect]\n');
+    setStatus('disconnected (reboot?)', 'off');
+  } finally {
+    try { reader.releaseLock(); } catch (_) {}
+    await teardown();
+  }
+}
+
+async function teardown() {
+  keepReading = false;
+  try { if (writer) { writer.releaseLock(); writer = null; } } catch (_) {}
+  try { if (port) await port.close(); } catch (_) {}
+  port = null;
+  connectBtn.textContent = 'Connect';
+  lineEl.disabled = true; sendBtn.disabled = true;
+  if (statusEl.className === 'on') setStatus('not connected', 'off');
+}
+
+connectBtn.onclick = () => { port ? (keepReading = false, reader && reader.cancel()) : connect(); };
+saveBtn.onclick = () => {
+  const name = 'trimui-usb-console-' + new Date().toISOString().replace(/[:.]/g,'-') + '.log';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([buffer], { type: 'text/plain' }));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+};
+clearBtn.onclick = () => { logEl.textContent = ''; buffer = ''; };
+async function sendLine() {
+  if (!writer) return;
+  const s = lineEl.value + '\r\n';
+  await writer.write(new TextEncoder().encode(s));
+  lineEl.value = '';
+}
+sendBtn.onclick = sendLine;
+lineEl.onkeydown = (e) => { if (e.key === 'Enter') sendLine(); };
+</script>

@@ -43,6 +43,32 @@ device arrives, with the exact tools for each step.
   `/sys/class/regulator/*/`).
 - `evtest` — to identify input devices (gamepad MCU, LRADC keys).
 
+### Console WITHOUT the UART pads (no teardown / soldering)
+
+The physical ttyS0 (PB9/PB10) needs opening the case + soldering. You can avoid it for
+almost everything — serial is only genuinely irreplaceable for the earliest boot, and
+even the DRAM step has a serial-free check:
+
+1. **Stock-OS recon → use `adb`, no serial at all.** `adb shell` is your shell and
+   `adb shell dmesg` is the stock kernel log (Phase 0/1 are fully covered over USB).
+2. **Mainline kernel console → USB *gadget* serial over the usb/dp port.** Build the
+   bring-up kernel with **`kernel/usb-gadget-console.config`** (merge on top of
+   `trimui.config`) and add **`console=ttyGS0,115200`** to the cmdline. The device then
+   shows up on the host as **`/dev/ttyACM0`**; read it with either:
+   - **CLI:** `sh usb-console.sh` (auto-waits for the port, logs to a file — needs
+     `picocom`/`screen`), or
+   - **Browser (no install):** `usb-console.html` — a WebSerial reader. Serve it from
+     localhost (`python3 -m http.server`, open `http://localhost:8000/usb-console.html`)
+     in **Chrome/Edge**. Good for a locked-down office machine.
+   - **Caveat:** the gadget console starts only at USB-gadget init — it misses SPL /
+     U-Boot proper / the earliest pre-USB kernel lines. If the kernel dies *before* that,
+     you're blind (then, and only then, is it teardown time).
+   - Put the usb/dp OTG node in peripheral mode for a clean console (`dr_mode="peripheral"`
+     on the bring-up DTB, overriding the role-switch); plugging into the host PC also
+     forces MUSB peripheral.
+3. **FEL DRAM validation → serial-free via `sunxi-fel` itself** (see Phase 3): run the SPL
+   (DRAM init) then read/write-test DRAM over the same USB link — no console needed.
+
 ---
 
 > Phases 0–4 can be driven interactively with **`hw-verify.sh --bringup`** (ids
@@ -128,10 +154,8 @@ Keep this image and the stock firmware archive safe.
 
 This validates the U-Boot + the **DRAM retarget** without writing storage.
 
-1. Connect the serial adapter (PB9/PB10, GND), open the console:
-   ```bash
-   picocom -b 115200 /dev/ttyUSB0
-   ```
+1. Console (optional): serial adapter `picocom -b 115200 /dev/ttyUSB0` if you have the
+   pads soldered — **otherwise skip it**, the DRAM check in step 4b is serial-free.
 2. Enter FEL mode (try, in order): hold a button combo at power-on (A523 FEL combo —
    check XDA A523 FEL howto), **or** from stock: `adb reboot efex` / `adb reboot fel`.
 3. Confirm + RAM-boot our U-Boot:
@@ -139,8 +163,17 @@ This validates the U-Boot + the **DRAM retarget** without writing storage.
    sunxi-fel version                                  # must report A523 / sun55iw3
    sunxi-fel -v uboot uboot-a523/u-boot-sunxi-with-spl-trimui.bin
    ```
-4. Watch the serial console:
-   - **DRAM trains + U-Boot prompt** → success, go to Phase 4.
+4. Check DRAM trained — **two ways:**
+   - **(a) with serial:** DRAM trains + a U-Boot prompt appears → success, go to Phase 4.
+   - **(b) NO serial — validate DRAM over the FEL USB link itself.** Run just the SPL
+     (which does DRAM init) and then read/write-test DRAM (base **0x40000000** on A523):
+     ```bash
+     sunxi-fel spl uboot-a523/u-boot-sunxi-with-spl-trimui.bin   # runs SPL = DRAM init, returns to FEL
+     sunxi-fel writel 0x40000000 0xdeadbeef && sunxi-fel readl 0x40000000   # must read back 0xdeadbeef
+     sunxi-fel writel 0x60000000 0xa5a5a5a5 && sunxi-fel readl 0x60000000   # sweep another address
+     ```
+     Read-backs match across the range → **DRAM trained.** (If FEL can't touch DRAM after
+     `spl`, or the pattern is corrupt, DRAM didn't train.)
    - **DRAM init hangs/errors** → tweak the 5 board params (`tpr2/6/10/11/12`) in
      `uboot/trimui-tg5050_defconfig`, rebuild U-Boot, retry. (See `uboot/DRAM-PARAMS.md`.)
 

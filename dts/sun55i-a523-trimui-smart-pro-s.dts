@@ -118,9 +118,10 @@
 
 /*
  * Reduced-I2C bus: main PMIC lives here (vendor "pmu@34" on s_twi0 = r_i2c0).
- * Vendor silk says AXP717C and drives it as axp2202; mainline only has an
- * AXP717 driver and the register maps are close. VERIFY the chip ID before
- * trusting any voltage below - a wrong PMIC map can mis-set rails.
+ * CONFIRMED ON HARDWARE 2026-07-22: kernel probes "AXP20x variant AXP2202" @0x34;
+ * silk = AXP717C; vendor driver = axp2202 — all the same PMIC. Mainline drives it
+ * as `x-powers,axp717` (every upstream sun55i board — cubie-a5e / avaota-a1 /
+ * orangepi-4a — uses axp717), so that is correct here too.
  */
 &r_i2c0 {
 	pinctrl-names = "default";
@@ -128,7 +129,7 @@
 	status = "okay";
 
 	axp717: pmic@34 {
-		compatible = "x-powers,axp717";	/* VERIFY: axp717 vs axp2202 */
+		compatible = "x-powers,axp717";	/* = the AXP2202/AXP717C on this board (confirmed) */
 		reg = <0x34>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
@@ -258,24 +259,43 @@
 	};
 
 	/*
-	 * External "big" cluster CPU supply: TCS4838 buck @ 0x41 (vendor
-	 * cpu-supply for cluster1 / cpu4-7). A FAN53555-family single-output buck,
-	 * matched purely by compatible (tcs,tcs4838, added in patch 0014 — no
-	 * chip-ID probe). The 0.7125-1.5 V envelope is the vendor DTB constraint;
-	 * the big-cluster OPP ladder (dts/staging/trimui-cpu-opp.dtsi) caps the
-	 * actual operating voltage at 1.15 V nominal. always-on: it is the live
-	 * big-core rail. VERIFY on hardware (i2cdump 0x41 ID1/ID2 + live VSEL, see
-	 * docs/TCS4838-NOTES.md) before trusting DVFS on this cluster.
+	 * External "big" cluster CPU supply = AXP1530 buck PMIC @ 0x36 (vendor
+	 * cpu-supply for cluster1 / cpu4-7). CONFIRMED ON HARDWARE 2026-07-22
+	 * (docs/ON-DEVICE-FINDINGS.md): the r_i2c0 (i2c-6) scan shows 0x34 (axp717)
+	 * and 0x36 (axp1530) driver-bound; 0x41 is ABSENT. The board has three
+	 * CPU-buck footprints (tcs@41 / sy@60 / axp1530@36) and only axp1530 is
+	 * populated — so our earlier tcs4838 (patch 0014) was the wrong chip.
+	 * axp1530 is already mainline (x-powers,axp1530 in axp20x). dcdc1 = the
+	 * big-core rail; dcdc2/dcdc3 are live vendor rails kept always-on. Voltages
+	 * capped by the big-cluster OPP ladder (dts/staging/trimui-cpu-opp.dtsi).
 	 */
-	reg_tcs4838_dcdc0: regulator@41 {
-		compatible = "tcs,tcs4838";
-		reg = <0x41>;
-		regulator-name = "vdd-cpu-big";
-		regulator-min-microvolt = <712500>;
-		regulator-max-microvolt = <1500000>;
-		regulator-ramp-delay = <520>;	/* vendor DTB; driver rounds to the fan53555 500 uV/us slew */
-		regulator-boot-on;
-		regulator-always-on;
+	axp1530: pmic@36 {
+		compatible = "x-powers,axp1530";
+		reg = <0x36>;
+
+		regulators {
+			reg_ext_dcdc1: dcdc1 {
+				regulator-name = "vdd-cpu-big";
+				regulator-min-microvolt = <900000>;
+				regulator-max-microvolt = <1150000>;	/* nominal ceiling; raise for turbo OPPs */
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			reg_ext_dcdc2: dcdc2 {
+				regulator-name = "axp1530-dcdc2";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <1540000>;
+				regulator-always-on;
+			};
+
+			reg_ext_dcdc3: dcdc3 {
+				regulator-name = "axp1530-dcdc3";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <1840000>;
+				regulator-always-on;
+			};
+		};
 	};
 };
 

@@ -24,3 +24,11 @@ A523_User_Manual*
 # Unsent outreach draft — keep local, send directly on GitHub (do not publish here)
 docs/UPSTREAM-COLLAB-DRAFT.md
 docs/CHENYU-CODEC-FEEDBACK-DRAFT.md
+
+# Local device captures — never commit (contain serial/MAC/IP)
+*.log
+recon-*.log
+vendor-dmesg-*.log
+bringup/
+live.dts
+live.dtb

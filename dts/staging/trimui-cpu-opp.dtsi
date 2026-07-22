@@ -7,7 +7,7 @@
  * staging because CPU DVFS is boot-critical and HW-UNVERIFIED — the CPU-CCU reprograms
  * the cluster PLLs and the OPP voltages are vendor-transcribed; enable + tune on the
  * device ([[hardware-testing-prevails]]). Include it from the board DTS to turn on
- * cpufreq. See docs/CPUPLL-NOTES.md, docs/TCS4838-NOTES.md, dts/staging/README.md.
+ * cpufreq. See docs/CPUPLL-NOTES.md, docs/ON-DEVICE-FINDINGS.md, dts/staging/README.md.
  *
  * UPSTREAM STATUS / why there is no separate "-upstream" rebase of this file
  * (unlike trimui-thermal-upstream.dtsi): the only SoC-level dependency here is the
@@ -32,9 +32,11 @@
  *     macros `&cpu_ccu CLK_CPUL` (cluster0) / `CLK_CPUB` (cluster1) from
  *     <dt-bindings/clock/sun55i-a523-cpu-ccu.h>.
  *
- *  2. BIG-CLUSTER REGULATOR — the tcs4838@0x41 buck on r_i2c0 now has a mainline
- *     driver (fan53555 variant, patch 0014) and a board node (`&reg_tcs4838_dcdc0`),
- *     so cluster1 does voltage-tracked DVFS. cluster0 uses reg_dcdc1 (axp717 dcdc1).
+ *  2. BIG-CLUSTER REGULATOR — CONFIRMED ON HARDWARE 2026-07-22 to be **axp1530**
+ *     @0x36 (dcdc1), NOT tcs4838 (0x41 is absent). axp1530 is already mainline
+ *     (x-powers,axp1530), board node `&reg_ext_dcdc1`, so cluster1 does
+ *     voltage-tracked DVFS. cluster0 uses reg_dcdc1 (axp717 dcdc1). (Patch 0014 /
+ *     the tcs4838 driver + node were the wrong chip and are dropped.)
  *
  * FREQ/VOLTAGE POINTS — RESOLVED (was blocker #3). These are the REAL vendor
  * ladders, transcribed from the stock firmware `cluster0-opp-table` /
@@ -47,19 +49,19 @@
  *
  * Topology (from sun55i-a523.dtsi): two 4x Cortex-A55 clusters, separate rails:
  *   cluster0 = cpu0..cpu3 (cpu@0..@300)   -> cpu-supply = reg_dcdc1      (little)
- *   cluster1 = cpu4..cpu7 (cpu@400..@700) -> cpu-supply = tcs4838 dcdc0  (big)
+ *   cluster1 = cpu4..cpu7 (cpu@400..@700) -> cpu-supply = axp1530 dcdc1  (big)
  *   (Confirmed on the stock OS: two cpufreq domains, policy0 = cpu0, policy4 = cpu4.)
  *
  * CEILINGS (vendor production bin vf0100):
  *   cluster0 little: 408 -> 1416 MHz  (0.90 -> 1.15 V)  -- fits reg_dcdc1 (0.90..1.16 V)
  *   cluster1 big:    408 -> 1800 MHz  (0.90 -> 1.15 V) nominal
  *   cluster1 turbo bins (better silicon only): 1992 @1.22V, 2088 @1.24V, 2160 @1.28V
- *     -- left COMMENTED; above the nominal ceiling, need tcs4838 + THS + testing.
+ *     -- left COMMENTED; above the nominal ceiling, need axp1530 (raise its dcdc1 max) + THS + testing.
  *
  * RAIL LIMITS — voltages MUST stay inside the board-DTS regulator constraints:
  *   reg_dcdc1 "vdd-cpu": 900000..1160000 uV. The little-cluster ladder (max 1.15 V)
  *   fits. The big-cluster turbo rows would exceed a typical stock voltage and are
- *   gated on the tcs4838 driver + THS thermal + on-device stability testing.
+ *   gated on axp1530 dcdc1 headroom + THS thermal + on-device stability testing.
  */
 
 / {
@@ -149,7 +151,7 @@
 			opp-hz = /bits/ 64 <1800000000>;
 			opp-microvolt = <1150000>;	/* big-cluster nominal ceiling */
 		};
-		/* --- TURBO BINS: better-silicon only; need tcs4838 + THS + testing ---
+		/* --- TURBO BINS: better-silicon only; need axp1530 (raise its dcdc1 max) + THS + testing ---
 		opp-1992000000 {
 			opp-hz = /bits/ 64 <1992000000>;
 			opp-microvolt = <1220000>;
@@ -203,12 +205,12 @@
 
 /*
  * cluster1 (big) — cpu4..cpu7. Clock = &cpu_ccu CLK_CPUB; cpu-supply =
- * reg_tcs4838_dcdc0 (both resolved). Voltages are vendor-transcribed — tune on HW.
+ * reg_ext_dcdc1 = axp1530 dcdc1 (both resolved). Voltages are vendor-transcribed — tune on HW.
  */
 &cpu4 {
 	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
-	cpu-supply = <&reg_tcs4838_dcdc0>;
+	cpu-supply = <&reg_ext_dcdc1>;	/* axp1530 dcdc1 (was tcs4838 — wrong chip, confirmed on HW) */
 	operating-points-v2 = <&cpu_opp_b>;
 	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
@@ -216,7 +218,7 @@
 &cpu5 {
 	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
-	cpu-supply = <&reg_tcs4838_dcdc0>;
+	cpu-supply = <&reg_ext_dcdc1>;	/* axp1530 dcdc1 (was tcs4838 — wrong chip, confirmed on HW) */
 	operating-points-v2 = <&cpu_opp_b>;
 	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
@@ -224,7 +226,7 @@
 &cpu6 {
 	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
-	cpu-supply = <&reg_tcs4838_dcdc0>;
+	cpu-supply = <&reg_ext_dcdc1>;	/* axp1530 dcdc1 (was tcs4838 — wrong chip, confirmed on HW) */
 	operating-points-v2 = <&cpu_opp_b>;
 	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };
@@ -232,7 +234,7 @@
 &cpu7 {
 	clocks = <&cpu_ccu CLK_CPUB>;
 	clock-names = "cpu";
-	cpu-supply = <&reg_tcs4838_dcdc0>;
+	cpu-supply = <&reg_ext_dcdc1>;	/* axp1530 dcdc1 (was tcs4838 — wrong chip, confirmed on HW) */
 	operating-points-v2 = <&cpu_opp_b>;
 	dynamic-power-coefficient = <354>;	/* VERIFY (vendor DTB); for EAS + IPA */
 };

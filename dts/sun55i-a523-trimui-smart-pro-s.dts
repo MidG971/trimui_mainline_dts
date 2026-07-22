@@ -8,12 +8,13 @@
  * family). Built with the display series in kernel/patches/ applied and
  * trimui-panel.dtsi appended (see kernel/build-trimui-kernel.sh).
  *
- * On board now: PMIC + regulators, storage (microSD/eMMC), USB2, RTC, LEDC RGB
- * array, GPU (Mali-G57 / Panfrost, upstream), MIPI-DSI panel + PWM backlight
- * (via patches), fan + vibrator (PWM), audio codec, LRADC side keys, GPADC
- * analog sticks (2 controllers; gpadc0 upstream v7.2 + gpadc1 via patch), WiFi/BT
- * power sequencing (AIC8800, out-of-tree module). Still pending: USB3 (draft in
- * dts/staging/). See PORTING-NOTES.md for the roadmap.
+ * On board now: PMIC (axp717 @0x34 + axp1530 @0x36) + regulators, storage
+ * (microSD/eMMC), USB2, RTC, LEDC RGB array, GPU (Mali-G57 / Panfrost, upstream),
+ * MIPI-DSI panel + PWM backlight (via patches), fan + vibrator (PWM), audio codec,
+ * LRADC side keys, WiFi/BT power sequencing (AIC8800D80, out-of-tree module), and
+ * the gamepad UARTs (uart5/uart7 MCUs — the whole pad incl. sticks, read by the
+ * trimui_inputd daemon; NOT GPADC, confirmed on HW). Still pending: USB3 (draft in
+ * dts/staging/). See PORTING-NOTES.md and docs/ON-DEVICE-FINDINGS.md.
  *
  * "VERIFY" = needs confirmation by i2c/dump on real hardware before trusting.
  * Rail->consumer map is derived from the vendor DTB where known and otherwise
@@ -563,69 +564,16 @@
 };
 
 /*
- * Analog sticks via GPADC — two controllers, 2 channels each (4 axes = 2 sticks).
- * gpadc0 (adc@2009000) is upstream since v7.2; gpadc1 (adc@2009c00) is added by
- * kernel/patches (the second controller). Channel->axis mapping and abs-range are
- * BEST-GUESS: calibrate on HW (read raw min/max/centre per axis; then set
- * abs-range + abs-flat deadzone). 12-bit (0..4095). VERIFY on the device.
+ * NO analog sticks on the GPADC. CONFIRMED ON HARDWARE 2026-07-22
+ * (docs/ON-DEVICE-FINDINGS.md): the whole gamepad — buttons, D-pad, both sticks
+ * (ABS_X/Y/RX/RY) and analog L2/R2 (ABS_Z/RZ) — comes from two serial MCUs on
+ * uart5/uart7, read by the `trimui_inputd` daemon and exposed as the `js0`
+ * "TRIMUI Player1" uinput device. `trimui_inputd` holds no GPADC fd. So the
+ * earlier adc-joystick + 2nd-GPADC (patch 0012) approach was wrong and is
+ * dropped; the SoC GPADC (adc@2009000) is left in its upstream default (its
+ * on-board use, if any, is unconfirmed). The gamepad path is uart5 + uart7
+ * (enabled below) + the daemon/serdev; see the gamepad section.
  */
-&gpadc {		/* left stick */
-	status = "okay";
-};
-
-&gpadc1 {		/* right stick (adc@2009c00, via kernel/patches) */
-	status = "okay";
-};
-
-/ {
-	joystick-left {
-		compatible = "adc-joystick";
-		io-channels = <&gpadc 0>, <&gpadc 1>;
-		poll-interval = <16>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		axis@0 {
-			reg = <0>;
-			linux,code = <ABS_X>;
-			abs-range = <0 4095>;	/* VERIFY / calibrate */
-			abs-fuzz = <16>;
-			abs-flat = <128>;
-		};
-
-		axis@1 {
-			reg = <1>;
-			linux,code = <ABS_Y>;
-			abs-range = <0 4095>;	/* VERIFY / calibrate */
-			abs-fuzz = <16>;
-			abs-flat = <128>;
-		};
-	};
-
-	joystick-right {
-		compatible = "adc-joystick";
-		io-channels = <&gpadc1 0>, <&gpadc1 1>;
-		poll-interval = <16>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		axis@0 {
-			reg = <0>;
-			linux,code = <ABS_RX>;
-			abs-range = <0 4095>;	/* VERIFY / calibrate */
-			abs-fuzz = <16>;
-			abs-flat = <128>;
-		};
-
-		axis@1 {
-			reg = <1>;
-			linux,code = <ABS_RY>;
-			abs-range = <0 4095>;	/* VERIFY / calibrate */
-			abs-fuzz = <16>;
-			abs-flat = <128>;
-		};
-	};
-};
 
 &rtc {
 	status = "okay";

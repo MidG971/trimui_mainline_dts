@@ -38,14 +38,15 @@
  *     voltage-tracked DVFS. cluster0 uses reg_dcdc1 (axp717 dcdc1). (Patch 0014 /
  *     the tcs4838 driver + node were the wrong chip and are dropped.)
  *
- * FREQ/VOLTAGE POINTS — RESOLVED (was blocker #3). These are the REAL vendor
- * ladders, transcribed from the stock firmware `cluster0-opp-table` /
- * `cluster1-opp-table` (allwinner,sun50i-operating-points). The vendor board DTB
- * is BYTE-IDENTICAL between fw v1.0.1 and v1.0.2 (md5 967f1c68…), so these are
- * current. Vendor uses per-speed-bin voltage columns (opp-microvolt-vfXXYY keyed
- * off SID efuse); the single `opp-microvolt` below = the production bin (vf0100).
- * Sub-steps that only exist in some bins (cl0: 720/1032/1128/1296; cl1: 720/1248)
- * are OMITTED — keep the clean production ladder.
+ * FREQ/VOLTAGE POINTS — RESOLVED + RECONCILED TO LIVE SILICON 2026-07-22. The
+ * frequency ladders below now match the vendor `scaling_available_frequencies`
+ * read on the device (little 408/672/792/936/1032/1128/1224/1320/1416; big
+ * 408/672/840/1008/1200/1344/1488/1584/1680/1800 + turbo 1992/2088/2160). NB:
+ * the live little ladder uses 1032/1128 (not the 1008/1104 we first transcribed);
+ * corrected. Voltages are the vendor per-bin columns (opp-microvolt-vfXXYY keyed
+ * off SID efuse); the single `opp-microvolt` = the production bin (vf0100) —
+ * tune on HW. The big cluster's turbo bins (1992/2088/2160) ARE exposed by the
+ * vendor and left commented here pending axp1530 headroom + THS + stability tests.
  *
  * Topology (from sun55i-a523.dtsi): two 4x Cortex-A55 clusters, separate rails:
  *   cluster0 = cpu0..cpu3 (cpu@0..@300)   -> cpu-supply = reg_dcdc1      (little)
@@ -85,12 +86,12 @@
 			opp-hz = /bits/ 64 <936000000>;
 			opp-microvolt = <920000>;
 		};
-		opp-1008000000 {
-			opp-hz = /bits/ 64 <1008000000>;
+		opp-1032000000 {
+			opp-hz = /bits/ 64 <1032000000>;	/* live vendor point (was 1008 in our transcription) */
 			opp-microvolt = <960000>;
 		};
-		opp-1104000000 {
-			opp-hz = /bits/ 64 <1104000000>;
+		opp-1128000000 {
+			opp-hz = /bits/ 64 <1128000000>;	/* live vendor point (was 1104) */
 			opp-microvolt = <1000000>;
 		};
 		opp-1224000000 {

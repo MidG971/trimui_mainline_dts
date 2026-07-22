@@ -90,9 +90,23 @@ registers but is not the stick source.
 - **eMMC backup** (Phase 2) before any writes.
 - Panel `er68576` timings (we have the vendor DCS init blob).
 
-## Series impact (queued, not yet applied)
+## Series impact
 
-- Drop `tcs4838` (patch 0014 + board node) → axp1530.
-- Drop the GPADC-joystick work (patch 0012 + `trimui-gpadc-joystick.dtsi`).
-- Add uart5 + uart7 for the gamepad MCUs; plan the daemon/serdev input path.
-- Reconcile the CPU OPP frequency points.
+**Applied (2026-07-22):**
+- ✅ `tcs4838` → **axp1530**: board node replaced, cpu4-7 → `&reg_ext_dcdc1`, patch 0014
+  + tcs4838 notes dropped. axp717 PMIC confirmed correct.
+- ✅ **GPADC-joystick dropped**: board `&gpadc`/`&gpadc1` + adc-joystick nodes removed,
+  patch 0012 dropped (sticks are on the gamepad MCUs, not GPADC).
+- ✅ **CPU OPP reconciled** to the live vendor ladders (little 1008/1104 → 1032/1128).
+
+**Pending (needs the datasheet mux + a build host — both unavailable this pass):**
+- **uart5 + uart7** for the gamepad MCUs. Pins **confirmed on hardware**: uart5 = **PK17**,
+  uart7 = **PK13** (single-pin / RX-only — the MCUs stream state to the SoC). Mainline has
+  the `uart5`/`uart7` nodes (disabled) and is data-driven pinctrl, so the board just needs
+  a `&uart5`/`&uart7` enable + a pinctrl group `pins = "PK17"/"PK13"; allwinner,pinmux = <N>`.
+  **`<N>` (the Port K uart mux) is still unknown** — the pinctrl debugfs is absent on the
+  vendor kernel and the CFG registers read ambiguous; get it from the a523 datasheet Port K
+  mux table (or a correct devmem of the PK_CFG regs), then enable + build-verify. The daemon/
+  serdev input path is the separate, larger task on top.
+- **DTB build-verify** of all the above (axp1530 + GPADC drop + OPP) — the build host was
+  offline this session; run `make CHECK_DTBS=y` + the board DTB build when it's back.

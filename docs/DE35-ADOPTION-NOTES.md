@@ -24,6 +24,34 @@ would conflict on `sun8i_mixer.c`, `sun4i_tcon.c`, and the SoC dtsi. And it is
 > {DSI host / combo-PHY / TCON / panel} half; the DE mixer/CRTC waits on H616. See
 > [UPSTREAMING.md](UPSTREAMING.md).
 
+## ⚑ CORRECTED APPROACH — TESTED ON THE BUILD HOST 2026-07-22 (supersedes the ut-slayer adoption below)
+
+**Do NOT forward-port the ut-slayer DE-v35x driver chain.** Ran it end-to-end tonight:
+the full chain `0030–0078` *applies* (1 reject) but **does not compile** — v7.2 already
+ships its **own** DE33 support (`sun8i_mixer.c` `SUN8I_MIXER_DE33`), and ut-slayer's is a
+**divergent, RCQ-based DE33**. Merging the two = deep, multi-hour struct/signature surgery
+(`sun8i_mixer_cfg.uses_rcq`, `sun8i_ui_layer_init_one` signature, `struct sun8i_layer.mixer`, …).
+
+**The clean path (our original plan, now confirmed): use v7.2's MAINLINE DE33 driver + our
+own mixer cfg (patch 0008); skip the ut-slayer RCQ backend entirely.** VERIFIED tonight:
+- `v7.2-rc3` + our keep-set (**including 0008**, our `sun55i_a523_mixer0_cfg`) + the clean
+  foundation (IOMMU `0025/29/47/49/50`, CCU-display `0026/27/28`, glue `0024`) → **`drivers/gpu/
+  drm/sun4i/` builds CLEAN, 0 rejects.** No fork to forward-port.
+- ut-slayer's **DT** patch **`0036`** (the DE33 SoC nodes: `de` / `display_clocks` /
+  `mixer0@100000` / `de_sram` / `tcon_top@5500000`, all `sun50i-h6/h616` compatibles) **applies
+  clean** and **every CCU clock it references resolves on v7.2** (CLK_DE/BUS_DE/RST_BUS_DE/
+  DISPLAY0_TOP/TCON_TV0/MIXER0…). So 0036 is our DE33 DT base.
+
+**So KEEP 0008 (do NOT drop it — reverses the old plan); drop the whole DE-v35x driver adoption.**
+
+**REMAINING (the only Phase-A work left) = the DT rewire:** on the staged host tree
+(`/root/opi4a-port/linux` = keep-set + foundation + 0036, DRM building clean), add our
+`tcon1`/`dsi1`/`dsi1_combo_phy` nodes (from 0003) and rewire the OF-graph
+**`mixer0 → tcon_top → our tcon-lcd1 → dsi1 → panel`** — i.e. add a `tcon_top_mixer0_out`
+endpoint to our `tcon1_in` (get the tcon-top mux endpoint `reg` right, from `sun8i_tcon_top.c`),
+`tcon1_out → dsi1_in`, `dsi1 → panel`; drop/ignore 0036's `tcon_tv0`/`hdmi` tail. Then build the
+board DTB + `CHECK_DTBS=y`, then Phase B (boot microSD + modetest on `card0-DSI-1`).
+
 ## Patch triage (ut-slayer numbering)
 
 > **CORRECTED 2026-07-20 after an empirical apply/build pass on `compiler-rock3b`.**

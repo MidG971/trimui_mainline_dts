@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+// Copyright (C) 2026 Midgy BALON
+/*
+ * DE3.5 reconciliation: wire v7.2 mainline DE33 (from ut-slayer patch 0036 =
+ * de/display_clocks/mixer0/tcon_top) to OUR MIPI-DSI panel path, instead of
+ * their HDMI/tcon-tv tail. Pipeline:
+ *
+ *   mixer0 -> tcon_top[mux 1] -> tcon-lcd1 (0004) -> dsi1 (0001) -> panel (0007)
+ *
+ * Supersedes the DE/OF-graph half of our old 0003 (its skeleton de/display-top
+ * are dropped -- 0036 provides the real DE33 de/mixer). tcon-top mux index [1] =
+ * TCON-LCD1 per the allwinner,sun50i-h6-tcon-top binding. Enable de/tcon_top
+ * here; trimui-panel.dtsi enables tcon1/dsi1/combo-phy and adds the panel child.
+ * HW-UNVERIFIED until modetest lights a pixel (hardware-testing-prevails).
+ */
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/* enable the DE33 pipeline (0036 defaults these disabled) */
+&de {
+	status = "okay";
+};
+
+&tcon_top {
+	status = "okay";
+};
+
+/* mixer0 output mux -> [1] TCON-LCD1 (our tcon1) */
+&tcon_top_mixer0_out {
+	tcon_top_mixer0_out_tcon1: endpoint@1 {
+		reg = <1>;
+		remote-endpoint = <&tcon1_in_tcon_top>;
+	};
+};
+
+/ {
+	soc {
+		tcon1: lcd-controller@5502000 {
+			compatible = "allwinner,sun55i-a523-tcon-lcd";
+			reg = <0x05502000 0x1000>;
+			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&ccu CLK_BUS_TCON_LCD1>, <&ccu CLK_TCON_LCD1>;
+			clock-names = "ahb", "tcon-ch0";
+			clock-output-names = "tcon-pixel-clock1";
+			resets = <&ccu RST_BUS_TCON_LCD1>, <&ccu RST_BUS_LVDS1>;
+			reset-names = "lcd", "lvds";
+			#clock-cells = <0>;
+			status = "okay";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				tcon1_in: port@0 {
+					reg = <0>;
+					tcon1_in_tcon_top: endpoint {
+						remote-endpoint = <&tcon_top_mixer0_out_tcon1>;
+					};
+				};
+
+				tcon1_out: port@1 {
+					reg = <1>;
+					tcon1_out_dsi1: endpoint {
+						remote-endpoint = <&dsi1_in_tcon1>;
+					};
+				};
+			};
+		};
+
+		dsi1: dsi@5508000 {
+			compatible = "allwinner,sun55i-a523-mipi-dsi";
+			reg = <0x05508000 0x1000>;
+			interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&ccu CLK_BUS_MIPI_DSI1>, <&ccu CLK_MIPI_DSI1>;
+			clock-names = "bus", "mod";
+			resets = <&ccu RST_BUS_MIPI_DSI1>;
+			phys = <&dsi1_combo_phy>;
+			phy-names = "dphy";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			port {
+				dsi1_in_tcon1: endpoint {
+					remote-endpoint = <&tcon1_out_dsi1>;
+				};
+			};
+		};
+
+		dsi1_combo_phy: phy@5509000 {
+			compatible = "allwinner,sun55i-a523-dsi-combo-phy";
+			reg = <0x05509000 0x1000>;
+			clocks = <&ccu CLK_COMBOPHY_DSI1>;
+			clock-names = "bus";
+			resets = <&ccu RST_BUS_MIPI_DSI1>;
+			#phy-cells = <0>;
+			status = "okay";
+		};
+	};
+};

@@ -81,14 +81,19 @@ it was only ever useful for the tiny `version`/`sid` probes.
 
 ## Paths forward
 
-1. **Boot our kernel via the VENDOR U-Boot (highest odds).** KNULLI ships the vendor
-   `boot0.img` (@128 KiB) + `boot_package.fex` (@16 MiB) — a U-Boot whose **MMC works**.
-   Its env: `boot_normal=sunxi_flash read 44000000 boot; bootm 44000000`. So: keep the
-   vendor boot0/boot_package, and put our mainline kernel where it boots from — either
-   package Image+DTB+initramfs as an **Android boot.img** in the `boot` partition, or
-   ship a **custom `env.img`** whose bootcmd loads our kernel. This sidesteps the broken
-   mainline-U-Boot MMC entirely, reusing a proven chain. (KNULLI board:
-   `knulli-cfw/knulli-linux : board/allwinner/a527/trimui-smart-pro-s`.)
+1. **Boot our kernel via the VENDOR U-Boot — explored, blocked by the DTB.** KNULLI ships
+   the vendor `boot0.img` (@128 KiB) + `boot_package.fex` (@16 MiB) — a U-Boot 2018.07 whose
+   **MMC works**, with `booti`/`fatload`/`ext4load` — it boots an **Android boot.img v0**
+   (kernel@0x40080000, ramdisk@0x42000000, tags@0x40000100, page 2048, `sun55i_arm64`).
+   Two blockers, both confirmed on-device: (a) it **ignores a custom `env.img`** on the env
+   partition (its env is baked into the package, not SD-writable — a marker-byte bootcmd
+   read back `0x00`), so we can't change its bootcmd; (b) it loads the **vendor BSP DTB**
+   (`sun55iw3p1-soc-system.dtb`, a `dtb` item in the boot_package **TOC/toc1**) and passes
+   that to the kernel — a mainline kernel can't use the BSP DTB. To use this chain we'd have
+   to **repack the boot_package TOC**, swapping in our mainline DTB (deep, blind). The
+   OrangePi-4A board uses a *different* vendor U-Boot config (extlinux + a separate `.dtb`,
+   boot0@8 KiB), which is cleaner, but its `boot_package` is board-specific.
+   (KNULLI board: `knulli-cfw/knulli-linux : board/allwinner/a527/{trimui-smart-pro-s,orangepi-4a}`.)
 2. **SPL Falcon mode** (`CONFIG_SPL_OS_BOOT`): the mainline SPL loads kernel+DTB from
    raw sectors with its *working* read and jumps straight to the kernel, bypassing
    U-Boot. Real, but fiddly and still blind.

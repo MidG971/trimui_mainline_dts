@@ -20,22 +20,38 @@ Mainline Linux bring-up for the **Trimui Smart Pro S** retro-gaming handheld
 > unvalidated on hardware**. The device tree, U-Boot defconfig, and DRAM parameters
 > may be wrong. Flashing or FEL-booting custom firmware **can permanently brick your
 > device**, corrupt data, or damage hardware. **No warranty, no liability — you use
-> this entirely at your own risk.** Back up your stock firmware first, and prefer the
-> brick-safe FEL (RAM-only) boot path until things are validated.
+> this entirely at your own risk.** Back up your stock firmware first. Booting from
+> microSD leaves the eMMC untouched (pull the card to return to stock), and the vendor
+> `trimui_tg5050.awing` factory-restore is the brick lifeline.
 
 ## Where things stand
 
-Hardware bring-up hasn't started yet — **the device hasn't arrived**, so
-everything so far is build- and `dt-validate`-verified only. The board DTS targets
+**The device is in hand and on-device bring-up is underway.** The board DTS targets
 **mainline Linux v7.2**; the base — serial console, microSD/eMMC, USB2, PMIC +
 regulators, RTC, the LEDC RGB array, WiFi-SDIO sequencing + BT UART, and the Mali
 GPU (Panfrost) — builds against mainline and is `dt-validate`-clean. The MIPI-DSI
 display, PWM backlight and audio ship as an out-of-tree patch series under
-[`kernel/`](kernel/) (build + dt-validate clean, **not yet silicon-verified**).
+[`kernel/`](kernel/) (build + dt-validate clean).
+
+**Boot bring-up (current focus).** On real silicon so far:
+
+- The A523 BROM **boots the microSD from 128 KiB + GPT** (no button combo) — proven
+  by KNULLI; our earlier 8 KiB/MBR card was simply at the wrong offset.
+- Our mainline **SPL runs and inits DRAM**; a real **`sun55i_a523` BL31** (mainline
+  TF-A has none yet — built from Jernej Škrabec's `a523-v4` branch) **clears the EL3
+  hang**, and **mainline U-Boot now runs on the A523**.
+- **Current blocker:** U-Boot's **A523 MMC/DM driver hangs** before it can load the
+  kernel (the SPL's minimal read works, U-Boot proper's full driver doesn't). This is
+  why the display/audio/etc. aren't silicon-verified yet. Fixing (or seeing) it wants
+  a **UART** on PB9/PB10.
+
+The full journey + diagnosis, the 128 KiB SPL sector fix, and the vendor-chainload
+dead-end are in **[`docs/BOOT-AND-FEL-NOTES.md`](docs/BOOT-AND-FEL-NOTES.md)**. KNULLI
+(a vendor-BSP CFW) boots this board and doubles as the reference boot chain.
 
 👉 Per-subsystem detail in the **[Status page](https://github.com/MidG971/trimui_mainline_dts/wiki/Status)**;
 the plan in the **[Roadmap](https://github.com/MidG971/trimui_mainline_dts/wiki/Roadmap)**
-(once the device arrives: deep mainline bring-up → daily-driver optimization → forward-maintained).
+(deep mainline bring-up → daily-driver optimization → forward-maintained).
 
 ## Help wanted 🙏
 

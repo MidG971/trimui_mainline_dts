@@ -178,10 +178,12 @@
 			};
 
 			reg_dcdc4: dcdc4 {
-				regulator-always-on;
-				regulator-min-microvolt = <3300000>;
-				regulator-max-microvolt = <3300000>;
-				regulator-name = "vdd-io";	/* VERIFY */
+				/*
+				 * Live capture 2026-07-26: DCDC4 = 1.0 V and
+				 * DISABLED on the vendor kernel. The earlier
+				 * "vdd-io 3.3 V always-on" was a wrong guess — it is
+				 * an unused rail here. Leave unconfigured (off).
+				 */
 			};
 
 			reg_aldo1: aldo1 {

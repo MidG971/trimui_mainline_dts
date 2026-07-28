@@ -39,7 +39,9 @@ display, PWM backlight and audio ship as an out-of-tree patch series under
   by KNULLI; our earlier 8 KiB/MBR card was simply at the wrong offset.
 - Our mainline **SPL runs and inits DRAM**; a real **`sun55i_a523` BL31** (mainline
   TF-A has none yet — built from Jernej Škrabec's `a523-v4` branch) **clears the EL3
-  hang**, and **mainline U-Boot now runs on the A523**.
+  hang**, and **mainline U-Boot now runs on the A523** — our working tree is the
+  [`trimui-2026.10`](https://github.com/MidG971/u-boot/tree/trimui-2026.10) branch of a
+  U-Boot fork, rebased on current mainline with the A523 bring-up patches.
 - **Current blocker:** U-Boot's **A523 MMC/DM driver hangs** before it can load the
   kernel (the SPL's minimal read works, U-Boot proper's full driver doesn't). This is
   why the display/audio/etc. aren't silicon-verified yet. Fixing (or seeing) it wants
@@ -78,7 +80,9 @@ Details and validation gates: [Building](https://github.com/MidG971/trimui_mainl
 - [`kernel/`](kernel/) — out-of-tree drivers, the `0001`–`0011` patch series, and
   DT bindings for the not-yet-upstream display/PWM/audio stack.
 - [`uboot/`](uboot/) — mainline U-Boot defconfig + the DRAM params decoded from
-  this board's vendor boot0. **Binaries are intentionally not committed.**
+  this board's vendor boot0. **Binaries are intentionally not committed** — the full
+  patched build tree is the [`trimui-2026.10`](https://github.com/MidG971/u-boot/tree/trimui-2026.10)
+  branch of our [U-Boot fork](https://github.com/MidG971/u-boot).
 - [`docs/`](docs/) — technical deep-dives (display, GPU, codec, pinmap, doc index).
 - [`PORTING-NOTES.md`](PORTING-NOTES.md) / [`FIRMWARE-FINDINGS.md`](FIRMWARE-FINDINGS.md) /
   [`recon.sh`](recon.sh) — the hardware truth table, firmware-mined facts, and the

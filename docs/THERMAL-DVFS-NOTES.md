@@ -72,13 +72,15 @@ drop `sustainable-power` to use step_wise for the fan. Tune on-device.
 Real per-cluster OPP ladders are transcribed in `dts/staging/trimui-cpu-opp.dtsi`
 (from the vendor `cluster{0,1}-opp-table`):
 - **little** cpu0-3 (`reg_dcdc1`): 408 -> **1416 MHz**, 0.90 -> 1.15 V
-- **big** cpu4-7 (`tcs4838`): 408 -> **1800 MHz** nominal (0.90 -> 1.15 V);
+- **big** cpu4-7 (`axp1530` @0x36 dcdc1): 408 -> **1800 MHz** nominal (0.90 -> 1.15 V);
   turbo bins 1992 @1.22 V / 2088 @1.24 V / 2160 @1.28 V (better silicon only).
 
 Two cpufreq domains confirmed on the stock OS: `cpufreq/policy0` (little) and
-`policy4` (big). **Still blocked** on: (1) no A523 CPU clock exposed in the mainline
-CCU (`CLK_CPUX` absent) so `cpufreq-dt` has nothing to scale; (2) big-cluster
-`tcs4838@0x41` regulator has no mainline driver. Both must land before CPU DVFS works.
+`policy4` (big). **Blocked** on the A523 CPU clock: mainline's CCU exposes no settable
+cluster clock (`CLK_CPUX` absent) so `cpufreq-dt` has nothing to scale — we carry the
+ut-slayer CPU-CCU (`0015-0020`) locally until it's upstreamed (see `CPUPLL-NOTES.md`).
+The big-cluster regulator is **not** a blocker: it's **axp1530@0x36** (`x-powers,axp1530`,
+already mainline), not the tcs4838 first guessed (0x41 is absent — confirmed on HW).
 
 Vendor DVFS presets (map cleanly to mainline governors):
 - **Performance**: `scaling_governor = performance`, min = max pinned high.
@@ -97,5 +99,6 @@ steps on the device. See [GPU-NOTES.md](GPU-NOTES.md).
 ## Ordering (once hardware + THS are available)
 1. THS series merges -> rebase, sensors read temperature.
 2. Enable `trimui-thermal.dtsi` (fan cooling-maps); tune trips/governor vs measured temps.
-3. CPU clock + tcs4838 land -> enable `trimui-cpu-opp.dtsi` (cpufreq-dt), pick governor.
+3. CPU clock (CCU) upstreamed -> enable `trimui-cpu-opp.dtsi` (cpufreq-dt), pick governor.
+   (The axp1530 big-cluster regulator is already mainline — no longer a gate.)
 4. GPU OPP (`trimui-gpu-opp.dtsi`) any time; validate ceiling.

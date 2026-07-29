@@ -34,8 +34,9 @@ already taken here** — is now binding on our submissions:
   separately.
 - **BSP = register lookup only.** Reading undocumented registers from the Allwinner
   BSP is fine; BSP *code / approaches* are "far from mainline quality" — don't port
-  them. (Our tcs4838 = BSP register layout, rewritten as a standard `fan53555`
-  variant = the acceptable case.)
+  them. (The acceptable case = reading values/offsets out of the BSP and reimplementing
+  cleanly — e.g. our LPDDR4 DRAM params lifted from the vendor boot0, and the CPU-CCU
+  register map cross-checked against the BSP mine.)
 - **Framing:** "add Trimui Smart Pro S support" / "improve A523 support", not
   "mainline bring-up" (the A523 SoC is already supported; board work is mostly
   enabling peripherals in DT + the genuinely-new handheld drivers).

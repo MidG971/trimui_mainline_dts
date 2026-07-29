@@ -93,7 +93,7 @@ Page numbers are the **printed** page (TOC). **PDF page = printed + 1.**
 | TCON_TV1 | `0x05504000` | |
 | **COMBOPHY_DSI0 / DSI1** | `0x05506000` / `0x05508000` | panel is on **DSI1** |
 | RTC | `0x07090000` | |
-| **S_TWI0 (= r_i2c0, PMIC bus)** | `0x07081400` | axp2202 @ 0x34, tcs4838 @ 0x41 |
+| **S_TWI0 (= r_i2c0, PMIC bus)** | `0x07081400` | axp2202 @ 0x34, axp1530 @ 0x36 (CPU big-cluster buck; 0x41 tcs4838 absent) |
 | S_TWI1 / S_TWI2 | `0x07081800` / `0x07081C00` | S_TWI2 disabled/unused. ⚠️ USB-C PD **husb311 is on main i2c5** (`twi5@0x02503400`, PB11/PB12), NOT S_TWI2. |
 | S_GPIO (R_PIO) | `0x07022000` | PL/PM banks |
 | AUDIO CODEC | `0x07110000` | |

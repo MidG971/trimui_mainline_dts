@@ -49,10 +49,12 @@ Register map (PLL_CPU0@0x00, PLL_CPUB@0x0c, CPUB@0x64) matched the earlier BSP m
 1. ~~Verify the full series co-applies + the board DTB builds~~ **DONE** — `0001–0023`
    co-apply to v7.2-rc3 and the board DTB builds with `trimui-cpu-opp.dtsi` +
    `trimui-thermal.dtsi` included (the CPU-CCU node `0016` is non-overlapping).
-2. ~~Big-cluster `cpu-supply`~~ **DONE** — the tcs4838 regulator node
-   (`reg_tcs4838_dcdc0`) is now in the board DTS and the big-cluster `cpu-supply` is
-   wired for cpu4–7 (build-verified: `cpu@400` → `reg_tcs4838_dcdc0`). See
-   [TCS4838-NOTES](TCS4838-NOTES.md). Little cluster uses `reg_dcdc1` (upstream axp717).
+2. ~~Big-cluster `cpu-supply`~~ **DONE** — the big-cluster supply is the **axp1530**
+   buck @0x36 (`reg_ext_dcdc1` = axp1530 dcdc1), **confirmed on hardware** (0x41 tcs4838
+   is absent — our earlier tcs4838 node/patch `0014` was the wrong chip and was dropped).
+   `axp1530` is already mainline (`x-powers,axp1530`). Big-cluster `cpu-supply` wired for
+   cpu4–7 (`cpu@400` → `reg_ext_dcdc1`). See [ON-DEVICE-FINDINGS](ON-DEVICE-FINDINGS.md).
+   Little cluster uses `reg_dcdc1` (axp717 main PMIC).
 3. **On-hardware (the only thing left):** include `trimui-cpu-opp.dtsi` from the board
    DTS, boot, confirm both cpufreq domains scale (policy0 = cpu0, policy4 = cpu4), and
    tune the OPP voltages. Boot-critical → HW-gated ([[hardware-testing-prevails]]).

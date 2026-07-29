@@ -71,6 +71,22 @@ disabling the eMMC changed the outcome (no more stock boot).
 Things ruled out along the way: ext4-vs-FAT boot partition (both fail the same),
 distro/bootstd vs a hardcoded `fatload…booti` (both fail), Volume− combo (no effect).
 
+### CORRECTION (2026-07) — the MMC *clock* is verified correct; the blocker is reframed
+The "MMC driver fails" conclusion above needs a caveat. We later captured the vendor's
+**live MMC register state** (read from the running stock OS via `/sys/class/sunxi_dump`,
+which bypasses `STRICT_DEVMEM`) and checked our U-Boot's A523 MMC **clock / gate / reset**
+path against it register-for-register: `SMHC0_CLK`, the mux source (vendor uses
+PLL_PERIPH0_600M / **src 2**, not the mainline src 1 which reads back gated), the new-mode
+divider, `SAMP_DL`, and the `0x84c` bus-gate/reset — **all correct**. So the SD MMC *clock*
+is **not** the blocker (our `src2` U-Boot patch already matches the vendor).
+
+Re-reading U-Boot's init order also explains the `0x00` marker: `mmc_initialize()` runs at
+**init time, before `console_init_r()` and before the bootcmd** — so if U-Boot hangs in the
+init-time MMC probe, the bootcmd marker-byte code never runs (nothing to read back). The real
+open question is therefore **where U-Boot dies before the prompt** — the init-time MMC probe,
+or the **BL31→U-Boot (EL3→EL2) handoff** — which only a **UART** can show. Next session leads
+with the handoff, not the MMC clock.
+
 ## FEL — works, but full-speed only
 Enter FEL from stock with `adb reboot efex`; SoC id `0x1890 = A523`. Distro
 `sunxi-tools` is too old (no A523 SRAM profile) — build from upstream master. **But
@@ -97,8 +113,9 @@ it was only ever useful for the tiny `version`/`sid` probes.
 2. **SPL Falcon mode** (`CONFIG_SPL_OS_BOOT`): the mainline SPL loads kernel+DTB from
    raw sectors with its *working* read and jumps straight to the kernel, bypassing
    U-Boot. Real, but fiddly and still blind.
-3. **Fix the A523 U-Boot MMC/DM driver** — the clean upstream fix; wants **UART**
-   (PB9/PB10) to see where MMC init hangs.
+3. **Get a UART on PB9/PB10 and see where U-Boot dies** — the clean path. Since the MMC
+   clock/gate/reset is verified correct (see the correction above), the UART is to catch the
+   init-time MMC probe or the BL31→U-Boot handoff, *not* to re-check the clock.
 
 ## Status
 
@@ -108,8 +125,14 @@ it was only ever useful for the tiny `version`/`sid` probes.
 | SPL + DRAM init | ✅ runs on silicon |
 | 128 KiB SPL→U-Boot sector | ✅ fixed (deterministic + separate SPL/FIT) |
 | A523 BL31 (jernejsk `a523-v4`) | ✅ built — **cleared the BL31 hang** |
-| U-Boot proper | ✅ runs, ❌ **MMC driver fails** ← current blocker |
+| U-Boot proper | ✅ runs; ❌ **doesn't reach kernel** ← blocker (MMC clock verified OK; suspect init-time probe / BL31→U-Boot handoff — needs UART) |
 | First lit pixel | pending — next: boot via the vendor U-Boot |
+
+**U-Boot tree:** our working tree is rebased onto **current U-Boot mainline** (the merged
+2026.10 A523 base) and pushed to
+**[`MidG971/u-boot` branch `trimui-2026.10`](https://github.com/MidG971/u-boot/tree/trimui-2026.10)** —
+4 patches on top: the Trimui board defconfig, the SD mux-source (`src 2`) clock, the 128 KiB
+deterministic raw-sector, and an eMMC-off bring-up hack. That branch is what the UART session boots.
 
 Note: KNULLI is vendor-BSP (Linux 5.15.147, `CONFIG_ARCH_SUN55IW3`/`AW_*`) — not a
 mainline kernel to reuse, but the reference for the *boot* path and hardware bring-up.

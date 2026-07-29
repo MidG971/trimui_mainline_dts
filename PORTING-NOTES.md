@@ -11,6 +11,14 @@ Authoritative hardware reference: decompiled vendor DTB → `trimui_smart_pro_so
 
 ## Progress (updated 2026-06-04, before hardware arrival)
 
+> **⚠️ Superseded in places by on-hardware findings (device in hand since 2026-07-22).**
+> Several pre-hardware assumptions below were corrected on live silicon — the authoritative
+> current state is [`docs/ON-DEVICE-FINDINGS.md`](docs/ON-DEVICE-FINDINGS.md). Most notably:
+> the big-cluster CPU regulator is **axp1530@0x36** (not tcs4838 — 0x41 is absent); the
+> analog **sticks come from the uart5 (PK17) + uart7 (PK13) gamepad MCUs** via
+> `trimui_inputd`→uinput, **not GPADC**; and the main PMIC is confirmed **AXP2202@0x34**
+> (driven by the mainline `axp717` driver). The §3 "verify on HW" list is largely answered there.
+
 Hardware ordered, in transit. Much of the bring-up groundwork was done up front by
 mining the stock firmware (no device needed) — see [`FIRMWARE-FINDINGS.md`](FIRMWARE-FINDINGS.md).
 
@@ -73,7 +81,7 @@ code." Both PDFs are Allwinner **Confidential** → keep local, never commit to 
 | Subsystem | Vendor fact | Mainline target |
 |---|---|---|
 | **Main PMIC** | `pmu@34` = `x-powers,axp2202`, reg `0x34`, on **s_twi0** (`r_i2c0`), drive-vbus, IRQ via NMI. Board silk says **AXP717C**. | `r_i2c0` + `x-powers,axp717` *(verify chip — see §3)*. NOT on `i2c0`. |
-| **CPU supply (dual cluster)** | cluster0 (cpu@0) `cpu-supply` → **axp2202-dcdc1**; cluster1 (cpu@400) `cpu-supply` → **tcs4838-dcdc0** (`tcs@41` on r_i2c0). So the populated external CPU regulator is **tcs4838@0x41** (not axp1530/sy8827g). | Two separate `cpu-supply` per cluster: little=PMIC dcdc1, big=tcs4838 dcdc0. |
+| **CPU supply (dual cluster)** | cluster0 (cpu@0) `cpu-supply` → **axp2202-dcdc1**; cluster1 (cpu@400) `cpu-supply` → **axp1530-dcdc1** (`axp1530@0x36` on r_i2c0). Populated external CPU regulator = **axp1530@0x36** — CONFIRMED ON HW (0x41 tcs4838 absent; the tcs4838 guess was wrong). | Two separate `cpu-supply` per cluster: little=axp2202 dcdc1, big=axp1530 dcdc1 (`x-powers,axp1530`, already mainline). |
 | **Fan** | `pwm-fan`, pwms = ch **10**, 40000 ns, **inverted**. 32 cooling levels. | `pwm-fan` once A523 PWM driver lands. |
 | **Vibrator** | `pwm-vibrator`, pwms = ch **7**, 50000 ns, normal polarity. | `pwm-vibrator` once PWM driver lands. |
 | **Ethernet** | gmac0 + gmac1 present in vendor DTB (SoC MACs); handheld likely has no RJ45. | Ignore unless a port exists. |
@@ -139,7 +147,7 @@ is produced — but most of it cannot bind or work on hardware.
 | `gpio-keys` PD12-21/PE10-14 (26-119) | **Invented** — vendor DTB has no gpio buttons (USB MCU). PD14-22 region overlaps display/LCD pins (PD22 = panel reset). | 🔴 |
 | `gpio-leds` PG14/PG15 (156) | **Invented** — 0 hits in vendor DTB. | 🟠 |
 | `brcm,bcm43438-bt` on uart1 + PB2/3/4 (395) | WiFi/BT chip **unidentified**; vendor uses generic sunxi-wlan over SDIO. BT chip + pins are guesses. | 🟠 |
-| `cpu-supply = <&dcdc1>` ×8 (415-422) | Half-right: cluster0 → dcdc1, but cluster1 (cpu@400+) → **tcs4838-dcdc0**. | 🟠 |
+| `cpu-supply = <&dcdc1>` ×8 (415-422) | Half-right: cluster0 → dcdc1, but cluster1 (cpu@400+) → **axp1530 dcdc1** (`reg_ext_dcdc1`, confirmed on HW — not tcs4838). | 🟠 |
 | battery 5000 mAh / 4.35 V / OCV table (209) | Plausible but unverified; confirm on HW. | 🟡 |
 | fan ch10/40000/inv, vibrator ch7/50000 (174-187) | **Correct** vs vendor (good) — but inert until PWM driver exists. | 🟢 |
 | `&{/}` re-declaring SoC nodes | Wrong layering: SoC peripherals belong in an upstreamed `.dtsi`, not redeclared in the board file with made-up addresses. | 🟠 |
@@ -156,7 +164,7 @@ buildable state is `sun55i-a523-trimui-smart-pro-s.dts` here (phase 1-2 only).
   (board silk = AXP717C; vendor driver = axp2202; mainline only has axp717).
   *Strong signal it's axp2202:* vendor wifi/bt power rails are named
   `axp2202-aldo3/bldo1/bldo2` throughout — but still read the ID register.
-- Confirm which CPU/GPU regulator is populated (0x36 axp1530 / 0x41 tcs4838 / 0x60 sy8827g).
+- Confirm which CPU/GPU regulator is populated (0x36 axp1530 / 0x41 tcs4838 / 0x60 sy8827g). → **answered on HW: axp1530@0x36** (0x41/0x60 absent).
 - `lsusb` / `dmesg` to identify the gamepad MCU and WiFi chip.
 - `cat /sys/.../power_supply/*/` for real battery design capacity/voltages.
 

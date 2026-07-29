@@ -42,10 +42,13 @@ display, PWM backlight and audio ship as an out-of-tree patch series under
   hang**, and **mainline U-Boot now runs on the A523** — our working tree is the
   [`trimui-2026.10`](https://github.com/MidG971/u-boot/tree/trimui-2026.10) branch of a
   U-Boot fork, rebased on current mainline with the A523 bring-up patches.
-- **Current blocker:** U-Boot's **A523 MMC/DM driver hangs** before it can load the
-  kernel (the SPL's minimal read works, U-Boot proper's full driver doesn't). This is
-  why the display/audio/etc. aren't silicon-verified yet. Fixing (or seeing) it wants
-  a **UART** on PB9/PB10.
+- **Current blocker:** U-Boot reaches EL2 but **doesn't get as far as loading the
+  kernel**. The A523 MMC clock/gate/reset path has since been checked register-for-register
+  against the live vendor hardware and is **correct** — so the hang is most likely at the
+  **init-time MMC probe** (which runs *before* the console, explaining why a marker-byte
+  probe over SD read back nothing) or the **BL31→U-Boot handoff**, *not* the MMC clock
+  itself. Pinning it down wants a **UART** on PB9/PB10. This is why display/audio/etc.
+  aren't silicon-verified yet.
 
 The full journey + diagnosis, the 128 KiB SPL sector fix, and the vendor-chainload
 dead-end are in **[`docs/BOOT-AND-FEL-NOTES.md`](docs/BOOT-AND-FEL-NOTES.md)**. KNULLI

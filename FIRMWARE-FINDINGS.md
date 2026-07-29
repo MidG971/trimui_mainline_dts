@@ -9,6 +9,12 @@ were string-mined directly (no device needed). Cross-checked against the decompi
 vendor DTS `vendor/trimui_smart_pro_source.dts`. These resolve most of
 PORTING-NOTES.md §3 — but i2c chip IDs still need on-device confirmation.
 
+> **⚠️ On-hardware update (device in hand since 2026-07-22):** the "still confirm on HW"
+> items below are now answered — see [`docs/ON-DEVICE-FINDINGS.md`](docs/ON-DEVICE-FINDINGS.md).
+> Main PMIC = **AXP2202@0x34** (mainline `axp717` driver); big-cluster CPU regulator =
+> **axp1530@0x36** (not tcs4838 — 0x41 absent); AIC8800 = **D80**; analog sticks = the
+> uart5/uart7 gamepad MCUs (not GPADC); eMMC=`mmcblk0` / microSD=`mmcblk1`.
+
 ## Resolved
 
 | Question | Answer | Evidence |
@@ -24,7 +30,7 @@ PORTING-NOTES.md §3 — but i2c chip IDs still need on-device confirmation.
 
 ## Still must confirm on hardware (recon.sh covers all of these)
 - PMIC i2c **ID register** at 0x34 on r_i2c0 → axp2202 vs axp717 (decides mainline driver/binding).
-- Which **CPU regulator** is populated: 0x36 axp1530 / 0x41 tcs4838 / 0x60 sy8827g (whichever ACKs).
+- Which **CPU regulator** is populated: 0x36 axp1530 / 0x41 tcs4838 / 0x60 sy8827g (whichever ACKs). → **answered: axp1530@0x36**.
 - AIC8800 **exact variant** (D80 vs DC) from the firmware that actually loads.
 - The **main-gamepad** kernel source: gpio-keys? an i2c/uart MCU? hidraw? (`cat /proc/bus/input/devices`).
 - eMMC/SD **partition layout** for planning a safe full backup before flashing.
@@ -84,7 +90,7 @@ diff the two firmwares. Only **two** partitions changed:
 
 - **CPU DVFS ladders** (vendor `cluster{0,1}-opp-table`, production bin vf0100 — current
   since the DTB is byte-identical). Little cluster (cpu0–3, `reg_dcdc1`): 408 → **1416 MHz**,
-  0.90 → 1.15 V. Big cluster (cpu4–7, `tcs4838`): 408 → **1800 MHz** nominal (0.90 → 1.15 V),
+  0.90 → 1.15 V. Big cluster (cpu4–7, `axp1530`@0x36): 408 → **1800 MHz** nominal (0.90 → 1.15 V),
   turbo bins 1992 @1.22 V / 2088 @1.24 V / **2160 @1.28 V**. Two cpufreq domains confirmed on
   the stock OS (`cpufreq/policy0` = little, `policy4` = big). → filled into
   `dts/staging/trimui-cpu-opp.dtsi`.

@@ -57,7 +57,7 @@ A board override, mirroring the siblings:
 - **GPU rail resolved = AXP2202 `dcdc2`** (`regulator-name = "axp2202-dcdc2"`, vendor phandle
   `0x20`). This matches what the upstream siblings use (`cubie-a5e`, `avaota-a1`:
   `mali-supply = <&reg_dcdc2>`). Vendor DCDC map: dcdc1 → CPU cluster0; **dcdc2 → GPU+VE**;
-  dcdc3 → DRAM (1.10 V); CPU cluster1 → external tcs4838.
+  dcdc3 → DRAM (1.10 V); CPU cluster1 → external **axp1530** (@0x36 dcdc1).
 - It is a **shared GPU/VE rail** (`regulator-always-on`): vendor phandle `0x20` is referenced
   by `mali-supply` (GPU), `ve-supply` (VPU) and `vdd-edp-supply` (eDP, unused here). So treat
   it as a static system rail — don't expect per-GPU voltage DVFS on it (siblings ship no GPU

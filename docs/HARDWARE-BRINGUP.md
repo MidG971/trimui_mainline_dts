@@ -123,7 +123,7 @@ i2cget -y <N> 0x34 0x03                         # chip-ID reg @0x34 (axp2202 bus
 # Regulator voltages we VERIFY (panel cldo1/cldo4, DRAM dcdc3, wifi aldo3/bldo1/2)
 for r in /sys/class/regulator/*; do \
   echo "$(cat $r/name 2>/dev/null) $(cat $r/microvolts 2>/dev/null)"; done | sort -u
-# Populated external CPU regulator (tcs4838@0x41 vs alts @0x36/0x60)
+# CPU big-cluster regulator — RESOLVED on HW: axp1530@0x36 (0x41 tcs4838 absent); rescan to reconfirm
 i2cdetect -y -r <N>
 # WiFi/BT chip variant (AIC8800 D80 vs DC)
 lsmod | grep -i aic ; ls /lib/firmware/ | grep -i aic
@@ -213,7 +213,7 @@ From Phase 1 output, fix and rebuild:
 | PMIC = axp717 **or** axp2202 @0x34 | `dts/…-smart-pro-s.dts` `pmic@34` compatible |
 | Real panel rails cldo1 / cldo4 voltages | panel `power0/1-supply` constraints + check vs MMC vqmmc share |
 | `vdd-dram` exact (we set 1.10 V) | `reg_dcdc3` + `uboot/…_defconfig` `CONFIG_AXP_DCDC3_VOLT` |
-| Populated CPU regulator (0x41 tcs4838?) | `cpu-supply` map (cluster1) |
+| CPU big-cluster regulator — **RESOLVED: axp1530@0x36** (0x41 tcs4838 absent) | `cpu-supply` map (cluster1) = `reg_ext_dcdc1` |
 | AIC8800 variant (D80/DC) | WiFi firmware dir + module build |
 | Gamepad input source | add the right input node/driver (not gpio-keys) |
 | eMMC/SD partition map | boot config + any flashing |

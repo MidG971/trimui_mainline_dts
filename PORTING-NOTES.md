@@ -80,7 +80,7 @@ code." Both PDFs are Allwinner **Confidential** → keep local, never commit to 
 
 | Subsystem | Vendor fact | Mainline target |
 |---|---|---|
-| **Main PMIC** | `pmu@34` = `x-powers,axp2202`, reg `0x34`, on **s_twi0** (`r_i2c0`), drive-vbus, IRQ via NMI. Board silk says **AXP717C**. | `r_i2c0` + `x-powers,axp717` *(verify chip — see §3)*. NOT on `i2c0`. |
+| **Main PMIC** | `pmu@34` = `x-powers,axp2202`, reg `0x34`, on **s_twi0** (`r_i2c0`), drive-vbus, IRQ via NMI. Board silk says **AXP717C**. | `r_i2c0` + `x-powers,axp717` driver *(chip = **AXP2202**, confirmed on HW; an axp2202 compatible may be needed upstream)*. NOT on `i2c0`. |
 | **CPU supply (dual cluster)** | cluster0 (cpu@0) `cpu-supply` → **axp2202-dcdc1**; cluster1 (cpu@400) `cpu-supply` → **axp1530-dcdc1** (`axp1530@0x36` on r_i2c0). Populated external CPU regulator = **axp1530@0x36** — CONFIRMED ON HW (0x41 tcs4838 absent; the tcs4838 guess was wrong). | Two separate `cpu-supply` per cluster: little=axp2202 dcdc1, big=axp1530 dcdc1 (`x-powers,axp1530`, already mainline). |
 | **Fan** | `pwm-fan`, pwms = ch **10**, 40000 ns, **inverted**. 32 cooling levels. | `pwm-fan` once A523 PWM driver lands. |
 | **Vibrator** | `pwm-vibrator`, pwms = ch **7**, 50000 ns, normal polarity. | `pwm-vibrator` once PWM driver lands. |

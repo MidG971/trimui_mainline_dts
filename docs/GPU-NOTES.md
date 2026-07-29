@@ -62,9 +62,9 @@ A board override, mirroring the siblings:
   by `mali-supply` (GPU), `ve-supply` (VPU) and `vdd-edp-supply` (eDP, unused here). So treat
   it as a static system rail — don't expect per-GPU voltage DVFS on it (siblings ship no GPU
   OPP table either). OPP voltage sits at 0.9 V; the node's 0.5–3.4 V is a loose vendor range.
-- **Only residual unknown = the regulator *label*, not the rail:** the board PMIC is the
-  long-standing axp2202-vs-axp717 question (mainline has the axp717 driver). DCDC2 is
-  definitive; `reg_dcdc2` is whatever our board PMIC node names it.
+- **Only residual detail = the regulator *label*, not the rail:** the board PMIC is
+  **AXP2202** (confirmed on HW — the chip reports as AXP2202; mainline's axp717 driver is
+  the vehicle). DCDC2 is definitive; `reg_dcdc2` is whatever our board PMIC node names it.
 - `power-domains = <&pck600 PD_GPU>`, clocks and reset are already wired in the SoC dtsi —
   nothing to add there.
 - Kernel: `CONFIG_DRM_PANFROST=m`. Userspace: Mesa with Panfrost + PanVK.

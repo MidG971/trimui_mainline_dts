@@ -1,0 +1,452 @@
+First mainline-Linux boot of the Trimui Smart Pro S (Allwinner A523 / TG5050).
+Captured on UART0 (PB9/PB10, 115200 8N1), 2026-08-05.
+Chain: BROM -> SPL -> BL31 (jernejsk a523-v4, debug) -> U-Boot 2026.07 -> distro-boot -> Linux 7.2 -> busybox shell.
+======================================================================
+U-Boot SPL 2026.07-00968-gbc832c1f5c38-dirty (Aug 05 2026 - 10:04:20 +0000)
+DRAM: 1024 MiB
+SPL malloc() before relocation used 0x0 bytes (0 KB)
+>>SPL: board_init_r()
+Trying to boot from MMC1
+boot_device=1, mmc_dev=0
+spl: mmc boot mode: raw
+
+loading hdr from 40000 to ?
+Found FIT
+Simple loading
+fit read offset 40000, size=782848, dst=?, count=1339032576
+firmware: 'atf'
+starting
+Embedded data: dst=54000, size=a0a4
+- done loading
+Image OS is Invalid OS
+loadables: 'uboot'
+starting
+Embedded data: dst=4a000000, size=ace70
+- done loading
+Loadable is U-Boot
+fdt: 'fdt-1'
+starting
+Embedded data: dst=4a0ace70, size=7af8
+- done loading
+no string for index 1
+Unsupported OS image.. Jumping nevertheless..
+SPL malloc() used 0xbf600 bytes (765 KB)
+image entry point: 0x54000
+NOTICE:  BL31: v2.13.0(debug):e019f64
+NOTICE:  BL31: Built : 09:06:40, Jul 31 2026
+NOTICE:  BL31: Detected Allwinner A523 SoC (1890)
+NOTICE:  BL31: Found U-Boot DTB at 0xa0ace70, model: Trimui Smart Pro S
+INFO:    Configuring SPC Controller
+INFO:    BL31: Platform setup done
+INFO:    GICv3 without legacy support detected.
+INFO:    ARM GICv3 driver initialized in EL3
+INFO:    Maximum SPI INTID supported: 287
+INFO:    BL31: Initializing runtime services
+INFO:    BL31: cortex_a55: CPU workaround for erratum 1530923 was applied
+INFO:    PSCI: Suspend is unavailable
+INFO:    BL31: Preparing for EL3 exit to normal world
+INFO:    Entry point address = 0x4a000000
+INFO:    SPSR = 0x3c9
+
+
+U-Boot 2026.07-00968-gbc832c1f5c38-dirty (Aug 05 2026 - 10:04:20 +0000) Allwinner Technology
+
+CPU:   Allwinner A523 (SUN55I)
+Model: Trimui Smart Pro S
+DRAM:  1 GiB
+sunxi_set_gate: (CLK#35) unhandled
+Core:  69 devices, 19 uclasses, devicetree: separate
+WDT:   Not starting watchdog@2050000
+MMC:   mmc@4020000: 0
+Loading Environment from FAT...Unable to read "uboot.env" from mmc0:1... 
+In:    serial@2500000
+Out:   serial@2500000
+Err:   serial@2500000
+Net:   No ethernet found.
+starting USB...
+No USB controllers found
+       scanning usb for storage devices... 0 Storage Device(s) found
+[2KHit any key to stop autoboot: 2[2KHit any key to stop autoboot: 1[2KHit any key to stop autoboot: 0
+switch to partitions #0, OK
+mmc0 is current device
+Scanning mmc 0:1...
+Found /extlinux/extlinux.conf
+Retrieving file: /extlinux/extlinux.conf
+Trimui Smart Pro S (A523) mainline bring-up
+1:	A523 mainline (display=y, USB-gadget console, initramfs)
+Enter choice: 1:	A523 mainline (display=y, USB-gadget console, initramfs)
+Retrieving file: /Image
+Retrieving file: /initramfs.cpio.gz
+append: console=tty0 console=ttyGS0 console=ttyS0,115200 earlycon rdinit=/init rootwait panic=10
+Retrieving file: /sun55i-a523-trimui-smart-pro-s-bringup.dtb
+Moving Image from 0x40080000 to 0x40200000, end=0x43480000
+## Flattened Device Tree blob at 4fa00000
+   Booting using the fdt blob at 0x4fa00000
+Working FDT set to 4fa00000
+   Loading Ramdisk to 49ee7000, end 49fffc43 ... OK
+   Loading Device Tree to 0000000049edc000, end 0000000049ee6e6c ... OK
+Working FDT set to 49edc000
+
+Starting kernel ...
+
+[    0.000000] Booting Linux on physical CPU 0x0000000000 [0x412fd050]
+[    0.000000] Linux version 7.2.0-rc3-dirty (root@compiler-rock3b) (aarch64-linux-gnu-gcc (Debian 12.2.0-14) 12.2.0, GNU ld (GNU Binutils for Debian) 2.40) #5 SMP PREEMPT Thu Jul 23 09:54:57 UTC 2026
+[    0.000000] KASLR disabled due to lack of seed
+[    0.000000] Machine model: Trimui Smart Pro S
+[    0.000000] efi: UEFI not found.
+[    0.000000] earlycon: uart0 at MMIO32 0x0000000002500000 (options '115200n8')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.000000] OF: reserved mem: Reserved memory: No reserved-memory node in the DT
+[    0.000000] NUMA: Faking a node at [mem 0x0000000040000000-0x000000007fffffff]
+[    0.000000] NODE_DATA(0) allocated [mem 0x7fdcbe80-0x7fdce53f]
+[    0.000000] cma: Reserved 32 MiB at 0x000000007dc00000
+[    0.000000] psci: probing for conduit method from DT.
+[    0.000000] psci: PSCIv1.1 detected in firmware.
+[    0.000000] psci: Using standard PSCI v0.2 function IDs
+[    0.000000] psci: MIGRATE_INFO_TYPE not supported.
+[    0.000000] psci: SMC Calling Convention v1.5
+[    0.000000] Zone ranges:
+[    0.000000]   DMA      [mem 0x0000000040000000-0x000000007fffffff]
+[    0.000000]   DMA32    empty
+[    0.000000]   Normal   empty
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000040000000-0x000000007fffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000040000000-0x000000007fffffff]
+[    0.000000] percpu: Embedded 26 pages/cpu s67416 r8192 d30888 u106496
+[    0.000000] Detected VIPT I-cache on CPU0
+[    0.000000] CPU features: detected: GICv3 CPU interface
+[    0.000000] CPU features: detected: Virtualization Host Extensions
+[    0.000000] CPU features: detected: ARM errata 1165522, 1319367, or 1530923
+[    0.000000] alternatives: applying boot alternatives
+[    0.000000] Kernel command line: console=tty0 console=ttyGS0 console=ttyS0,115200 earlycon rdinit=/init rootwait panic=10
+[    0.000000] printk: log buffer data + meta data: 131072 + 458752 = 589824 bytes
+[    0.000000] Dentry cache hash table entries: 131072 (order: 8, 1048576 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 65536 (order: 7, 524288 bytes, linear)
+[    0.000000] software IO TLB: SWIOTLB bounce buffer size adjusted to 1MB
+[    0.000000] software IO TLB: area num 8.
+[    0.000000] software IO TLB: SWIOTLB bounce buffer size roundup to 2MB
+[    0.000000] software IO TLB: mapped [mem 0x000000007c900000-0x000000007cb00000] (2MB)
+[    0.000000] Fallback order for Node 0: 0 
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 262144
+[    0.000000] Policy zone: DMA
+[    0.000000] mem auto-init: stack:all(zero), heap alloc:off, heap free:off
+[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=8, Nodes=1
+[    0.000000] rcu: Preemptible hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU event tracing is enabled.
+[    0.000000] rcu: 	RCU restricting CPUs from NR_CPUS=512 to nr_cpu_ids=8.
+[    0.000000] 	Trampoline variant of Tasks RCU enabled.
+[    0.000000] 	Tracing variant of Tasks RCU enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.000000] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=8
+[    0.000000] RCU Tasks: Setting shift to 3 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=8.
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] GIC: enabling workaround for GICv3: non-coherent attribute
+[    0.000000] GICv3: GIC: Using split EOI/Deactivate mode
+[    0.000000] GICv3: 256 SPIs implemented
+[    0.000000] GICv3: 0 Extended SPIs implemented
+[    0.000000] Root IRQ handler: gic_handle_irq
+[    0.000000] GICv3: GICv3 features: 16 PPIs
+[    0.000000] GICv3: GICD_CTLR.DS=0, SCR_EL3.FIQ=0
+[    0.000000] GICv3: CPU0: found redistributor 0 region 0:0x0000000003460000
+[    0.000000] ITS [mem 0x03440000-0x0345ffff]
+[    0.000000] GIC: enabling workaround for ITS: non-coherent attribute
+[    0.000000] ITS@0x0000000003440000: allocated 8192 Devices @438b0000 (indirect, esz 8, psz 64K, shr 0)
+[    0.000000] ITS@0x0000000003440000: allocated 32768 Interrupt Collections @438c0000 (flat, esz 2, psz 64K, shr 0)
+[    0.000000] ITS: using cache flushing for cmd queue
+[    0.000000] GICv3: using LPI property table @0x00000000438d0000
+[    0.000000] GIC: using cache flushing for LPI property table
+[    0.000000] GICv3: CPU0: using allocated LPI pending table @0x00000000438e0000
+[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    0.000000] arch_timer: cp15 timer running at 24.00MHz (hyp-virt).
+[    0.000000] clocksource: arch_sys_counter: mask: 0xffffffffffffff max_cycles: 0x588fe9dc0, max_idle_ns: 440795202592 ns
+[    0.000001] sched_clock: 56 bits at 24MHz, resolution 41ns, wraps every 4398046511097ns
+[    0.010966] Console: colour dummy device 80x25
+[    0.015874] printk: legacy console [tty0] enabled
+[    0.021967] Calibrating delay loop (skipped), value calculated using timer frequency.. 48.00 BogoMIPS (lpj=96000)
+[    0.033280] pid_max: default: 32768 minimum: 301
+[    0.038541] Mount-cache hash table entries: 2048 (order: 2, 16384 bytes, linear)
+[    0.046707] Mountpoint-cache hash table entries: 2048 (order: 2, 16384 bytes, linear)
+[    0.055765] VFS: Finished mounting rootfs on nullfs
+[    0.062180] cacheinfo: Unable to detect cache hierarchy for CPU 0
+[    0.070502] rcu: Hierarchical SRCU implementation.
+[    0.075796] rcu: 	Max phase no-delay instances is 1000.
+[    0.081826] Timer migration: 1 hierarchy levels; 8 children per group; 1 crossnode level
+[    0.093369] EFI services will not be available.
+[    0.098944] smp: Bringing up secondary CPUs ...
+[    0.104977] Detected VIPT I-cache on CPU1
+[    0.105050] GICv3: CPU1: found redistributor 100 region 0:0x0000000003480000
+[    0.105084] GICv3: CPU1: using allocated LPI pending table @0x00000000438f0000
+[    0.105149] CPU1: Booted secondary processor 0x0000000100 [0x412fd050]
+[    0.106259] Detected VIPT I-cache on CPU2
+[    0.106334] GICv3: CPU2: found redistributor 200 region 0:0x00000000034a0000
+[    0.106367] GICv3: CPU2: using allocated LPI pending table @0x0000000043900000
+[    0.106429] CPU2: Booted secondary processor 0x0000000200 [0x412fd050]
+[    0.107505] Detected VIPT I-cache on CPU3
+[    0.107581] GICv3: CPU3: found redistributor 300 region 0:0x00000000034c0000
+[    0.107614] GICv3: CPU3: using allocated LPI pending table @0x0000000043910000
+[    0.107671] CPU3: Booted secondary processor 0x0000000300 [0x412fd050]
+[    0.108757] Detected VIPT I-cache on CPU4
+[    0.108829] GICv3: CPU4: found redistributor 400 region 0:0x00000000034e0000
+[    0.108861] GICv3: CPU4: using allocated LPI pending table @0x0000000043920000
+[    0.108915] CPU4: Booted secondary processor 0x0000000400 [0x412fd050]
+[    0.109937] Detected VIPT I-cache on CPU5
+[    0.110024] GICv3: CPU5: found redistributor 500 region 0:0x0000000003500000
+[    0.110056] GICv3: CPU5: using allocated LPI pending table @0x0000000043930000
+[    0.110111] CPU5: Booted secondary processor 0x0000000500 [0x412fd050]
+[    0.111175] Detected VIPT I-cache on CPU6
+[    0.111259] GICv3: CPU6: found redistributor 600 region 0:0x0000000003520000
+[    0.111291] GICv3: CPU6: using allocated LPI pending table @0x0000000043940000
+[    0.111345] CPU6: Booted secondary processor 0x0000000600 [0x412fd050]
+[    0.112370] Detected VIPT I-cache on CPU7
+[    0.112458] GICv3: CPU7: found redistributor 700 region 0:0x0000000003540000
+[    0.112490] GICv3: CPU7: using allocated LPI pending table @0x0000000043950000
+[    0.112543] CPU7: Booted secondary processor 0x0000000700 [0x412fd050]
+[    0.112722] smp: Brought up 1 node, 8 CPUs
+[    0.306602] SMP: Total of 8 processors activated.
+[    0.311685] CPU: All CPU(s) started at EL2
+[    0.316124] CPU features: detected: 32-bit EL0 Support
+[    0.321796] CPU features: detected: 32-bit EL1 Support
+[    0.327366] CPU features: detected: Data cache clean to the PoU not required for I/D coherence
+[    0.336621] CPU features: detected: Common not Private translations
+[    0.343428] CPU features: detected: CRC32 instructions
+[    0.348939] CPU features: detected: RCpc load-acquire (LDAPR)
+[    0.355269] CPU features: detected: LSE atomic instructions
+[    0.361380] CPU features: detected: Privileged Access Never
+[    0.367343] CPU features: detected: PMUv3
+[    0.371658] CPU features: detected: RAS Extension Support
+[    0.377607] CPU features: detected: XNX
+[    0.381726] CPU features: detected: Speculative Store Bypassing Safe (SSBS)
+[    0.389472] alternatives: applying system-wide alternatives
+[    0.399861] CPU features: detected: ICV_DIR_EL1 trapping
+[    0.406524] Memory: 934724K/1048576K available (17280K kernel code, 5262K rwdata, 14316K rodata, 13888K init, 696K bss, 76036K reserved, 32768K cma-reserved)
+[    0.422769] devtmpfs: initialized
+[    0.436185] posixtimers hash table entries: 4096 (order: 4, 65536 bytes, linear)
+[    0.444339] futex hash table entries: 2048 (131072 bytes on 1 NUMA nodes, total 128 KiB, linear).
+[    0.454661] 19840 pages in range for non-PLT usage
+[    0.454673] 511360 pages in range for PLT usage
+[    0.464982] DMI: not present or invalid.
+[    0.478674] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.486423] DMA: preallocated 128 KiB GFP_KERNEL|GFP_DMA pool for atomic allocations
+[    0.494725] audit: initializing netlink subsys (disabled)
+[    0.500868] audit: type=2000 audit(0.304:1): state=initialized audit_enabled=0 res=1
+[    0.503944] thermal_sys: Registered thermal governor 'step_wise'
+[    0.508885] thermal_sys: Registered thermal governor 'power_allocator'
+[    0.515636] cpuidle: using governor menu
+[    0.527475] hw-breakpoint: found 6 breakpoint and 4 watchpoint registers.
+[    0.535204] ASID allocator initialised with 65536 entries
+[    0.547311] Serial: AMBA PL011 UART driver
+[    0.560414] /soc/bus@5000000/mixer@100000: Fixed dependency cycle(s) with /soc/tcon-top@5500000
+[    0.569938] /soc/tcon-top@5500000: Fixed dependency cycle(s) with /soc/lcd-controller@5502000
+[    0.579353] /soc/tcon-top@5500000: Fixed dependency cycle(s) with /soc/lcd-controller@5503000
+[    0.588621] /soc/tcon-top@5500000: Fixed dependency cycle(s) with /soc/bus@5000000/mixer@100000
+[    0.597927] /soc/lcd-controller@5503000: Fixed dependency cycle(s) with /soc/tcon-top@5500000
+[    0.607394] /soc/clock-controller@2001000: Fixed dependency cycle(s) with /soc/rtc@7090000
+[    0.616302] /soc/i2c@2503400/usb-pd@4e/connector: Fixed dependency cycle(s) with /soc/usb@4100000
+[    0.625621] /soc/interrupt-controller@3400000: Fixed dependency cycle(s) with /soc/interrupt-controller@3400000
+[    0.636552] /soc/usb@4100000: Fixed dependency cycle(s) with /soc/i2c@2503400/usb-pd@4e/connector
+[    0.646356] /soc/clock-controller@7010000: Fixed dependency cycle(s) with /soc/clock-controller@2001000
+[    0.656283] /soc/clock-controller@7010000: Fixed dependency cycle(s) with /soc/rtc@7090000
+[    0.665223] /soc/rtc@7090000: Fixed dependency cycle(s) with /soc/clock-controller@7010000
+[    0.674487] /soc/lcd-controller@5502000: Fixed dependency cycle(s) with /soc/dsi@5508000
+[    0.683450] /soc/lcd-controller@5502000: Fixed dependency cycle(s) with /soc/tcon-top@5500000
+[    0.692809] /soc/dsi@5508000: Fixed dependency cycle(s) with /soc/lcd-controller@5502000
+[    0.703290] /soc/bus@5000000/mixer@100000: Fixed dependency cycle(s) with /soc/tcon-top@5500000
+[    0.713480] /soc/bus@5000000/mixer@100000: Fixed dependency cycle(s) with /soc/tcon-top@5500000
+[    0.723154] /soc/tcon-top@5500000: Fixed dependency cycle(s) with /soc/lcd-controller@5502000
+[    0.732572] /soc/tcon-top@5500000: Fixed dependency cycle(s) with /soc/lcd-controller@5503000
+[    0.741793] /soc/tcon-top@5500000: Fixed dependency cycle(s) with /soc/bus@5000000/mixer@100000
+[    0.751346] /soc/tcon-top@5500000: Fixed dependency cycle(s) with /soc/lcd-controller@5503000
+[    0.760047] /soc/lcd-controller@5503000: Fixed dependency cycle(s) with /soc/tcon-top@5500000
+[    0.772236] /soc/clock-controller@2001000: Fixed dependency cycle(s) with /soc/rtc@7090000
+[    0.785735] /soc/i2c@2503400/usb-pd@4e/connector: Fixed dependency cycle(s) with /soc/usb@4100000
+[    0.801074] /soc/i2c@2503400/usb-pd@4e/connector: Fixed dependency cycle(s) with /soc/usb@4100000
+[    0.810983] /soc/usb@4100000: Fixed dependency cycle(s) with /soc/i2c@2503400/usb-pd@4e/connector
+[    0.827428] /soc/clock-controller@7010000: Fixed dependency cycle(s) with /soc/clock-controller@2001000
+[    0.837759] /soc/clock-controller@7010000: Fixed dependency cycle(s) with /soc/rtc@7090000
+[    0.850279] /soc/clock-controller@7010000: Fixed dependency cycle(s) with /soc/rtc@7090000
+[    0.859548] /soc/clock-controller@2001000: Fixed dependency cycle(s) with /soc/rtc@7090000
+[    0.868825] /soc/rtc@7090000: Fixed dependency cycle(s) with /soc/clock-controller@7010000
+[    0.882748] /soc/tcon-top@5500000: Fixed dependency cycle(s) with /soc/lcd-controller@5502000
+[    0.892245] /soc/lcd-controller@5502000: Fixed dependency cycle(s) with /soc/dsi@5508000
+[    0.901164] /soc/lcd-controller@5502000: Fixed dependency cycle(s) with /soc/tcon-top@5500000
+[    0.910955] /soc/lcd-controller@5502000: Fixed dependency cycle(s) with /soc/dsi@5508000
+[    0.919884] /soc/dsi@5508000: Fixed dependency cycle(s) with /soc/lcd-controller@5502000
+[    0.934830] HugeTLB: registered 1.00 GiB page size, pre-allocated 0 pages
+[    0.941891] HugeTLB: 0 KiB vmemmap can be freed for a 1.00 GiB page
+[    0.948548] HugeTLB: registered 32.0 MiB page size, pre-allocated 0 pages
+[    0.955902] HugeTLB: 0 KiB vmemmap can be freed for a 32.0 MiB page
+[    0.962807] HugeTLB: registered 2.00 MiB page size, pre-allocated 0 pages
+[    0.970258] HugeTLB: 0 KiB vmemmap can be freed for a 2.00 MiB page
+[    0.976687] HugeTLB: registered 64.0 KiB page size, pre-allocated 0 pages
+[    0.984161] HugeTLB: 0 KiB vmemmap can be freed for a 64.0 KiB page
+[    0.994428] ACPI: Interpreter disabled.
+[    1.005825] iommu: Default domain type: Translated
+[    1.010934] iommu: DMA domain TLB invalidation policy: strict mode
+[    1.018923] SCSI subsystem initialized
+[    1.023657] usbcore: registered new interface driver usbfs
+[    1.029787] usbcore: registered new interface driver hub
+[    1.035702] usbcore: registered new device driver usb
+[    1.043072] pps_core: LinuxPPS API ver. 1 registered
+[    1.048513] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    1.058379] PTP clock support registered
+[    1.062994] EDAC MC: Ver: 3.0.0
+[    1.066962] scmi_core: SCMI protocol bus registered
+[    1.074250] FPGA manager framework
+[    1.079685] vgaarb: loaded
+[    1.083287] clocksource: Switched to clocksource arch_sys_counter
+[    1.090375] VFS: Disk quotas dquot_6.6.0
+[    1.094740] VFS: Dquot-cache hash table entries: 512 (4096 bytes)
+[    1.102069] pnp: PnP ACPI: disabled
+[    1.116969] NET: Registered PF_INET protocol family
+[    1.122295] IP idents hash table entries: 16384 (order: 5, 131072 bytes, linear)
+[    1.131582] tcp_listen_portaddr_hash hash table entries: 512 (order: 1, 8192 bytes, linear)
+[    1.140813] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    1.148614] TCP established hash table entries: 8192 (order: 4, 65536 bytes, linear)
+[    1.157189] TCP bind hash table entries: 8192 (order: 6, 262144 bytes, linear)
+[    1.165308] TCP: Hash tables configured (established 8192 bind 8192)
+[    1.172442] UDP hash table entries: 512 (order: 3, 32768 bytes, linear)
+[    1.179535] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    1.186349] RPC: Registered named UNIX socket transport module.
+[    1.192663] RPC: Registered udp transport module.
+[    1.197858] RPC: Registered tcp transport module.
+[    1.203045] RPC: Registered tcp-with-tls transport module.
+[    1.209090] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    1.216160] PCI: CLS 0 bytes, default 64
+[    1.228165] kvm [1]: nv: 570 coarse grained trap handlers
+[    1.234444] kvm [1]: nv: 710 fine grained trap handlers
+[    1.240744] kvm [1]: IPA Size Limit: 40 bits
+[    1.245351] kvm [1]: GICv3: no GICV resource entry
+[    1.250575] kvm [1]: disabling GICv2 emulation
+[    1.255516] kvm [1]: GIC system register CPU interface enabled
+[    1.261933] kvm [1]: vgic interrupt IRQ9
+[    1.266213] kvm [1]: VHE mode initialized successfully
+[    1.272161] Unpacking initramfs...
+[    1.278133] Initialise system trusted keyrings
+[    1.283240] workingset: timestamp_bits=42 (anon: 37) max_order=18 bucket_order=0 (anon: 0)
+[    1.292773] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    1.299630] NFS: Registering the id_resolver key type
+[    1.305186] Key type id_resolver registered
+[    1.309777] Key type id_legacy registered
+[    1.314190] nfs4filelayout_init: NFSv4 File Layout Driver Registering...
+[    1.321592] nfs4flexfilelayout_init: NFSv4 Flexfile Layout Driver Registering...
+[    1.329722] Freeing initrd memory: 1120K
+[    1.330416] Key type asymmetric registered
+[    1.338538] Asymmetric key parser 'x509' registered
+[    1.343999] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 243)
+[    1.352103] io scheduler mq-deadline registered
+[    1.356869] io scheduler kyber registered
+[    1.361348] io scheduler bfq registered
+[    1.397535] ledtrig-cpu: registered to indicate activity on CPUs
+[    1.503053] Serial: 8250/16550 driver, 4 ports, IRQ sharing enabled
+[    1.518298] msm_serial: driver initialized
+[    1.524246] SuperH (H)SCI(F) driver initialized
+[    1.529850] STM32 USART driver initialized
+[    1.552695] loop: module loaded
+[    1.558867] megasas: 07.734.00.00-rc1
+[    1.577717] tun: Universal TUN/TAP device driver, 1.6
+[    1.584271] VFIO - User Level meta-driver version: 0.3
+[    1.600195] usbcore: registered new interface driver usb-storage
+[    1.611790] UDC core: g_serial: couldn't find an available UDC
+[    1.623827] sun6i-rtc 7090000.rtc: registered as rtc0
+[    1.629389] sun6i-rtc 7090000.rtc: setting system clock to 2026-08-06T11:04:22 UTC (1786014262)
+[    1.640046] i2c_dev: i2c /dev entries driver
+[    1.682818] SMCCC: SOC_ID: ID = jep106:091e:1890 Revision = 0x00000003
+[    1.692747] usbcore: registered new interface driver usbhid
+[    1.698872] usbhid: USB HID core driver
+[    1.712964] hw perfevents: enabled with armv8_cortex_a55 PMU driver, 7 (0,8000003f) counters available
+[    1.738034] NET: Registered PF_INET6 protocol family
+[    1.744794] Segment Routing with IPv6
+[    1.748882] In-situ OAM (IOAM) with IPv6
+[    1.753245] NET: Registered PF_PACKET protocol family
+[    1.758896] Key type dns_resolver registered
+[    1.807177] registered taskstats version 1
+[    1.811958] Loading compiled-in X.509 certificates
+[    1.830918] Demotion targets for Node 0: null
+[    1.852801] /soc/tcon-top@5500000: Fixed dependency cycle(s) with /soc/bus@5000000/mixer@100000
+[    1.862485] /soc/bus@5000000/mixer@100000: Fixed dependency cycle(s) with /soc/tcon-top@5500000
+[    1.880641] gpio gpiochip0: Static allocation of GPIO base is deprecated, use dynamic allocation.
+[    1.905059] sun55i-a523-pinctrl 2000000.pinctrl: initialized sunXi PIO driver
+[    1.914843] gpio gpiochip1: Static allocation of GPIO base is deprecated, use dynamic allocation.
+[    1.927794] sun55i-a523-r-pinctrl 7022000.pinctrl: initialized sunXi PIO driver
+[    1.937143] sun55i-a523-pinctrl 2000000.pinctrl: supply vcc-pd not found, using dummy regulator
+[    1.956810] sun55i-a523-pinctrl 2000000.pinctrl: supply vcc-pb not found, using dummy regulator
+[    1.967077] printk: legacy console [ttyS0] disabled
+[    1.993217] 2500000.serial: ttyS0 at MMIO 0x2500000 (irq = 414, base_baud = 1500000) is a 16550A
+[    2.002958] printk: legacy console [ttyS0] enabled
+[    2.002958] printk: legacy console [ttyS0] enabled
+[    2.013039] printk: legacy bootconsole [uart0] disabled
+[    2.013039] printk: legacy bootconsole [uart0] disabled
+[    2.026574] sun55i-a523-pinctrl 2000000.pinctrl: supply vcc-pg not found, using dummy regulator
+[    2.056683] 2500400.serial: ttyS1 at MMIO 0x2500400 (irq = 415, base_baud = 1500000) is a 16550A
+[    2.074242] phy phy-4100400.phy.0: Changing dr_mode to 1
+[    2.079076] ehci-platform 4200000.usb: EHCI Host Controller
+[    2.079656] ehci-platform 4101000.usb: EHCI Host Controller
+[    2.084328] ohci-platform 4101400.usb: Generic Platform OHCI controller
+[    2.084358] ohci-platform 4101400.usb: new USB bus registered, assigned bus number 1
+[    2.084508] ohci-platform 4101400.usb: irq 418, io mem 0x04101400
+[    2.085210] ehci-platform 4200000.usb: new USB bus registered, assigned bus number 2
+[    2.089163] ohci-platform 4200400.usb: Generic Platform OHCI controller
+[    2.089189] ohci-platform 4200400.usb: new USB bus registered, assigned bus number 3
+[    2.089295] usb_phy_generic usb_phy_generic.1.auto: dummy supplies not allowed for exclusive requests (id=vbus)
+[    2.089382] ohci-platform 4200400.usb: irq 419, io mem 0x04200400
+[    2.090887] ehci-platform 4101000.usb: new USB bus registered, assigned bus number 4
+[    2.090905] g_serial gadget.0: Gadget Serial v2.4
+[    2.090916] g_serial gadget.0: g_serial ready
+[    2.097509] ehci-platform 4200000.usb: irq 417, io mem 0x04200000
+[    2.099700] sun55i-a523-r-pinctrl 7022000.pinctrl: supply vcc-pl not found, using dummy regulator
+[    2.100962] axp20x-i2c 1-0034: AXP20x variant AXP717 found
+[    2.105276] ehci-platform 4101000.usb: irq 416, io mem 0x04101000
+[    2.111094] platform axp717-adc: DMA mask not set
+[    2.113956] axp20x-usb-power-supply: Failed to locate of_node [id: -1]
+[    2.114625] vdd-io: Bringing 1000000uV into 3300000-3300000uV
+[    2.119334] ehci-platform 4200000.usb: USB 2.0 started, EHCI 1.00
+[    2.126624] platform axp20x-battery-power-supply: DMA mask not set
+[    2.131325] ehci-platform 4101000.usb: USB 2.0 started, EHCI 1.00
+[    2.132198] hub 4-0:1.0: USB hub found
+[    2.132241] hub 4-0:1.0: 1 port detected
+[    2.134211] hub 2-0:1.0: USB hub found
+[    2.146479] axp20x-i2c 1-0034: AXP20X driver loaded
+[    2.149679] hub 2-0:1.0: 1 port detected
+[    2.161116] pwrseq_simple wifi-pwrseq: error -ENOENT: reset control not ready
+[    2.163357] hub 3-0:1.0: USB hub found
+[    2.166483] pwrseq_simple wifi-pwrseq: probe with driver pwrseq_simple failed with error -2
+[    2.172593] hub 3-0:1.0: 1 port detected
+[    2.190634] sun55i-a523-pinctrl 2000000.pinctrl: supply vcc-pf not found, using dummy regulator
+[    2.194656] hub 1-0:1.0: USB hub found
+[    2.199415] sunxi-mmc 4020000.mmc: Got CD GPIO
+[    2.201414] sun55i-a523-pinctrl 2000000.pinctrl: supply vcc-pc not found, using dummy regulator
+[    2.202813] clk: Disabling unused clocks
+[    2.203055] PM: genpd: Disabling unused power domains
+[    2.203174] Warning: unable to open an initial console.
+[    2.204376] hub 1-0:1.0: 1 port detected
+[    2.227316] sunxi-mmc 4022000.mmc: initialized, max. request size: 2048 KB, uses new timings mode
+[    2.235854] sunxi-mmc 4020000.mmc: initialized, max. request size: 2048 KB, uses new timings mode
+[    2.340836] Freeing unused kernel memory: 13888K
+[    2.345745] Run /init as init process
+[    2.384292] mmc0: host does not support reading read-only switch, assuming write-enable
+[    2.394655] mmc0: new high speed SDXC card at address 0001
+[    2.401034] mmcblk0: mmc0:0001 SD 50.0 GiB
+[    2.407951]  mmcblk0: p1
+[    2.801396] mmc2: error -110 whilst initialising MMC card
+/bin/sh: can't access tty; job control turned off
+~ # [    2.808140] mmc2: Failed to initialize a non-removable card
+[   12.231121] sunxi-pck-600 7060000.power-controller: sync_state() pending due to 5530000.hdmi-phy
+[   12.245579] sunxi-pck-600 7060000.power-controller: sync_state() pending due to 1800000.gpu
+[   12.253972] sun20i-ppu 7001400.power-controller: sync_state() pending due to 7122000.npu
+[   12.262130] sunxi-pck-600 7060000.power-controller: sync_state() pending due to 5100000.mixer
+
+~ # echo ===PROBE===; uname -a; cat /proc/cmdline; free -m 2>/dev/null | head -2
+; ls /dev/mmcblk* 2>/dev/null; ls /dev/dri/ /dev/fb* 2>/dev/null; for s in /sys/
+class/drm/card*/card*-*/status; do echo $s=$(cat $s 2>/dev/null); done; echo ===
+END===
+===PROBE===
+Linux (none) 7.2.0-rc3-dirty #5 SMP PREEMPT Thu Jul 23 09:54:57 UTC 2026 aarch64 GNU/Linux
+console=tty0 console=ttyGS0 console=ttyS0,115200 earlycon rdinit=/init rootwait panic=10
+              total        used        free      shared  buff/cache   available
+Mem:            964          47         909           2           8         879
+/dev/mmcblk0    /dev/mmcblk0p1
+/sys/class/drm/card*/card*-*/status=
+===END===
+~ # 

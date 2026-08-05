@@ -520,14 +520,7 @@
  * simple-audio-amplifier aux-dev) so this becomes a DAPM-gated, power-aware
  * enable (cf. the fan/power-profile notes) instead of an always-on hog.
  */
-&pio {
-	spk_amp_hog {
-		gpio-hog;
-		gpios = <7 6 GPIO_ACTIVE_HIGH>;	/* PH6 */
-		output-high;
-		line-name = "speaker-amp-enable";
-	};
-};
+/* spk_amp_hog removed: sunxi pinctrl parses every &pio child as a pinmux group, so a gpio-hog child fails with -22 and kills gpiochip0 (all main-bank GPIOs). Enable the speaker amp via a proper amplifier node or in U-Boot later. */
 
 /*
  * Side keys on LRADC (vendor "keyboard_1350mv", 3 keys). The per-key voltages

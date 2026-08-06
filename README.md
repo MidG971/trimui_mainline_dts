@@ -16,9 +16,10 @@ Mainline Linux bring-up for the **Trimui Smart Pro S** retro-gaming handheld
 [Building](https://github.com/MidG971/trimui_mainline_dts/wiki/Building)
 
 > ## ⚠️ Experimental — use at your own risk
-> This is an **active bring-up effort**, not production firmware, and is **largely
-> unvalidated on hardware**. The device tree, U-Boot defconfig, and DRAM parameters
-> may be wrong. Flashing or FEL-booting custom firmware **can permanently brick your
+> This is an **active bring-up effort**, not production firmware. It now **boots mainline
+> Linux to a shell on real hardware**, but most peripherals (display, audio, WiFi, gamepad)
+> are **not yet validated**, and the device tree may still be wrong. Flashing or FEL-booting
+> custom firmware **can permanently brick your
 > device**, corrupt data, or damage hardware. **No warranty, no liability — you use
 > this entirely at your own risk.** Back up your stock firmware first. Booting from
 > microSD leaves the eMMC untouched (pull the card to return to stock), and the vendor
@@ -26,33 +27,37 @@ Mainline Linux bring-up for the **Trimui Smart Pro S** retro-gaming handheld
 
 ## Where things stand
 
-**The device is in hand and on-device bring-up is underway.** The board DTS targets
-**mainline Linux v7.2**; the base — serial console, microSD/eMMC, USB2, PMIC +
-regulators, RTC, the LEDC RGB array, WiFi-SDIO sequencing + BT UART, and the Mali
-GPU (Panfrost) — builds against mainline and is `dt-validate`-clean. The MIPI-DSI
-display, PWM backlight and audio ship as an out-of-tree patch series under
-[`kernel/`](kernel/) (build + dt-validate clean).
+**🎉 Mainline Linux boots on the device — all the way to an interactive shell.** The full
+chain works on real silicon: **BROM → SPL → BL31 → U-Boot → distro-boot → Linux (v7.2-rc3)
+→ busybox shell** (over a UART on PB9/PB10). Working today: 8× Cortex-A55 **SMP**, **DRAM**
+(1 GiB), **microSD/MMC** (the kernel `sunxi-mmc` new-timings path), the **AXP2202/AXP717
+PMIC** + regulators, **USB2** host, and the RTC.
 
-**Boot bring-up (current focus).** On real silicon so far:
+**What cracked the months-long boot blocker** — all three were SPL-stage config bugs, all
+found the moment a UART gave us eyes, and *none* were what we'd theorized:
 
-- The A523 BROM **boots the microSD from 128 KiB + GPT** (no button combo) — proven
-  by KNULLI; our earlier 8 KiB/MBR card was simply at the wrong offset.
-- Our mainline **SPL runs and inits DRAM**; a real **`sun55i_a523` BL31** (mainline
-  TF-A has none yet — built from Jernej Škrabec's `a523-v4` branch) **clears the EL3
-  hang**, and **mainline U-Boot now runs on the A523** — our working tree is the
-  [`trimui-2026.10`](https://github.com/MidG971/u-boot/tree/trimui-2026.10) branch of a
-  U-Boot fork, rebased on current mainline with the A523 bring-up patches.
-- **Current blocker:** U-Boot reaches EL2 but **doesn't get as far as loading the
-  kernel**. The A523 MMC clock/gate/reset path has since been checked register-for-register
-  against the live vendor hardware and is **correct** — so the hang is most likely at the
-  **init-time MMC probe** (which runs *before* the console, explaining why a marker-byte
-  probe over SD read back nothing) or the **BL31→U-Boot handoff**, *not* the MMC clock
-  itself. Pinning it down wants a **UART** on PB9/PB10. This is why display/audio/etc.
-  aren't silicon-verified yet.
+1. **DRAM parameters** — the hand-decoded LPDDR4 timings failed training; the values proven
+   on the Radxa Cubie A5E (same SoC + LPDDR4) train correctly and auto-size to 1 GiB.
+2. **FIT sector** — the SPL read U-Boot from the wrong raw sector (a broken `spl_size`-based
+   calc); pinned to the configured sector.
+3. **FIT offset** — a stray `+8 KiB` `DATA_PART_OFFSET` overshot the FIT header.
 
-The full journey + diagnosis, the 128 KiB SPL sector fix, and the vendor-chainload
-dead-end are in **[`docs/BOOT-AND-FEL-NOTES.md`](docs/BOOT-AND-FEL-NOTES.md)**. KNULLI
-(a vendor-BSP CFW) boots this board and doubles as the reference boot chain.
+The long-suspected "A523 U-Boot MMC driver" was **never** the problem — boot simply never
+reached U-Boot. A real **`sun55i_a523` BL31** (from Jernej Škrabec's `a523-v4` TF-A branch)
++ mainline U-Boot do the rest. The U-Boot side is the
+[`trimui-2026.10`](https://github.com/MidG971/u-boot/tree/trimui-2026.10) branch of our fork.
+
+**Display (current focus).** With the DRM stack built in, the whole **DE33 pipeline binds on
+hardware**: `card0` + the **DSI-1 connector** + the **panel attached** + `fb0`. The one
+remaining blocker is the **DE33 mixer scanout** — the CRTC never completes a page-flip
+(vblank timeout), so no pixel scans out yet. The plan is to adopt the current upstream DE33
+fixes (Jernej Škrabec's `drm/sun4i` series / the HW-proven ut-slayer A523 DE33 work) rather
+than re-derive. Details: [`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md).
+
+The full boot journey + the SPL fixes are in
+[`docs/BOOT-AND-FEL-NOTES.md`](docs/BOOT-AND-FEL-NOTES.md); the captured first boot to a shell
+is [`docs/FIRST-MAINLINE-BOOT-2026-08-05.txt`](docs/FIRST-MAINLINE-BOOT-2026-08-05.txt). KNULLI
+(a vendor-BSP CFW) also boots this board as a reference chain.
 
 👉 Per-subsystem detail in the **[Status page](https://github.com/MidG971/trimui_mainline_dts/wiki/Status)**;
 the plan in the **[Roadmap](https://github.com/MidG971/trimui_mainline_dts/wiki/Roadmap)**

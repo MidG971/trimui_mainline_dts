@@ -48,11 +48,13 @@ reached U-Boot. A real **`sun55i_a523` BL31** (from Jernej Škrabec's `a523-v4` 
 [`trimui-2026.10`](https://github.com/MidG971/u-boot/tree/trimui-2026.10) branch of our fork.
 
 **Display (current focus).** With the DRM stack built in, the whole **DE33 pipeline binds on
-hardware**: `card0` + the **DSI-1 connector** + the **panel attached** + `fb0`. The one
-remaining blocker is the **DE33 mixer scanout** — the CRTC never completes a page-flip
-(vblank timeout), so no pixel scans out yet. The plan is to adopt the current upstream DE33
-fixes (Jernej Škrabec's `drm/sun4i` series / the HW-proven ut-slayer A523 DE33 work) rather
-than re-derive. Details: [`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md).
+hardware**: `card0` + the **DSI-1 connector** + the **panel attached** + `fb0`; the remaining
+step is the **mixer scanout** (first lit pixel). The plan simplified sharply once **mainline
+caught up**: `drm-misc-next` now carries the **entire A523 display pipeline upstream** (DSI host
++ TCON-LCD + DE33 mixer + the SoC DT pipeline + Jernej Škrabec's DE33 fixes), so our out-of-tree
+DSI/TCON/mixer/dtsi patches are redundant. We now **base on drm-misc-next** and add only what is
+still ours — the **combo-PHY driver**, the **panel driver**, and a **board dts** — then build and
+test. Details: [`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md).
 
 The full boot journey + the SPL fixes are in
 [`docs/BOOT-AND-FEL-NOTES.md`](docs/BOOT-AND-FEL-NOTES.md); the captured first boot to a shell

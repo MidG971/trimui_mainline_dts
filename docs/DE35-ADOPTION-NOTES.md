@@ -3,6 +3,16 @@
 
 # DE3.5 (DE-v35x) display — adoption plan (ut-slayer → our DSI panel)
 
+> ## ⛔ SUPERSEDED (2026-08-06) — the A523 DE33 stack is now UPSTREAM
+> This entire document — the plan to forward-port ut-slayer's DE-v35x / RCQ chain onto our
+> tree — is **obsolete.** `drm-misc-next` now carries the full A523 display pipeline in mainline
+> form (DSI host + TCON-LCD + **DE33 mixer** + the SoC DT pipeline + Jernej Škrabec's DE33
+> fixes). We **inherit the upstream drivers** instead of forward-porting a BSP-derived RCQ
+> branch. Our remaining display work is just the **combo-PHY driver + panel driver + a board
+> dts** on top of drm-misc-next. See the **2026-08-06 PIVOT** section in
+> [`DISPLAY-PORT-STATUS.md`](DISPLAY-PORT-STATUS.md). The notes below are kept only as a record
+> of the paths we evaluated and ruled out.
+
 The DE3.5 mixer/CRTC ("lit pixel") was our biggest display blocker. The
 **ut-slayer / OrangePi-4A** effort has a **complete, HW-proven DE-v35x driver**
 (`sun55i_de.c`) — but for **HDMI-out** (TCON-TV + DW-HDMI). We reuse the **shared

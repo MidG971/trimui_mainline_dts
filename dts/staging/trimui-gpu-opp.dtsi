@@ -12,11 +12,18 @@
  * Measured by Juan Manuel Lopez Carrillo (ut-slayer) on an OrangePi 4A with the Mali
  * cycle counter; the fractional model was confirmed by Chen-Yu Tsai.
  *   -> DO NOT enable this table until the fix lands. His series "clk: sunxi-ng: fix
- *      the A523/T527 GPU clock model, enable GPU DVFS" (linux-sunxi, v1 2026-07-19:
- *      adds a ccu_maskdiv clock type + switches the A523 gpu_clk to it + drops the
- *      pll-periph0-800M parent + parks the GPU on 600M during pll-gpu changes) is in
- *      review and mainline-bound. Once it merges, a kernel rebase makes gpu_clk
- *      correct and this table safe. Track it; do NOT carry the in-review v1 here.
+ *      the A523/T527 GPU clock model, enable GPU DVFS" is now at v2 (linux-sunxi,
+ *      2026-08-03, base sunxi/for-next): (1) adds a ccu_maskdiv clock type, (2) switches
+ *      the A523 gpu_clk to it + drops the pll-periph0-800M parent + drops
+ *      CLK_SET_RATE_PARENT (the v1 pll-gpu notifier was DROPPED — pll-gpu is pinned once
+ *      via assigned-clock-rates instead), (3) **puts the 150/200/300/400/600 MHz OPP
+ *      table straight into sun55i-a523.dtsi** with opp-microvolt = <900000 900000 920000>
+ *      and the operating-points-v2 ref in the SoC gpu node. So once it merges our board
+ *      inherits the table AND the ref FOR FREE from the .dtsi -> **DELETE THIS FILE then**
+ *      (shipping it would duplicate the gpu_opp_table label + operating-points-v2 = DT
+ *      conflict). Track to merge; do NOT cherry-pick the in-review v2. A v3 is likely
+ *      (Sashiko-bot/Chen-Yu review nits). Our fixed-920mV dcdc2 rail is exactly the
+ *      "920 mV GPU rail" case his voltage ceiling was written for (transitions are no-ops).
  *   -> Only 200/300/400/600 MHz map to M=0 (exact under either model). 150 MHz and
  *      every turbo row below are wrong until the maskdiv fix (see the ceiling note).
  * HW-UNVERIFIED regardless. To use (POST-fix): #include from the board DTS after the
@@ -48,6 +55,13 @@
  * follow-up, so they are DOUBLY gated (maskdiv fix + the pll-gpu speed-bin work).
  * Keep the default ceiling conservative (600 MHz, the top M=0 universal rate) and
  * only raise it after both land + on-device thermal/stability testing on the fixed rail.
+ *   -> HARD SAFETY CAP for THIS board: our mali-supply is a FIXED 920 mV rail. The
+ *      vendor 744/840/888 steps need 1000/1000/1050 mV -> on a 920 mV rail they are
+ *      UNDERVOLTED and will fault/hang. NEVER enable them here. The only turbo step
+ *      reachable on 920 mV is 696 MHz (vendor @920 mV) and only if our SID speed bin
+ *      sanctions it (READ THE SID ON-DEVICE). Practical ceiling for us = 600, or 696
+ *      on a bin-1 part. That makes the upstream .dtsi 5-step table (150-600) the right
+ *      fit as-is; 696 is a later single-row board add gated on the SID read.
  */
 
 &gpu {

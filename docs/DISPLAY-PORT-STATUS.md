@@ -7,6 +7,46 @@ Live status of the MIPI-DSI display bring-up for the Trimui Smart Pro S (A523 / 
 Background and the decoded panel spec are in [`DISPLAY-NOTES.md`](DISPLAY-NOTES.md);
 this file tracks the *driver port* itself.
 
+## ★ 2026-08-06 — PIVOT: the A523 display stack is now UPSTREAM (drm-misc-next)
+
+The most important update since the boot milestone: **mainline caught up.** `drm-misc-next`
+(the DRM staging tree, v7.2-rc2 base) now carries the **entire A523 display pipeline**, so most
+of our out-of-tree display work is redundant and the plan simplifies dramatically.
+
+**Already upstream** (verified on the tree, `compiler-rock3b:/root/opi4a-de33`):
+- **DSI host** — `sun6i_mipi_dsi.c` has the `allwinner,sun55i-a523-mipi-dsi` variant.
+- **TCON-LCD** — `sun4i_tcon.c` has the `allwinner,sun55i-a523-tcon-lcd` quirks.
+- **DE33 mixer** — `sun8i_mixer.c` has `sun55i-a523-de33-mixer-0` (`sun55i_a523_mixer0_cfg`).
+- **SoC DT pipeline** — `sun55i-a523.dtsi` wires `de`/`mixer`/`tcon-top` (enabled) →
+  `tcon1@5502000` + `dsi1@5508000` (disabled, board-enabled) + a `dsi1_combo_phy@5509000`
+  node, OF-graph complete.
+- **Jernej Škrabec's DE33 fixes** ("drm/sun4i: Assorted display fixes") — merged (01–12).
+
+**So our `0001` (DSI host), `0003` (SoC pipeline dtsi), `0004` (TCON-LCD), `0008` (DE33 mixer)
+are now REDUNDANT — drop them.** Building them on drm-misc-next fails with `redefinition of
+sun55i_a523_{lcd_quirks,mixer0_cfg,mipi_dsi_variant}` — proof the tree already has them. **The
+`endpoint@1` OF-graph hack is also moot:** mainline's `tcon1_out` uses a plain `endpoint`
+because upstream `sun6i_mipi_dsi` now registers a **drm_bridge** — the very fix for the
+probe-defer we chased. That whole class of blocker is solved upstream.
+
+**Still uniquely ours (keep):**
+- **`0002` combo-PHY driver** — mainline references `allwinner,sun55i-a523-dsi-combo-phy` in the
+  DT but ships **no driver** for it. The novel piece (and our DSI `-110` suspect).
+- **`0007` panel driver** — `panel-trimui-smart-pro-s` (compiles clean on drm-misc-next).
+- **`0006` PWM driver** — backlight only; optional for first scanout.
+- **The board DTS** — mainline has no A523 board with a DSI panel; ours enables the pipeline +
+  adds the panel node.
+
+**New plan (staged, gated on the UART console):** base on **drm-misc-next**, drop the four
+redundant patches, add the combo-PHY + panel (+ PWM) drivers, and write a Trimui board dts that
+enables `tcon1`/`dsi1`/`dsi1_combo_phy` and adds the panel + backlight. Build `display=y`, then
+test. **If the panel lights, the display is essentially done** (upstream scanout + our
+combo-PHY/panel); if not, it is cleanly isolated to the combo-PHY alone. The obsolete
+"forward-port the ut-slayer RCQ chain" plan is retired — see
+[`DE35-ADOPTION-NOTES.md`](DE35-ADOPTION-NOTES.md).
+
+The driver-compile history below is kept for provenance; the **live plan is this section**.
+
 ## BSP source of truth (found)
 
 The vendor display stack is the official Allwinner AIOT SDK (public, **no NDA**):

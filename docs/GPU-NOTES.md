@@ -84,18 +84,27 @@ by Juan Manuel López Carrillo (ut-slayer) and confirmed by Chen-Yu Tsai:
   OrangePi 4A: "150 MHz"→~487, "200"→648, "300"→560, "400"→**750** (25% over the 600 MHz
   vendor ceiling; *throttling to "400 MHz" raises the clock*). Only `M=0` rates
   (200/300/400/600, exact from a periph output) are safe under the current model.
-- Fix in review: series **"clk: sunxi-ng: fix the A523/T527 GPU clock model, enable GPU
-  DVFS"** — a new `ccu_maskdiv` clock type, switch the A523 `gpu_clk` to it, drop the
-  `pll-periph0-800M` parent (BSP: "GPU job fault"), drop `CLK_SET_RATE_PARENT`, and a mux
-  notifier parking the GPU on `pll-periph0-600M` while `pll-gpu` retunes. Prep patch
-  `clk: sunxi-ng: div: implement set_rate_and_parent` already has Chen-Yu's Reviewed-by.
-- **Our stance:** *track, don't carry.* It's mainline-bound (generic `ccu_maskdiv` + the
-  A523 CCU), still churning (v1; Sashiko AI flagged issues → expect v2+), and we can't
-  runtime-verify without the device — so it flows in for free on a kernel rebase once merged,
-  rather than as an out-of-tree patch. `dts/staging/trimui-gpu-opp.dtsi` is now gated on it.
-  The turbo/speed-bin rows (648–888 MHz) run from `pll-gpu` and are **doubly** gated (they
-  need the deferred follow-up too). This also *validates our clock-only OPP choice*: Juan's
-  OPPs sit at a fixed 920 mV (the AXP `dcdc2` rail), exactly our shared-rail reasoning.
+- **Fix now at v2** (linux-sunxi, 2026-08-03, base `sunxi/for-next`): series **"clk: sunxi-ng:
+  fix the A523/T527 GPU clock model, enable GPU DVFS"** — (1) a new `ccu_maskdiv` clock type,
+  (2) switch the A523 `gpu_clk` to it + drop the `pll-periph0-800M` parent (BSP: "GPU job
+  fault") + drop `CLK_SET_RATE_PARENT`, (3) **the 150/200/300/400/600 MHz OPP table straight
+  into `sun55i-a523.dtsi`** (`opp-microvolt = <900000 900000 920000>`) with the
+  `operating-points-v2` ref in the SoC GPU node. (The v1 `pll-gpu` mux notifier was **dropped**
+  — `pll-gpu` is pinned once via `assigned-clock-rates` instead.)
+- **Our stance:** *track to merge, then inherit — do not carry the in-review series.* Because the
+  OPP table now lives in the **SoC `.dtsi`**, once it merges **our board inherits the whole table
+  (and the `operating-points-v2` ref) for free** — so the action becomes **delete
+  `dts/staging/trimui-gpu-opp.dtsi`** (shipping it would duplicate the `gpu_opp_table` label → DT
+  conflict), keeping only our `&gpu { mali-supply }` enable. A **v3 is likely** (Sashiko-bot +
+  Chen-Yu review nits) → adopt the merged version. Our fixed-920 mV `dcdc2` rail is *exactly* the
+  "920 mV GPU rail" case Juan's voltage ceiling was written for, so the table drops in as-is.
+- **Ceiling on THIS board:** 600 MHz (universal `M=0`), or 696 MHz (bin-1, @920 mV, his SID-gated
+  speed-bin follow-up) — **never** the vendor 744/840/888 rows, which need 1000–1050 mV and would
+  undervolt on our fixed 920 mV rail. TODO: read our SID speed bin on-device to know if 696 is ours.
+- **Requested next (emailed Juan 2026-08-06):** his other offered follow-up, the **CPU clock unit
+  `ccu-sun55i-a523-cpu.c`** + the generic sunxi-ng fix it needs — that's what **cpufreq /
+  per-cluster DVFS** requires on this SoC. Offered a Trimui second-board `Tested-by` for it + the
+  GPU series once the UART console is back.
 
 ## Framing
 - The GPU is **orthogonal to lighting the panel.** Panfrost gives 3D accel; the panel is

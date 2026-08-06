@@ -59,7 +59,19 @@
 
 				tcon1_out: port@1 {
 					reg = <1>;
-					tcon1_out_dsi1: endpoint {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					/*
+					 * endpoint@1 (reg=1), like mainline A64 tcon0_out_dsi@1.
+					 * sun4i_tcon_probe calls drm_of_find_panel_or_bridge(node,
+					 * port 1, endpoint 0): with the endpoint at reg 1 that lookup
+					 * returns -ENODEV (not the DSI host, which is neither a panel
+					 * nor a bridge), so the TCON stops deferring and binds; the DSI
+					 * links back via its own port. HW-verified: this is what brings
+					 * up card0 + the DSI-1 connector.
+					 */
+					tcon1_out_dsi1: endpoint@1 {
+						reg = <1>;
 						remote-endpoint = <&dsi1_in_tcon1>;
 					};
 				};

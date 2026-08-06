@@ -108,9 +108,42 @@ host port is a **variant add**, not a rewrite. The novel work is the **combo-PHY
       [`../kernel/DE35-NOTES.md`](../kernel/DE35-NOTES.md). Until then `de@5000000`
       stays a disabled skeleton; pixel bring-up is a HW task.
 
-**Status:** the DSI host, combo-PHY, TCON-LCD and the pipeline DT are done and
-build clean. Next leverage is PWM (small) then the DE3.5 mixer (large) — nothing
-scans out until the mixer/CRTC exists.
+**Status (2026-08-05, ON HARDWARE):** ★ the whole pipeline now **binds**. With DRM +
+the sun4i display drivers built-in (`=y`) and the mainline DE33 mixer + tcon-top +
+tcon-lcd1 + dsi + combo-phy all bound, the kernel creates **`card0`**, brings up the
+**`DSI-1` connector**, **attaches the panel** (`sun6i-mipi-dsi: Attached device
+smart-pro-s-panel`), and creates **`fb0`**. The LAST remaining blocker is now the
+**DE33 mixer SCANOUT**: the CRTC never completes a page-flip (`vblank wait timed out`
+/ `flip_done timed out` on loop) so no pixel scans out yet. See the milestone below.
+
+## 2026-08-05 — card0 + panel ATTACHED on hardware (first mainline boot with display=y)
+
+The Trimui now boots mainline Linux (SPL → BL31 → U-Boot → kernel → shell over UART) and,
+with the display stack built-in, the full DE33 pipeline comes up. Two fixes were the key:
+
+1. **`tcon1_out` OF-graph endpoint must be `@1` (reg=1)** — see `dts/trimui-de-reconcile.dtsi`.
+   `sun4i_tcon_probe` calls `drm_of_find_panel_or_bridge(node, port 1, endpoint 0)`; with the
+   TCON's DSI output endpoint at the implicit reg 0, that lookup *matched* it, followed to the
+   DSI host (which is neither a panel nor a bridge), and returned `-EPROBE_DEFER` **forever** →
+   the TCON never bound → the component master never aggregated → no `card0`. Mainline A64
+   sidesteps this by putting `tcon0_out_dsi` at `endpoint@1`; doing the same (reg 1 + the
+   port's `#address/#size-cells`) makes the lookup return `-ENODEV`, the TCON binds, and the
+   DSI links back via its own port. **This single reg is what unblocks `card0`.**
+2. **Build the display stack `=y`, not `=m`** — the minimal bring-up initramfs loads no modules,
+   so `CONFIG_DRM`/`DRM_SUN4I`/`SUN6I_DSI`/`SUN8I_MIXER`/`SUN8I_TCON_TOP`/`PANEL_TRIMUI_SMART_PRO_S`
+   must be built-in or nothing probes.
+
+**Remaining blocker — DE33 mixer scanout (the "lit pixel"):** the CRTC/mixer never signals vblank,
+so every atomic commit times out. The vblank IRQ comes from the TCON (`sun4i_tcon_handler`), so the
+TCON isn't scanning out — likely the DE33 mixer not driving it (the RCQ "reports FINISH but doesn't
+apply the BLD blocks" class of issue) and/or the DSI/combo-PHY clock feeding the TCON pixel clock.
+There is also an intermittent DSI init `-110` (`sending dcs data ff 87 56 01 failed`) that appears to
+be downstream of the mixer never running. **Plan:** rather than re-derive it, adopt the current
+upstream DE33 fixes — Jernej Škrabec's "drm/sun4i: Assorted display fixes" series (DE3/DE33 mixer
+routing, TCON-TOP) and/or the HW-proven A523 DE33 RCQ work from the ut-slayer / OrangePi-4A effort —
+then re-test. See [`DE35-ADOPTION-NOTES.md`](DE35-ADOPTION-NOTES.md).
+
+_Historical build notes (v7.1, driver-compile-only) below; the on-hardware tree is now v7.2-rc3._
 
 ## Build / test
 

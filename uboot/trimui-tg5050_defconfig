@@ -1,26 +1,33 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR MIT)
 # Copyright (C) 2026 Midgy BALON
-# Mainline U-Boot config for the Trimui Smart Pro S (Allwinner A523).
-# Adapted from configs/avaota-a1_defconfig with this board's DRAM params + PMIC@0x34.
+# Mainline U-Boot config for the Trimui Smart Pro S (Allwinner A523, board TG5050).
+# Synced to the proven, booting build (BROM -> SPL -> BL31 -> U-Boot -> Linux, over
+# UART). The PMIC (AXP2202 / AXP717) sits at I2C 0x34 -- the AXP717_POWER default --
+# so it is not set explicitly. DRAM decode reference: uboot/DRAM-PARAMS.md.
 CONFIG_ARM=y
 CONFIG_ARCH_SUNXI=y
-CONFIG_DEFAULT_DEVICE_TREE="allwinner/sun55i-t527-avaota-a1"
+CONFIG_DEFAULT_DEVICE_TREE="allwinner/sun55i-a523-trimui-smart-pro-s"
 CONFIG_SPL=y
+# DRAM: 1 GiB LPDDR4 @ 1200 MHz (CONFIG_DRAM_CLK default for the A523). Timings are
+# proven on hardware (adapted from the Radxa Cubie A5E -- same SoC + LPDDR4).
 CONFIG_DRAM_SUNXI_DX_ODT=0x07070707
 CONFIG_DRAM_SUNXI_DX_DRI=0x0d0d0d0d
 CONFIG_DRAM_SUNXI_CA_DRI=0x0e0e
 CONFIG_DRAM_SUNXI_ODT_EN=0x84848484
 CONFIG_DRAM_SUNXI_TPR0=0x80808080
 CONFIG_DRAM_SUNXI_TPR1=0x06060606
-CONFIG_DRAM_SUNXI_TPR2=0x1f090503
-CONFIG_DRAM_SUNXI_TPR6=0x3a000000
-CONFIG_DRAM_SUNXI_TPR10=0x862f3333
-CONFIG_DRAM_SUNXI_TPR11=0xc0c0bbbf
-CONFIG_DRAM_SUNXI_TPR12=0x35352f31
+CONFIG_DRAM_SUNXI_TPR6=0x38000000
+CONFIG_DRAM_SUNXI_TPR10=0x802f3333
+CONFIG_DRAM_SUNXI_TPR11=0xc7c5c4c2
+CONFIG_DRAM_SUNXI_TPR12=0x3533302f
 CONFIG_MACH_SUN55I_A523=y
 CONFIG_MMC_SUNXI_SLOT_EXTRA=2
 CONFIG_R_I2C_ENABLE=y
 # CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
+# FIT boot fixes (found via UART): the SPL reads the U-Boot FIT from raw sector 0x200,
+# and the data-part offset must be 0 so it does not overshoot the FIT header.
+CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR=0x200
+CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_DATA_PART_OFFSET=0x0
 CONFIG_SPL_I2C=y
 CONFIG_SPL_SYS_I2C_LEGACY=y
 CONFIG_SYS_I2C_MVTWSI=y
@@ -31,12 +38,8 @@ CONFIG_SUN8I_EMAC=y
 CONFIG_PHY_REALTEK=y
 CONFIG_REGULATOR_AXP=y
 CONFIG_AXP717_POWER=y
-CONFIG_AXP_I2C_ADDRESS=0x34
 CONFIG_AXP_DCDC2_VOLT=920
-# DCDC3 = LPDDR4 VCC-DRAM, 1.10 V typ (datasheet Table 6-2); was 1160 (wrong)
+# DCDC3 = LPDDR4 VCC-DRAM, 1.10 V typ (AXP datasheet Table 6-2; 1160 was wrong).
 CONFIG_AXP_DCDC3_VOLT=1100
 CONFIG_USB_EHCI_HCD=y
 CONFIG_USB_OHCI_HCD=y
-# Boot-time: short but still interruptible autoboot (raise during bring-up to
-# reach the U-Boot prompt; set 0 to ship for the fastest cold boot).
-CONFIG_BOOTDELAY=1

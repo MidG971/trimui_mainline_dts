@@ -41,6 +41,14 @@
 			clocks = <&ccu CLK_BUS_TCON_LCD1>, <&ccu CLK_TCON_LCD1>;
 			clock-names = "ahb", "tcon-ch0";
 			clock-output-names = "tcon-pixel-clock1";
+			/*
+			 * Pre-set tcon-ch0 to 372 MHz (= dclk 93 MHz * 4) so that
+			 * pll-video0 is retuned and valid *before* the DSI mode_set
+			 * sets the dclk rate (otherwise the parent reads 0 at that
+			 * instant and the dclk is left at 0).
+			 */
+			assigned-clocks = <&ccu CLK_TCON_LCD1>;
+			assigned-clock-rates = <372000000>;
 			resets = <&ccu RST_BUS_TCON_LCD1>, <&ccu RST_BUS_LVDS1>;
 			reset-names = "lcd", "lvds";
 			#clock-cells = <0>;
@@ -113,4 +121,16 @@
 			status = "okay";
 		};
 	};
+};
+
+/*
+ * Disable the TCON-TV: this handheld has no HDMI/TV output, and because
+ * tcon_tv0 binds before tcon-lcd1 it grabs CRTC 0 — but the sun6i DSI
+ * encoder is hardcoded to possible_crtcs = BIT(0). That put the DSI on the
+ * TCON-TV (has_channel_0 = false), so sun4i_dclk_create() never ran and the
+ * pixel clock (dclk) was NULL. Disabling it makes tcon-lcd1 CRTC 0, so the
+ * DSI drives the LCD TCON and the dclk is created (verified: dclk = 93 MHz).
+ */
+&tcon_tv0 {
+	status = "disabled";
 };

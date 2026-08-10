@@ -101,8 +101,13 @@
 		dsi1_combo_phy: phy@5509000 {
 			compatible = "allwinner,sun55i-a523-dsi-combo-phy";
 			reg = <0x05509000 0x1000>;
-			clocks = <&ccu CLK_COMBOPHY_DSI1>;
-			clock-names = "bus";
+			/*
+			 * bus = the APB register clock (CLK_BUS_MIPI_DSI1) — was
+			 * missing, so the whole PHY register block read all-zero and
+			 * the DISPLL never locked; mod = the PHY functional clock.
+			 */
+			clocks = <&ccu CLK_BUS_MIPI_DSI1>, <&ccu CLK_COMBOPHY_DSI1>;
+			clock-names = "bus", "mod";
 			resets = <&ccu RST_BUS_MIPI_DSI1>;
 			#phy-cells = <0>;
 			status = "okay";

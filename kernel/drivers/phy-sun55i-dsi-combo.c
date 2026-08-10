@@ -71,9 +71,9 @@
 #define SUN55I_DPHY_ANA3_ENVTTD(n)		(((u32)(n) & 0xf) << 28)
 #define SUN55I_DPHY_ANA3_ENVTTC			BIT(27)
 #define SUN55I_DPHY_ANA3_ENDIV			BIT(26)
-#define SUN55I_DPHY_ANA3_ENLDOD			BIT(25)
-#define SUN55I_DPHY_ANA3_ENLDOC			BIT(24)
-#define SUN55I_DPHY_ANA3_ENLDOR			BIT(15)
+#define SUN55I_DPHY_ANA3_ENLDOD			BIT(24)
+#define SUN55I_DPHY_ANA3_ENLDOC			BIT(25)
+#define SUN55I_DPHY_ANA3_ENLDOR			BIT(18)	/* was BIT(15): a reserved bit -> LDO never on -> DISPLL dead */
 #define SUN55I_DPHY_ANA4		0x5c
 
 #define SUN55I_DPHY_DBG0		0xe0
@@ -110,25 +110,26 @@
 #define SUN55I_DPHY_REF_CLK		24000000UL
 
 /*
- * Analog trim values for MIPI-DSI mode, taken verbatim from the BSP
- * combophy_config (phy0_data.phy_config[0]); these are opaque IO/voltage
- * calibration values. freq_lvl is unset in the BSP table, i.e. one config is
- * used across the supported lane-rate range.
- *   tx_time0:  lpx_tm=0x0e hs_prepare=6 hs_trail=4
- *   ana0:      lptx_setr=7 lptx_setc=7 (preemph 0)
- *   ana4:      soft_rcal=0x18 en_soft_rcal vlv=5 vlptx=3 vtt=6 vres=3 ib=4 en_mipi
- *   combo0:    en_cp | en_comboldo | en_mipi
- *   combo1:    0x43
+ * Analog power-up values for MIPI-DSI mode, decoded field-by-field from the BSP
+ * dsi_dphy_open() (de_dsi.c) against dphy_ana{0,4}_reg_t. The earlier port took
+ * these from the BSP phy_config[] *table*, whose ANA0/ANA4 layout does NOT match
+ * this SoC (it even mislabelled ANA0 as lptx_setr/setc) -> wrong trim/LDO bias,
+ * which together with the ENLDOR misdefine above left the DISPLL analog dead.
+ *   ana0: reg_plr=4 [7:4], reg_sfb=1 [3:2]                          -> 0x44
+ *   ana4: txpusd=2 txpusc=3 txdnsd=2 txdnsc=3 tmsd=1 tmsc=1 ckdv=3
+ *         vtt_set=3 dmplvd=4 ib=2 en_mipi=1                         -> 0x844635ee
+ *   combo0: en_cp | en_comboldo | en_mipi                           -> 0x0b (correct)
  */
 #define SUN55I_DPHY_CFG_TX_TIME0	0x0406000e
-#define SUN55I_DPHY_CFG_ANA0		0x00000077
-#define SUN55I_DPHY_CFG_ANA4		0x84363538
+#define SUN55I_DPHY_CFG_ANA0		0x00000044
+#define SUN55I_DPHY_CFG_ANA4		0x844635ee
 #define SUN55I_DPHY_CFG_COMBO0		0x0000000b
 #define SUN55I_DPHY_CFG_COMBO1		0x00000043
 
 struct sun55i_dphy {
 	void __iomem		*base;
-	struct clk		*bus_clk;
+	struct clk		*bus_clk;	/* APB register clock (CLK_BUS_MIPI_DSI1) */
+	struct clk		*mod_clk;	/* PHY functional clock (CLK_COMBOPHY_DSI1) */
 	struct reset_control	*reset;
 	struct phy		*phy;
 	unsigned long		hs_clk_rate;
@@ -152,30 +153,36 @@ static void sun55i_dphy_update(struct sun55i_dphy *dphy, u32 reg,
  */
 static void sun55i_dphy_pll_set(struct sun55i_dphy *dphy, unsigned long hs_rate)
 {
-	u32 m0 = 0, m1, m2 = 3, m3;
+	u32 div_p, div_m0, n, reg;
 	u64 vco = hs_rate;
-	u32 n, reg;
 
+	/*
+	 * Match the BSP dsi_comb_dphy_pll_set() exactly: the DISPLL VCO must
+	 * run high (24 MHz * n, n ~= 124 for 372 Mbps) and is then divided by
+	 * (p+1)*(m0+1). m1 is the LP-clock divider (constant 2) and does NOT
+	 * affect the HS rate. The earlier port halved every VCO multiplier and
+	 * forced p=0, which parked the VCO below the PLL lock range (dbg0 reads
+	 * all-zero, pll_enable returns -110). M2/M3 are left at reset (the BSP
+	 * pll_set never touches them).
+	 */
 	if (hs_rate <= 264000000) {
-		vco *= 8;
-		m1 = 7; m3 = 7;
+		vco *= 16; div_p = 7; div_m0 = 1;
 	} else if (hs_rate <= 536000000) {
-		vco *= 4;
-		m1 = 3; m3 = 3;
+		vco *= 8;  div_p = 7; div_m0 = 0;
 	} else if (hs_rate <= 1072000000) {
-		vco *= 2;
-		m1 = 1; m3 = 1;
+		vco *= 4;  div_p = 3; div_m0 = 0;
+	} else if (hs_rate <= 2144000000UL) {
+		vco *= 2;  div_p = 1; div_m0 = 0;
 	} else {
-		/* <= 2144 MHz */
-		m1 = 0; m3 = 0;
+		div_p = 0; div_m0 = 0;
 	}
 	n = div_u64(vco, SUN55I_DPHY_REF_CLK);
 
 	reg = readl(dphy->base + SUN55I_DPHY_PLL_REG0);
-	reg &= ~(SUN55I_DPHY_PLL_REG0_M_MASK | SUN55I_DPHY_PLL_REG0_NP_MASK);
-	reg |= SUN55I_DPHY_PLL_REG0_N(n) | SUN55I_DPHY_PLL_REG0_P(0) |
-	       SUN55I_DPHY_PLL_REG0_M0(m0) | SUN55I_DPHY_PLL_REG0_M1(m1) |
-	       SUN55I_DPHY_PLL_REG0_M2(m2) | SUN55I_DPHY_PLL_REG0_M3(m3);
+	reg &= ~(SUN55I_DPHY_PLL_REG0_N(0xff) | SUN55I_DPHY_PLL_REG0_P(0xf) |
+		 SUN55I_DPHY_PLL_REG0_M0(0x3) | SUN55I_DPHY_PLL_REG0_M1(0xf));
+	reg |= SUN55I_DPHY_PLL_REG0_N(n) | SUN55I_DPHY_PLL_REG0_P(div_p) |
+	       SUN55I_DPHY_PLL_REG0_M0(div_m0) | SUN55I_DPHY_PLL_REG0_M1(2);
 	writel(reg, dphy->base + SUN55I_DPHY_PLL_REG0);
 
 	writel(0, dphy->base + SUN55I_DPHY_PLL_REG2);	/* disable SDM */
@@ -317,8 +324,16 @@ static int sun55i_dphy_init(struct phy *phy)
 		return ret;
 
 	ret = clk_prepare_enable(dphy->bus_clk);
-	if (ret)
+	if (ret) {
 		reset_control_assert(dphy->reset);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(dphy->mod_clk);
+	if (ret) {
+		clk_disable_unprepare(dphy->bus_clk);
+		reset_control_assert(dphy->reset);
+	}
 
 	return ret;
 }
@@ -327,6 +342,7 @@ static int sun55i_dphy_exit(struct phy *phy)
 {
 	struct sun55i_dphy *dphy = phy_get_drvdata(phy);
 
+	clk_disable_unprepare(dphy->mod_clk);
 	clk_disable_unprepare(dphy->bus_clk);
 	reset_control_assert(dphy->reset);
 
@@ -407,6 +423,11 @@ static int sun55i_dphy_probe(struct platform_device *pdev)
 	if (IS_ERR(dphy->bus_clk))
 		return dev_err_probe(&pdev->dev, PTR_ERR(dphy->bus_clk),
 				     "failed to get bus clock\n");
+
+	dphy->mod_clk = devm_clk_get_optional(&pdev->dev, "mod");
+	if (IS_ERR(dphy->mod_clk))
+		return dev_err_probe(&pdev->dev, PTR_ERR(dphy->mod_clk),
+				     "failed to get mod clock\n");
 
 	dphy->reset = devm_reset_control_get_shared(&pdev->dev, NULL);
 	if (IS_ERR(dphy->reset))

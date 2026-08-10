@@ -7,6 +7,54 @@ Live status of the MIPI-DSI display bring-up for the Trimui Smart Pro S (A523 / 
 Background and the decoded panel spec are in [`DISPLAY-NOTES.md`](DISPLAY-NOTES.md);
 this file tracks the *driver port* itself.
 
+## ★★ 2026-08-10 — ON HARDWARE: PHY + TCON + DSI all working; DE33 mixer is the last blocker
+
+We brought the display up **on real silicon** and cleared every layer except the DE33 mixer.
+**The panel backlight is on**, the combo-PHY DISPLL locks, the TCON pixel clock is exactly 93 MHz,
+and the DSI + panel are up in video mode. Two committed fixes got us here:
+
+**Combo-PHY (committed `fd79778`) — the DISPLL locks on HW.** Four stacked bugs, all found by
+on-device instrumentation (register read-backs):
+- **Missing APB clock (the master bug):** the DT node had only `CLK_COMBOPHY_DSI1` (the 1188 MHz
+  functional clock); the register block is gated by `CLK_BUS_MIPI_DSI1` (the same "bus" clock the
+  DSI host uses). Without it every register access hit a dead block — the driver's own read-back was
+  all-zero, including `PLL_REG0`'s non-zero reset defaults. Added it as "bus" + `CLK_COMBOPHY_DSI1`
+  as "mod".
+- **`ENLDOR` register-bit misdefine:** the DISPLL reference-LDO enable was `BIT(15)` (a reserved bit)
+  instead of `BIT(18)`, so the LDO was never turned on.
+- **Wrong ANA0/ANA4 analog trim** (from a BSP config *table* with a different register layout) →
+  decoded the correct field values from the BSP `dsi_dphy_open()`: `ANA0=0x44`, `ANA4=0x844635ee`.
+- **Halved PLL VCO dividers** → matched the BSP (VCO = 24 MHz × n, ÷(p+1)(m0+1); m1 = LP divider = 2).
+
+Result: `pll_enable lock ret=0 dbg0=0x07700000`, `phy_power_on=0`, panel attaches over HS.
+
+**TCON pixel clock (committed `b24145e`) — dclk is now 93 MHz.** The dclk was 0 because
+`tcon->dclk` was **NULL** — never created. Root cause: `tcon_tv0` (the TCON-TV, `has_channel_0=false`)
+binds *before* the LCD TCON so it grabs **CRTC 0**, but `sun6i_mipi_dsi` hardcodes the encoder to
+`possible_crtcs = BIT(0)`. So the DSI drove the TCON-TV, `sun4i_dclk_create()` (gated on
+`has_channel_0`) never ran, and `clk_set_rate(NULL)` was a silent no-op. Fix (DT): **disable
+`tcon_tv0`** (no HDMI on this handheld) so the LCD TCON is CRTC 0, + `assigned-clocks tcon-ch0 =
+372 MHz` so `pll-video0` is valid before the DSI mode-set. Verified: `dclk_null=0`, `sclk0=372 MHz`,
+`dclk=93 MHz`; all display clocks correct + enabled (tcon-lcd1 372M, tcon-pixel-clock1 93M, mixer0
+600M, combophy-dsi1 558M).
+
+**The one remaining blocker — DE33 mixer scanout.** With everything above correct, the TCON is fully
+configured and its vblank/`TRI_FINISH` IRQ is armed (`GINT0=0xc8000001`, `TCON0_CTL=0x81000000`,
+`CPU_IF=0x10010005`) — but the IRQ never fires, so the CRTC page-flip never completes (backlight on,
+no image). In DSI CPU-interface mode the vblank *is* the per-frame `TRI_FINISH`, which only fires
+when a full frame is pushed **DE33 mixer → TCON → DSI**. So the mixer isn't producing/feeding a
+frame — the original day-one scanout blocker, now isolated with every other layer solved.
+
+**Resume plan for the mixer:** (1) verify the tcon-top mux still routes `mixer0 → tcon-lcd1` now that
+`tcon_tv0` is disabled; (2) confirm the `sun6i_dsi` video engine actually starts (drives the TCON
+trigger); (3) the DE33 mixer RCQ commit / BLD-layer apply. This is where adopting **mainline's DE33
+mixer via drm-misc-next** may finally pay off — note (per the pivot below) that the migration would
+*not* have fixed the TCON (its TCON path is byte-identical to ours), but it may fix the mixer.
+
+> The 2026-08-06 pivot below ("base on drm-misc-next, and the panel lights = done") was optimistic:
+> we instead fixed the PHY + TCON directly on our v7.2-rc3 tree, and the display needed real
+> per-layer debugging. That section is kept for context; **this section is the live status.**
+
 ## ★ 2026-08-06 — PIVOT: the A523 display stack is now UPSTREAM (drm-misc-next)
 
 The most important update since the boot milestone: **mainline caught up.** `drm-misc-next`

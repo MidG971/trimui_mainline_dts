@@ -47,14 +47,29 @@ reached U-Boot. A real **`sun55i_a523` BL31** (from Jernej Škrabec's `a523-v4` 
 + mainline U-Boot do the rest. The U-Boot side is the
 [`trimui-2026.10`](https://github.com/MidG971/u-boot/tree/trimui-2026.10) branch of our fork.
 
-**Display (current focus).** With the DRM stack built in, the whole **DE33 pipeline binds on
-hardware**: `card0` + the **DSI-1 connector** + the **panel attached** + `fb0`; the remaining
-step is the **mixer scanout** (first lit pixel). The plan simplified sharply once **mainline
-caught up**: `drm-misc-next` now carries the **entire A523 display pipeline upstream** (DSI host
-+ TCON-LCD + DE33 mixer + the SoC DT pipeline + Jernej Škrabec's DE33 fixes), so our out-of-tree
-DSI/TCON/mixer/dtsi patches are redundant. We now **base on drm-misc-next** and add only what is
-still ours — the **combo-PHY driver**, the **panel driver**, and a **board dts** — then build and
-test. Details: [`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md).
+**Display (current focus).** Big progress on hardware — the panel's **backlight is on** and the
+entire clock / PHY / TCON / DSI stack is solved and committed. Working on silicon: the from-scratch
+**combo-PHY DISPLL locks** (`pll_enable ret=0`), the **TCON pixel clock** runs at the correct
+**93 MHz**, and the **DSI** comes up in video mode with the **panel attached + initialised**. Two
+bugs were cracked to get there:
+
+- **Combo-PHY was writing into a dead block** — its DT node was missing the APB register clock
+  (`CLK_BUS_MIPI_DSI1`), so every register read/wrote to an unclocked block (all-zero read-back).
+  With that plus a register-bit (ENLDOR) misdefine, wrong analog trim, and wrong PLL dividers all
+  corrected, the DISPLL locks. *(HW-verified; committed.)*
+- **The DSI was driving the wrong TCON** — `tcon_tv0` (the TCON-TV, no channel-0) binds before the
+  LCD TCON and grabs **CRTC 0**, but `sun6i_mipi_dsi` hardcodes the encoder to `possible_crtcs =
+  BIT(0)`. So `sun4i_dclk_create()` never ran on the LCD TCON and its pixel clock was NULL.
+  Disabling `tcon_tv0` (no HDMI on this handheld) + pinning `tcon-ch0` to 372 MHz fixes it — dclk
+  is now exactly 93 MHz. *(HW-verified; committed.)*
+
+The **one remaining blocker** is the **DE33 mixer scanout**: the mixer isn't yet pushing a frame
+through the TCON, so the CRTC page-flip never completes — hence backlight-on but no image. A note on
+strategy: `drm-misc-next` carries mainline's A523 DSI/TCON/DE33 drivers, but we verified its TCON
+path is byte-identical to ours, so it would **not** have fixed the clock bugs (we fixed those on our
+tree). It *may* still be the cleanest route for the last piece — the **DE33 mixer** — which we now
+reach with every other layer solved. Details:
+[`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md).
 
 The full boot journey + the SPL fixes are in
 [`docs/BOOT-AND-FEL-NOTES.md`](docs/BOOT-AND-FEL-NOTES.md); the captured first boot to a shell

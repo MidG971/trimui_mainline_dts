@@ -7,11 +7,16 @@
 > This entire document — the plan to forward-port ut-slayer's DE-v35x / RCQ chain onto our
 > tree — is **obsolete.** `drm-misc-next` now carries the full A523 display pipeline in mainline
 > form (DSI host + TCON-LCD + **DE33 mixer** + the SoC DT pipeline + Jernej Škrabec's DE33
-> fixes). We **inherit the upstream drivers** instead of forward-porting a BSP-derived RCQ
-> branch. Our remaining display work is just the **combo-PHY driver + panel driver + a board
-> dts** on top of drm-misc-next. See the **2026-08-06 PIVOT** section in
-> [`DISPLAY-PORT-STATUS.md`](DISPLAY-PORT-STATUS.md). The notes below are kept only as a record
-> of the paths we evaluated and ruled out.
+> fixes). We **inherit the upstream drivers** instead of forward-porting a BSP-derived RCQ branch.
+>
+> **Update (2026-08-10):** the display was brought up **on hardware** — the combo-PHY DISPLL locks,
+> the TCON pixel clock is correct (93 MHz), the DSI + panel are up and the **panel backlight is on**.
+> All of that was fixed directly on our **v7.2-rc3 tree** (not by migrating). The **one remaining
+> blocker is the DE33 mixer scanout** — the mixer isn't pushing a frame through the TCON, so the CRTC
+> page-flip never completes. Adopting mainline's **DE33 mixer** (drm-misc-next) is now the likely
+> route for that last piece. See the **2026-08-10** section in
+> [`DISPLAY-PORT-STATUS.md`](DISPLAY-PORT-STATUS.md). The notes below are a record of the
+> forward-port paths we evaluated and ruled out.
 
 The DE3.5 mixer/CRTC ("lit pixel") was our biggest display blocker. The
 **ut-slayer / OrangePi-4A** effort has a **complete, HW-proven DE-v35x driver**

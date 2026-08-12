@@ -1,0 +1,35 @@
+From: Midgy BALON <midgy971@gmail.com>
+Subject: [PATCH] mmc: pwrseq_simple: tolerate a missing reset controller
+
+A mmc-pwrseq-simple node with exactly one reset-gpios entry and no "resets"
+property (as the AIC8800 WiFi power sequence uses on the Trimui Smart Pro S)
+takes the ngpio == 1 path, where devm_reset_control_get_optional_shared() can
+return -ENOENT instead of NULL. The probe then treats it as fatal, so the
+power sequence never registers and the SDIO WiFi is never power-sequenced
+(mmc: "allocated mmc-pwrseq" never appears).
+
+Treat -ENOENT as "no reset controller" and fall through to the GPIO reset path.
+
+Assisted-by: Claude (Opus 4.8)
+---
+diff --git a/drivers/mmc/core/pwrseq_simple.c b/drivers/mmc/core/pwrseq_simple.c
+index 4b47e6c3b..26bf18fa2 100644
+--- a/drivers/mmc/core/pwrseq_simple.c
++++ b/drivers/mmc/core/pwrseq_simple.c
+@@ -137,9 +137,13 @@ static int mmc_pwrseq_simple_probe(struct platform_device *pdev)
+ 	ngpio = of_count_phandle_with_args(dev->of_node, "reset-gpios", "#gpio-cells");
+ 	if (ngpio == 1) {
+ 		pwrseq->reset_ctrl = devm_reset_control_get_optional_shared(dev, NULL);
+-		if (IS_ERR(pwrseq->reset_ctrl))
+-			return dev_err_probe(dev, PTR_ERR(pwrseq->reset_ctrl),
+-					     "reset control not ready\n");
++		if (IS_ERR(pwrseq->reset_ctrl)) {
++			if (PTR_ERR(pwrseq->reset_ctrl) == -ENOENT)
++				pwrseq->reset_ctrl = NULL;
++			else
++				return dev_err_probe(dev, PTR_ERR(pwrseq->reset_ctrl),
++						     "reset control not ready\n");
++		}
+ 	}
+ 
+ 	/*

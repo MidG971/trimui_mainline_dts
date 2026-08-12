@@ -147,6 +147,10 @@
 			monitored-battery = <&battery>;
 		};
 
+		usb-power {
+			compatible = "x-powers,axp717-usb-power-supply";
+		};
+
 		regulators {
 			/* dcdc1: CPU "little" cluster (vendor cpu-supply = dcdc1). */
 			reg_dcdc1: dcdc1 {
@@ -324,6 +328,15 @@
 	vqmmc-supply = <&reg_bldo1>;	/* 1.8V (vendor) */
 	mmc-pwrseq = <&wifi_pwrseq>;
 	keep-power-in-suspend;
+	/* AIC8800 SDIO: match vendor sdc1 — SDIO-only, IRQ, UHS speeds. */
+	no-mmc;
+	no-sd;
+	cap-sdio-irq;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+	sd-uhs-ddr50;
+	sd-uhs-sdr104;
+	max-frequency = <208000000>;
 	/*
 	 * Chip = AIC8800 (firmware-confirmed), driven by the out-of-tree aic8800
 	 * SDIO module which probes the function automatically, so no wifi@1 child

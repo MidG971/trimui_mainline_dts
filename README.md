@@ -31,7 +31,8 @@ Mainline Linux bring-up for the **Trimui Smart Pro S** retro-gaming handheld
 chain works on real silicon: **BROM → SPL → BL31 → U-Boot → distro-boot → Linux (v7.2-rc3)
 → busybox shell** (over a UART on PB9/PB10). Working today: 8× Cortex-A55 **SMP**, **DRAM**
 (1 GiB), **microSD/MMC** (the kernel `sunxi-mmc` new-timings path), the **AXP2202/AXP717
-PMIC** + regulators, **USB2** host, and the RTC.
+PMIC** + regulators, the **battery fuel gauge** (charge %, voltage, charge current/status, and
+USB-power detection straight from the AXP717 hardware E-gauge), **USB2** host, and the RTC.
 
 **What cracked the months-long boot blocker** — all three were SPL-stage config bugs, all
 found the moment a UART gave us eyes, and *none* were what we'd theorized:
@@ -63,12 +64,17 @@ bugs were cracked to get there:
   Disabling `tcon_tv0` (no HDMI on this handheld) + pinning `tcon-ch0` to 372 MHz fixes it — dclk
   is now exactly 93 MHz. *(HW-verified; committed.)*
 
-The **one remaining blocker** is the **DE33 mixer scanout**: the mixer isn't yet pushing a frame
-through the TCON, so the CRTC page-flip never completes — hence backlight-on but no image. A note on
-strategy: `drm-misc-next` carries mainline's A523 DSI/TCON/DE33 drivers, but we verified its TCON
-path is byte-identical to ours, so it would **not** have fixed the clock bugs (we fixed those on our
-tree). It *may* still be the cleanest route for the last piece — the **DE33 mixer** — which we now
-reach with every other layer solved. Details:
+**The pipeline now runs end-to-end.** An A523-specific **continuous-TCON vblank rework** — the DSI
+drives the TCON like an RGB panel with a *free-running* vblank, instead of the 8080 CPU-interface
+per-frame trigger that never completes on this SoC — got the CRTC vblank firing at 60 Hz and every
+atomic commit completing (no more `flip_done` timeouts). Two more DSI-path fixes went in alongside:
+the tcon-top `PORT_SEL` mixer→TCON routing (the DSI case never programmed it) and the tcon-top DSI
+datapath gate. The **one remaining blocker** is now the **DE33 mixer's continuous streaming**: the
+DSI transmits ~one line then starves for data (its `video_curr_line` counter freezes at 1), so the
+panel shows backlight but no image yet — the mixer→TCON data feed is the last thing standing. A note
+on strategy: `drm-misc-next` carries mainline's A523 DSI/TCON/DE33 drivers, but we verified its TCON
+path is byte-identical to ours. It *may* still be the cleanest route for the last piece — the
+**DE33 mixer**. Details:
 [`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md).
 
 The full boot journey + the SPL fixes are in

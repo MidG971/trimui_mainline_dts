@@ -483,6 +483,11 @@
 };
 
 &pio {
+	/* A523 pin I/O withstand: feed the mmc bank supplies so the pinctrl sets
+	 * 1.8V mode on PortC (eMMC) + PortG (WiFi SDIO). Pairs with the A523
+	 * CTL_INV withstand fix (kernel patch 0032). Cubie-A5E pattern. */
+	vcc-pc-supply = <&reg_cldo1>;	/* eMMC mmc2 I/O 1.8V */
+	vcc-pg-supply = <&reg_bldo1>;	/* WiFi mmc1 SDIO I/O 1.8V */
 	i2c5_pb_pins: i2c5-pb-pins {
 		pins = "PB11", "PB12";	/* TWI5-SCK / TWI5-SDA */
 		allwinner,pinmux = <2>;

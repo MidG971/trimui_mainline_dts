@@ -88,13 +88,18 @@
 	};
 
 	/*
-	 * AIC8800 WiFi power/reset sequencing for the mmc1 SDIO bus. wlan_regon =
-	 * PM1 (R_PIO bank 1, pin 1). The chip needs the out-of-tree aic8800 module;
-	 * this only powers/resets it. ACTIVE_LOW so deassert (high) = powered on.
+	 * AIC8800 WiFi power/reset sequencing for the mmc1 SDIO bus. The vendor
+	 * sunxi-rfkill node drives THREE enables to bring the chip out of reset;
+	 * driving only wlan_regon leaves it silent to CMD5 (HW-verified). All on
+	 * R_PIO, ACTIVE_LOW so deassert (high) = enabled -> an off->on power cycle:
+	 * power_en = PL7 (bank 0 pin 7), chip_en = PM5 (bank 1 pin 5), wlan_regon =
+	 * PM1 (bank 1 pin 1). Chip needs the out-of-tree aic8800 module.
 	 */
 	wifi_pwrseq: wifi-pwrseq {
 		compatible = "mmc-pwrseq-simple";
-		reset-gpios = <&r_pio 1 1 GPIO_ACTIVE_LOW>;	/* PM1 wlan_regon */
+		reset-gpios = <&r_pio 0 7 GPIO_ACTIVE_LOW>,	/* PL7 power_en */
+			      <&r_pio 1 5 GPIO_ACTIVE_LOW>,	/* PM5 chip_en */
+			      <&r_pio 1 1 GPIO_ACTIVE_LOW>;	/* PM1 wlan_regon */
 		post-power-on-delay-ms = <200>;
 	};
 };
@@ -215,6 +220,7 @@
 
 			/* bldo1: WiFi 1.8V (vendor wlan_power[1] = bldo1 @ 1.8V). */
 			reg_bldo1: bldo1 {
+				regulator-always-on;	/* AIC8800 core/RF 1.8V rail (kept powered) */
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
 				regulator-name = "vcc-wifi-1v8";	/* VERIFY */
@@ -325,18 +331,21 @@
 	bus-width = <4>;
 	non-removable;
 	vmmc-supply = <&reg_aldo3>;	/* 3.3V (vendor) */
-	vqmmc-supply = <&reg_bldo1>;	/* 1.8V (vendor) */
+	vqmmc-supply = <&reg_aldo3>;	/* 3.3V: AIC8800 SDIO signals at 3.3V */
+	no-1-8-v;			/* lock 3.3V signalling (no 1.8V UHS switch) */
 	mmc-pwrseq = <&wifi_pwrseq>;
 	keep-power-in-suspend;
-	/* AIC8800 SDIO: match vendor sdc1 — SDIO-only, IRQ, UHS speeds. */
+	/* AIC8800 SDIO: match vendor sdc1 — SDIO-only + SDIO IRQ. */
 	no-mmc;
 	no-sd;
 	cap-sdio-irq;
-	sd-uhs-sdr25;
-	sd-uhs-sdr50;
-	sd-uhs-ddr50;
-	sd-uhs-sdr104;
-	max-frequency = <208000000>;
+	/*
+	 * WORKAROUND: SDIO at 25 MHz default speed. The A523 sunxi-mmc read
+	 * sample-phase is uncalibrated for high speed, so UHS/HS data reads
+	 * CRC-fail (RD DCE); default speed reads cleanly. TODO: port the A523
+	 * mmc sample-delay to restore SDR50/104 (up to 208 MHz).
+	 */
+	max-frequency = <25000000>;
 	/*
 	 * Chip = AIC8800 (firmware-confirmed), driven by the out-of-tree aic8800
 	 * SDIO module which probes the function automatically, so no wifi@1 child
@@ -487,7 +496,7 @@
 	 * 1.8V mode on PortC (eMMC) + PortG (WiFi SDIO). Pairs with the A523
 	 * CTL_INV withstand fix (kernel patch 0032). Cubie-A5E pattern. */
 	vcc-pc-supply = <&reg_cldo1>;	/* eMMC mmc2 I/O 1.8V */
-	vcc-pg-supply = <&reg_bldo1>;	/* WiFi mmc1 SDIO I/O 1.8V */
+	vcc-pg-supply = <&reg_aldo3>;	/* WiFi PortG I/O 3.3V (AIC8800 3.3V SDIO) */
 	i2c5_pb_pins: i2c5-pb-pins {
 		pins = "PB11", "PB12";	/* TWI5-SCK / TWI5-SDA */
 		allwinner,pinmux = <2>;

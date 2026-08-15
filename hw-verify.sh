@@ -807,10 +807,10 @@ t_wifi() {
 	fi
 	_var=$(askval "AIC8800 variant that actually loaded? (d80 / dc)" "d80")
 	_scan=$(askval "Did the scan see networks? (yes/no)" "yes")
-	calib "AIC8800 variant = aic8800${_var}; mmc1 SDIO + wifi_pwrseq (reset PM1). Firmware dir /lib/firmware/aic8800${_var}"
+	calib "AIC8800 variant = aic8800${_var} (D80 confirmed on HW); mmc1 SDIO + wifi_pwrseq driving PL7 power_en + PM5 chip_en + PM1 wlan_regon (all three needed) + 25MHz cap. Firmware dir /lib/firmware/aic8800_sdio/"
 	_dflt=SKIP; [ "$INTERACTIVE" = 1 ] && [ "$_scan" = yes ] && _dflt=PASS
 	finish "$(verdict "$_dflt")" "iface=${_wdev:-none}; variant=${_var}; scan=${_scan}" \
-		"&mmc1 SDIO + wifi_pwrseq (PM1); AIC8800 out-of-tree module + firmware dir" \
+		"&mmc1 SDIO + wifi_pwrseq (PL7+PM5+PM1) + 25MHz cap; AIC8800 out-of-tree module + firmware /lib/firmware/aic8800_sdio/" \
 		"AIC8800 stays out-of-tree; only the DT power-sequencing hooks upstream with the board."
 }
 

@@ -16,8 +16,9 @@ WiFi-only; the piece they drop — **Bluetooth** — is included here.
 | [`aic8800-warpme-v7.2.patch`](aic8800-warpme-v7.2.patch) | Our tiny v7.1→v7.2 delta on top of the pinned source |
 
 **Not here (by policy):** the RF firmware and the `.ko` binaries. Extract the
-firmware from your device's own stock rootfs (`/lib/firmware/aic8800d80/`,
-`/lib/firmware/aic8800dc/`).
+firmware from your device's own stock rootfs (the vendor keeps it under
+`/lib/firmware/aic8800d80/` + `/lib/firmware/aic8800dc/`); **at runtime this driver
+loads it from a single flat `/lib/firmware/aic8800_sdio/` dir** — see *Runtime* below.
 
 ## Source
 
@@ -56,8 +57,15 @@ gap remains. `aic8800-warpme-v7.2.patch` (3 hunks):
 
 ## Runtime (on the device)
 
-1. Firmware → `/lib/firmware/aic8800d80/` and `/aic8800dc/` (both variants ship;
-   the driver picks the one that probes — D80 vs DC is HW-gated).
+1. **Firmware → `/lib/firmware/aic8800_sdio/`** (flat). The warpme driver loads its
+   blobs from that one directory, **not** the vendor's per-variant dirs — a missing
+   `aic8800_sdio/` shows up as `fw_patch_table_8800d80_u02.bin ... failed to open`.
+   Copy them in:
+   ```sh
+   mkdir -p /lib/firmware/aic8800_sdio
+   cp /lib/firmware/aic8800d80/* /lib/firmware/aic8800dc/* /lib/firmware/aic8800_sdio/
+   ```
+   The chip on this board is the **AIC8800D80** (probe: `vid C8A1 did 0x0082/0x0182`).
 2. Load order:
    ```sh
    modprobe aic8800_bsp      # base/bus (auto-loaded as a dependency)
@@ -74,8 +82,21 @@ gap remains. `aic8800-warpme-v7.2.patch` (3 hunks):
 
 ## Status / caveats
 
-- Builds clean on v7.2-rc1; **not yet silicon-verified** (no device in hand).
-- `.ko` are kernel-version locked — rebuild against whatever kernel you ship.
+- **HW-verified working (2026-08-14).** On real silicon the chip enumerates on
+  `mmc1`, the firmware loads from `/lib/firmware/aic8800_sdio/`, and **`wlan0` scans
+  and associates** (WPA2, 5 GHz VHT). Confirmed **AIC8800D80**.
+- **Two board-DTS prerequisites** (both in the board `.dts`, commit `29f4eee`):
+  1. `wifi_pwrseq` must drive **three** enables — `power_en` (**PL7**) + `chip_en`
+     (**PM5**) + `wlan_regon` (**PM1**), all `GPIO_ACTIVE_LOW`. The vendor
+     `sunxi-rfkill` drives all three; driving only `wlan_regon` leaves the chip
+     **silent to CMD5** (rails powered, core never enabled).
+  2. `mmc1` is capped to **25 MHz default speed** (`max-frequency = <25000000>`,
+     no `sd-uhs-*`/`cap-sd-highspeed`). The A523 sunxi-mmc read sample-phase is
+     uncalibrated for high-speed SDIO, so UHS/HS data reads CRC-fail (`RD DCE`);
+     default speed reads cleanly. (Restoring full speed = a sunxi-mmc sample-delay
+     port — TODO.)
+- `.ko` are kernel-version locked — rebuild against whatever kernel you ship
+  (current tree: `7.2.0-rc3-dirty`).
 - Re-pin (`MM2_PIN` in the script) + re-test the delta if the source or kernel
   baseline moves. warpme also ships a USB backport (`3402-…`) — not needed here
   (the Trimui uses SDIO), but available if a USB AIC8800 ever matters.

@@ -17,8 +17,9 @@ Mainline Linux bring-up for the **Trimui Smart Pro S** retro-gaming handheld
 
 > ## ⚠️ Experimental — use at your own risk
 > This is an **active bring-up effort**, not production firmware. It now **boots mainline
-> Linux to a shell on real hardware**, but most peripherals (display, audio, WiFi, gamepad)
-> are **not yet validated**, and the device tree may still be wrong. Flashing or FEL-booting
+> Linux to a shell on real hardware** with **WiFi, storage, PMIC/battery, USB2 host and the
+> GPU working**, but several peripherals (display, audio, gamepad) are **not yet validated**,
+> and the device tree may still be wrong. Flashing or FEL-booting
 > custom firmware **can permanently brick your
 > device**, corrupt data, or damage hardware. **No warranty, no liability — you use
 > this entirely at your own risk.** Back up your stock firmware first. Booting from
@@ -30,9 +31,11 @@ Mainline Linux bring-up for the **Trimui Smart Pro S** retro-gaming handheld
 **🎉 Mainline Linux boots on the device — all the way to an interactive shell.** The full
 chain works on real silicon: **BROM → SPL → BL31 → U-Boot → distro-boot → Linux (v7.2-rc3)
 → busybox shell** (over a UART on PB9/PB10). Working today: 8× Cortex-A55 **SMP**, **DRAM**
-(1 GiB), **microSD/MMC** (the kernel `sunxi-mmc` new-timings path), the **AXP2202/AXP717
+(1 GiB), **microSD + eMMC** (the kernel `sunxi-mmc` new-timings path), the **AXP2202/AXP717
 PMIC** + regulators, the **battery fuel gauge** (charge %, voltage, charge current/status, and
-USB-power detection straight from the AXP717 hardware E-gauge), **USB2** host, and the RTC.
+USB-power detection straight from the AXP717 hardware E-gauge), **USB2** host, the **Mali-G57
+GPU** (Panfrost), the RTC, and — the latest — **on-board WiFi** (AIC8800D80 → `wlan0`), with the
+device reachable **headless over Tailscale**.
 
 **What cracked the months-long boot blocker** — all three were SPL-stage config bugs, all
 found the moment a UART gave us eyes, and *none* were what we'd theorized:
@@ -48,7 +51,18 @@ reached U-Boot. A real **`sun55i_a523` BL31** (from Jernej Škrabec's `a523-v4` 
 + mainline U-Boot do the rest. The U-Boot side is the
 [`trimui-2026.10`](https://github.com/MidG971/u-boot/tree/trimui-2026.10) branch of our fork.
 
-**Display (current focus).** Big progress on hardware — the panel's **backlight is on** and the
+**WiFi + headless networking (latest).** On-board **WiFi is up on hardware** — the AIC8800D80 SDIO
+chip enumerates on `mmc1`, firmware loads (from `/lib/firmware/aic8800_sdio/`), and **`wlan0` scans
+and associates** (WPA2, 5 GHz VHT). The wall was the power-on sequence: the vendor `sunxi-rfkill`
+drives **three** chip enables (`power_en` PL7 + `chip_en` PM5 + `wlan_regon` PM1) and mainline was
+driving only `wlan_regon`, so the chip stayed silent to CMD5. Adding the other two + capping SDIO to
+25 MHz (the A523 sunxi-mmc high-speed read sample-phase is uncalibrated → data reads CRC-fail) brings
+it fully alive. The device now runs **headless** — a Debian rootfs auto-connects WiFi and brings up
+**Tailscale** on boot (a `fake-hwclock` fixes the no-persistent-RTC clock that otherwise breaks TLS),
+so it's reachable over the network without the UART. *(Fix committed: `29f4eee`.)*
+
+**Display (deferred to last).** Paused while the input/audio subsystems get brought up — but a lot is
+already solved on hardware: the panel's **backlight is on** and the
 entire clock / PHY / TCON / DSI stack is solved and committed. Working on silicon: the from-scratch
 **combo-PHY DISPLL locks** (`pll_enable ret=0`), the **TCON pixel clock** runs at the correct
 **93 MHz**, and the **DSI** comes up in video mode with the **panel attached + initialised**. Two

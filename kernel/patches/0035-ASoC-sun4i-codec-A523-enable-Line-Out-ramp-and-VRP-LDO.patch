@@ -1,0 +1,82 @@
+From: Midgy BALON <midgy971@gmail.com>
+Subject: [PATCH] ASoC: sun4i-codec: A523 enable Line Out ramp + VRP LDO
+
+The A523 (sun55i) internal codec produced no analog output at all -
+speaker and headphone both silent - even though every DAC / LINEOUT /
+HP / CPLDO / mute enable in DAC_REG (0x310), HP_REG (0x324) etc. was set
+during playback, DMA was delivering and all DAPM widgets were On.
+
+Two analog enables the sun55i variant never touched were missing:
+
+  - RAMP_REG (0x31c) RD_EN (bit 0): the DAC output ramp. The A523 UM
+    documents this bit as gating DAC signal output ("Disable, and there
+    is no signal output for DAC"). The H616 variant of this same driver
+    already models it as a "Line Out Ramp Controller" OUT_DRV; the A523
+    variant did not. Add the same widget in the LINEOUT path.
+
+  - POWER_REG (0x348) VRP_LDO_EN (bit 24): the analog reference LDO for
+    the DAC/output stage, default-disabled and never written by the
+    driver (POWER_REG was only used as the regmap max_register). Add it
+    as a DAPM supply pulled up by both DACs.
+
+With both enabled the codec produces analog audio - HW-verified on a
+Trimui Smart Pro S (A523): a 440 Hz tone plays out the headphone jack.
+(The built-in speaker is a separate external-amp / board-power matter.)
+
+Assisted-by: Claude (Opus 4.8)
+---
+diff --git a/sound/soc/sunxi/sun4i-codec.c b/sound/soc/sunxi/sun4i-codec.c
+--- a/sound/soc/sunxi/sun4i-codec.c
++++ b/sound/soc/sunxi/sun4i-codec.c
+@@ -356,7 +356,10 @@
+ #define SUN55I_CODEC_MICBIAS_MBIASEN		(7)
+ #define SUN55I_CODEC_HP			(0x324)
+ #define SUN55I_CODEC_HP_HPPA_EN			(15)
++#define SUN55I_CODEC_RAMP		(0x31c)
++#define SUN55I_CODEC_RAMP_RDEN			(0)
+ #define SUN55I_CODEC_POWER		(0x348)
++#define SUN55I_CODEC_POWER_VRP_LDO_EN		(24)
+
+ struct sun4i_codec {
+ 	struct device	*dev;
+@@ -2207,6 +2210,10 @@
+ 			    SUN4I_CODEC_DAC_DPC_EN_DA, 0,
+ 			    NULL, 0),
+
++	/* Analog reference LDO for the DAC/output stage (POWER_REG VRP LDO) */
++	SND_SOC_DAPM_SUPPLY("VRP LDO", SUN55I_CODEC_POWER,
++			    SUN55I_CODEC_POWER_VRP_LDO_EN, 0, NULL, 0),
++
+ 	/* Analog parts of the DACs */
+ 	SND_SOC_DAPM_DAC("Left DAC", "Codec Playback",
+ 			 SUN55I_CODEC_DAC, SUN55I_CODEC_DAC_DACL_EN, 0),
+@@ -2229,6 +2236,8 @@
+ 			     SUN55I_CODEC_DAC_LINEOUTL_EN, 0, NULL, 0),
+ 	SND_SOC_DAPM_OUT_DRV("Right Line Out Amp", SUN55I_CODEC_DAC,
+ 			     SUN55I_CODEC_DAC_LINEOUTR_EN, 0, NULL, 0),
++	SND_SOC_DAPM_OUT_DRV("Line Out Ramp Controller", SUN55I_CODEC_RAMP,
++			     SUN55I_CODEC_RAMP_RDEN, 0, NULL, 0),
+ 	SND_SOC_DAPM_OUTPUT("LINEOUT"),
+ };
+
+@@ -2249,6 +2258,8 @@
+ 	/* DAC Routes */
+ 	{ "Left DAC", NULL, "DAC Enable" },
+ 	{ "Right DAC", NULL, "DAC Enable" },
++	{ "Left DAC", NULL, "VRP LDO" },
++	{ "Right DAC", NULL, "VRP LDO" },
+
+ 	/* Headphone Routes */
+ 	{ "Headphone Amp", NULL, "CPLDO" },
+@@ -2261,8 +2272,9 @@
+ 	{ "Right Line Out Switch", "Line Out Playback Switch", "Right DAC" },
+ 	{ "Left Line Out Amp", NULL, "Left Line Out Switch" },
+ 	{ "Right Line Out Amp", NULL, "Right Line Out Switch" },
+-	{ "LINEOUT", NULL, "Left Line Out Amp" },
+-	{ "LINEOUT", NULL, "Right Line Out Amp" },
++	{ "Line Out Ramp Controller", NULL, "Left Line Out Amp" },
++	{ "Line Out Ramp Controller", NULL, "Right Line Out Amp" },
++	{ "LINEOUT", NULL, "Line Out Ramp Controller" },
+ };
+
+ static const struct snd_soc_component_driver sun55i_codec_codec = {

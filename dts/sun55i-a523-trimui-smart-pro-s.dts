@@ -80,11 +80,64 @@
 				  215 220 225 230 235 240 245 250 255>;
 	};
 
+	/* Speaker power-amp enable = PH6 (active high). The codec card has no
+	 * pa-gpios, so drive it always-on here to route Line Out -> the speaker. */
+	reg_spk_amp: regulator-spk-amp {
+		compatible = "regulator-fixed";
+		regulator-name = "spk-amp-en";
+		gpio = <&pio 7 6 GPIO_ACTIVE_HIGH>;	/* PH6 */
+		enable-active-high;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	/* Gamepad MCU + LED-array power enables (vendor trimui_inputd drives these
+	 * GPIOs high: PK12 = left pad, PK16 = right pad, PK18 = LED array). gpio-hogs
+	 * are mis-parsed by this A523 pinctrl, so drive them via always-on fixed regs. */
+	reg_pad_left: regulator-pad-left {
+		compatible = "regulator-fixed";
+		regulator-name = "leftpad-en";
+		gpio = <&pio 10 12 GPIO_ACTIVE_HIGH>;	/* PK12 */
+		enable-active-high;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	reg_pad_right: regulator-pad-right {
+		compatible = "regulator-fixed";
+		regulator-name = "rightpad-en";
+		gpio = <&pio 10 16 GPIO_ACTIVE_HIGH>;	/* PK16 */
+		enable-active-high;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	reg_led_array: regulator-led-array {
+		compatible = "regulator-fixed";
+		regulator-name = "ledarray-en";
+		gpio = <&pio 10 18 GPIO_ACTIVE_HIGH>;	/* PK18 */
+		enable-active-high;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	/* Vendor drives PH12 ("rumble motor") low at boot, high while rumbling.
+	 * Model it as the pwm-vibrator vcc-supply so the driver powers the motor
+	 * only during playback (regulator_enable on start / disable on stop).
+	 * HW-verified: motor buzzes with PH12 as vcc + PWM0 ch7 (PK23). */
+	reg_vibra_pwr: regulator-vibra-pwr {
+		compatible = "regulator-fixed";
+		regulator-name = "vibra-pwr";
+		gpio = <&pio 7 12 GPIO_ACTIVE_HIGH>;	/* PH12 */
+		enable-active-high;
+	};
+
 	/* Haptic motor on PWM0 channel 7 (vendor: 50 us period, normal). */
 	vibrator {
 		compatible = "pwm-vibrator";
 		pwms = <&pwm0 7 50000 0>;
 		pwm-names = "enable";
+		vcc-supply = <&reg_vibra_pwr>;
 	};
 
 	/*
@@ -119,6 +172,25 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pins>, <&uart1_rts_cts_pins>;
 	uart-has-rtscts;
+	status = "okay";
+};
+
+/*
+ * Gamepad MCU serial links (RX-only, single wire each): uart5 = PK17,
+ * uart7 = PK13. Two MCUs stream the whole pad (D-pad/ABXY/L-R/L2-R2/sticks/
+ * L3-R3/rumble), read by trimui_inputd (interim) or a serdev input driver.
+ * NB: on HW the MCUs currently stream nothing (board-level power/enable still
+ * unresolved); the UART side is wired correctly so this stays ready.
+ */
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart5_pk17_pin>;
+	status = "okay";
+};
+
+&uart7 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart7_pk13_pin>;
 	status = "okay";
 };
 
@@ -268,6 +340,18 @@
 				regulator-max-microvolt = <900000>;
 				regulator-name = "vdd-cpus";
 			};
+
+			/* AXP2202 5V boost. Kept on for the board 5V rail (USB-host
+			 * VBUS); note HW testing showed it is NOT what powers the fan
+			 * / gamepad MCUs / LED array (those stay dark/silent with it on
+			 * -> board-level enable/level still unresolved). Harmless if on. */
+			reg_boost: boost {
+				regulator-name = "boost-5v";
+				regulator-min-microvolt = <4550000>;
+				regulator-max-microvolt = <5510000>;
+				regulator-always-on;
+				regulator-boot-on;
+			};
 		};
 	};
 
@@ -326,6 +410,10 @@
 
 /* WiFi over SDIO (vendor wlan_busnum = 1). Chip unidentified -> no child yet. */
 &mmc1 {
+	/* Force SDIO default speed: the SoC dtsi advertises cap-sd-highspeed, but
+	 * the A523 sunxi-mmc HS read sample-phase is uncalibrated (RD DCE). Delete
+	 * it so the bus stays at 25 MHz default speed (reads cleanly). See below. */
+	/delete-property/ cap-sd-highspeed;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc1_pins>;
 	bus-width = <4>;
@@ -502,6 +590,19 @@
 		allwinner,pinmux = <2>;
 		function = "i2c5";
 	};
+
+	/* Gamepad MCU serial links, RX-only single-wire (one pin each). */
+	uart5_pk17_pin: uart5-pk17-pin {
+		pins = "PK17";
+		function = "uart5";	/* PK17 Function4 = UART5-RX */
+		allwinner,pinmux = <4>;
+	};
+
+	uart7_pk13_pin: uart7-pk13-pin {
+		pins = "PK13";
+		function = "uart7";	/* PK13 Function3 = UART7-RX */
+		allwinner,pinmux = <3>;
+	};
 };
 
 /*
@@ -542,12 +643,15 @@
 
 /*
  * Speaker power-amp enable = PH6 (active high). Chen-Yu's codec card has no
- * pa-gpios / aux-amplifier support yet, so hog PH6 high as an interim so the
- * speaker plays. TODO (feedback to the codec author): add pa-gpios (or a
+ * pa-gpios / aux-amplifier support yet, and a gpio-hog child under &pio fails
+ * (this A523 pinctrl parses every &pio child as a pinmux group -> -22, killing
+ * gpiochip0), so the enable is driven via the always-on reg_spk_amp fixed-reg
+ * (see the / node). TODO (feedback to the codec author): add pa-gpios (or a
  * simple-audio-amplifier aux-dev) so this becomes a DAPM-gated, power-aware
- * enable (cf. the fan/power-profile notes) instead of an always-on hog.
+ * enable instead of an always-on regulator.
+ * NB: PH6 is driven, but analog output is still silent (separate codec-driver
+ * gap) — see docs/AUDIO-CODEC-NOTES.md.
  */
-/* spk_amp_hog removed: sunxi pinctrl parses every &pio child as a pinmux group, so a gpio-hog child fails with -22 and kills gpiochip0 (all main-bank GPIOs). Enable the speaker amp via a proper amplifier node or in U-Boot later. */
 
 /*
  * Side keys on LRADC (vendor "keyboard_1350mv", 3 keys). The per-key voltages

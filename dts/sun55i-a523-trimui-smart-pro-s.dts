@@ -80,6 +80,21 @@
 				  215 220 225 230 235 240 245 250 255>;
 	};
 
+	/* ★ Side-board / peripheral +5V master enable = PK15 (vendor runtrimui.sh
+	 * "#5V enable", gpio335). This load-switch feeds the +5V rail shared by the
+	 * two gamepad MCUs, the WS2812 LED array AND the fan. Without it all three are
+	 * dead (LED ring dark, fan still, MCUs' 3.3V floats to ~1.6V = unpowered).
+	 * Driving PK15 high via a fixed-reg (libgpiod EINVALs on &pio) brings all
+	 * three alive. HW-verified: LEDs light, fan spins, MCUs stream at 9600 baud. */
+	reg_5v_en: regulator-5v-en {
+		compatible = "regulator-fixed";
+		regulator-name = "sideboard-5v-en";
+		gpio = <&pio 10 15 GPIO_ACTIVE_HIGH>;	/* PK15 */
+		enable-active-high;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
 	/* Speaker power-amp enable = PH6 (active high). The codec card has no
 	 * pa-gpios, so drive it always-on here to route Line Out -> the speaker. */
 	reg_spk_amp: regulator-spk-amp {

@@ -17,9 +17,9 @@ Mainline Linux bring-up for the **Trimui Smart Pro S** retro-gaming handheld
 
 > ## ⚠️ Experimental — use at your own risk
 > This is an **active bring-up effort**, not production firmware. It now **boots mainline
-> Linux to a shell on real hardware** with **WiFi, storage, PMIC/battery, USB2 host and the
-> GPU working**, but several peripherals (display, audio, gamepad) are **not yet validated**,
-> and the device tree may still be wrong. Flashing or FEL-booting
+> Linux to a shell on real hardware** with **WiFi + Bluetooth, storage, PMIC/battery, USB2 host,
+> the GPU, and the input/audio/peripheral subsystems working**, but the **display** is **not yet
+> validated** (backlight on, scanout WIP) and the device tree may still be wrong. Flashing or FEL-booting
 > custom firmware **can permanently brick your
 > device**, corrupt data, or damage hardware. **No warranty, no liability — you use
 > this entirely at your own risk.** Back up your stock firmware first. Booting from
@@ -61,7 +61,16 @@ it fully alive. The device now runs **headless** — a Debian rootfs auto-connec
 **Tailscale** on boot (a `fake-hwclock` fixes the no-persistent-RTC clock that otherwise breaks TLS),
 so it's reachable over the network without the UART. *(Fix committed: `29f4eee`.)*
 
-**Display (deferred to last).** Paused while the input/audio subsystems get brought up — but a lot is
+**Inputs, audio & the side-board peripherals (latest).** A cluster of subsystems came up on hardware,
+most unblocked by one discovery: **PK15 is the side-board +5 V master enable** — a single load-switch gate
+feeding the two gamepad MCUs, the WS2812 RGB ring and the fan (never "board-blocked", just un-gated).
+HW-confirmed working: the **side keys** (an LRADC `HOLD_KEY_EN` driver fix), the **power button** (AXP2202
+PEK), the **vibrator** (PH12 + PWM), **analog audio** on headphones *and* the built-in speaker (a codec ramp
++ reference-LDO fix), the **RGB LED ring** (17× WS2812), the **fan**, and **Bluetooth incl. A2DP audio** to a
+headset. The two **gamepad MCUs** now stream (9600-baud serial, `uart5`/`uart7`); a uinput parser is in
+progress.
+
+**Display (the last big blocker).** Deferred to last — but a lot is
 already solved on hardware: the panel's **backlight is on** and the
 entire clock / PHY / TCON / DSI stack is solved and committed. Working on silicon: the from-scratch
 **combo-PHY DISPLL locks** (`pll_enable ret=0`), the **TCON pixel clock** runs at the correct
@@ -85,10 +94,12 @@ atomic commit completing (no more `flip_done` timeouts). Two more DSI-path fixes
 the tcon-top `PORT_SEL` mixer→TCON routing (the DSI case never programmed it) and the tcon-top DSI
 datapath gate. The **one remaining blocker** is now the **DE33 mixer's continuous streaming**: the
 DSI transmits ~one line then starves for data (its `video_curr_line` counter freezes at 1), so the
-panel shows backlight but no image yet — the mixer→TCON data feed is the last thing standing. A note
-on strategy: `drm-misc-next` carries mainline's A523 DSI/TCON/DE33 drivers, but we verified its TCON
-path is byte-identical to ours. It *may* still be the cleanest route for the last piece — the
-**DE33 mixer**. Details:
+panel shows backlight but no image yet — the mixer→TCON data feed is the last thing standing. The
+root cause is now pinned: the **A523 DE-v35x needs an RCQ (Register Config Queue) commit**, while our
+`sun8i_mixer` writes the DE33 registers by direct MMIO — they land in a shadow that never latches. The
+fix is to harvest the HW-proven **RCQ backend** from the ut-slayer / OrangePi-4A effort (foundation
+committed under [`kernel/harvest-sun55i-de/`](kernel/harvest-sun55i-de)); the IOMMU is **not** involved
+(our DE runs on CMA). Details:
 [`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md).
 
 The full boot journey + the SPL fixes are in

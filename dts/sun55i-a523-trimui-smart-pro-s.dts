@@ -835,3 +835,7 @@
 		function-enumerator = <16>;
 	};
 };
+
+#include "trimui-de-reconcile.dtsi"
+#include "trimui-panel.dtsi"
+

@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+# Copyright (C) 2026 Midgy BALON
+#
+# Boot-time RGB LED ring power-on indicator.
+# Install:
+#   cp led-indicator.sh      /usr/local/bin/
+#   cp led-indicator.service /etc/systemd/system/
+#   systemctl enable --now led-indicator.service
+[Unit]
+Description=RGB LED ring power-on indicator
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/led-indicator.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

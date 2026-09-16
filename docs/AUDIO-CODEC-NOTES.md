@@ -67,9 +67,10 @@ mainline), and if he also adds the SoC `audio-codec@7110000` node to `sun55i-a52
 | DAP / DRC / HPF | `DAC_DAP_CTL@0xF0`, `ADC_DAP_CTL@0xF8`, `DAC_DRC_CTL@0x108`, `ADC_DRC_CTL@0x208` |
 | Analog | `ADC1/2/3_AN_CTL@0x300/0x304/0x308`, `DAC_AN@0x310`, `MICBIAS@0x318`, `RAMP@0x31c`, `HP@0x324`, `POWER@0x348` |
 
-## HW-gated follow-ups (once the device is in hand)
-- Verify the DAPM graph + routing directions on hardware; confirm the speaker (via the PH6
-  amp), headphone, and MIC1 paths.
+## Remaining follow-ups (device now in hand — playback verified)
+- **Playback works on hardware**: headphone *and* the built-in speaker (via the PH6 amp) are
+  confirmed (codec ramp + reference-LDO fix). The capture/mic DAPM routing still wants an
+  on-hardware check.
 - Capture is `[WIP]` upstream — validate the 3-ADC mic path, or wait for his non-WIP version.
 - DT `*-vol`/`*-gain` defaults, jack/HMIC detect, SID-efuse bias calibration, suspend/resume —
   all still deferred; his driver is a minimal playback-first variant.

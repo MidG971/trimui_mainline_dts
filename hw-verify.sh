@@ -342,7 +342,7 @@ t_fel() {
 # ----------------------------------------------------------------------------
 t_sdboot() {
 	begin_test sdboot "Phase 4: first mainline boot from microSD (never eMMC). The microSD is written on the HOST — the device eMMC is never touched."
-	say "  Build on compiler-rock3b (kernel/build-trimui-kernel.sh) -> Image +"
+	say "  Build on build-host (kernel/build-trimui-kernel.sh) -> Image +"
 	say "  sun55i-a523-trimui-smart-pro-s.dtb + modules, then write a boot microSD."
 	say "  WRITE THE SD, NOT YOUR HOST DISK: check lsblk and pick the right /dev/sdX."
 	manual "identify the SD on the host (before writing)" "lsblk   # confirm the microSD node; NOT your system disk"

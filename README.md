@@ -67,8 +67,7 @@ so it's reachable over the network without the UART. *(Fix committed: `29f4eee`.
 most unblocked by one discovery: **PK15 is the side-board +5 V master enable** — a single load-switch gate
 feeding the two gamepad MCUs, the WS2812 RGB ring and the fan (never "board-blocked", just un-gated).
 HW-confirmed working: the **side keys** (an LRADC `HOLD_KEY_EN` driver fix), the **power button** (AXP2202
-PEK), the **vibrator** (PH12 + PWM), **analog audio** on headphones *and* the built-in speaker (a codec ramp
-+ reference-LDO fix), the **RGB LED ring** (17× WS2812), the **fan**, and **Bluetooth incl. A2DP audio** to a
+PEK), the **vibrator** (PH12 + PWM), **analog audio** on headphones *and* the built-in speaker (a codec-ramp + reference-LDO fix), the **RGB LED ring** (17× WS2812), the **fan**, and **Bluetooth incl. A2DP audio** to a
 headset. The two **gamepad MCUs** now stream (9600-baud serial, `uart5`/`uart7`); a uinput parser is in
 progress.
 

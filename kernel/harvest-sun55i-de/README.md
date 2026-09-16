@@ -40,7 +40,7 @@ backend, reconstructed from ut-slayer/orangepi-4a-mainline (applied its 25
 
 ## Reference + test loop
 - **v6.18 + ut-slayer applied** reference tree on the build server:
-  `compiler-rock3b:/root/linux-6.18-de-ref` — **diff its `sun8i_mixer.c/.h` vs ours** for
+  `build-host:/root/linux-6.18-de-ref` — **diff its `sun8i_mixer.c/.h` vs ours** for
   the exact, coherent integration delta (raw ut-slayer patches `git apply`-conflict on our
   7.2-rc3 tree, so this is a manual merge). ut-slayer patch series: `/root/ut-slayer/patches`
   (key: 0030 base, 0032/0033 RCQ-reload, 0045 CMA pool, 0066 neutralize-legacy-MMIO, 0070 races).

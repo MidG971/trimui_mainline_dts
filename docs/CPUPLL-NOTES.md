@@ -11,8 +11,12 @@ mainline **CPU-CCU driver**. We **adopted it and forward-ported it to v7.2**.
 
 **Status: ADOPTED + build-verified.** The 6 SoC-level patches apply cleanly to
 v7.2-rc3 and the driver + framework objects **cross-compile clean** (aarch64, on
-`compiler-rock3b`). Still HW-unverified on our board (it's boot-critical — the
-frequencies/rate-change are silicon's call, per [[hardware-testing-prevails]]).
+`build-host`). Still HW-unverified on our board (it's boot-critical — the
+frequencies/rate-change are silicon's call, per hardware-testing-prevails).
+
+**Credits:** the A523/T527 CPU-CCU driver is ut-slayer's / Juan Manuel Lopez Carrillo's work
+([`orangepi-4a-mainline`](https://github.com/ut-slayer/orangepi-4a-mainline)), forward-ported
+onto the mainline `sunxi-ng` clock framework.
 
 ## What we carry (`kernel/patches/0015–0020`, authorship preserved)
 Adopted verbatim from ut-slayer (GPL-2.0, `From: Juan Manuel Lopez Carrillo`),
@@ -57,7 +61,7 @@ Register map (PLL_CPU0@0x00, PLL_CPUB@0x0c, CPUB@0x64) matched the earlier BSP m
    Little cluster uses `reg_dcdc1` (axp717 main PMIC).
 3. **On-hardware (the only thing left):** include `trimui-cpu-opp.dtsi` from the board
    DTS, boot, confirm both cpufreq domains scale (policy0 = cpu0, policy4 = cpu4), and
-   tune the OPP voltages. Boot-critical → HW-gated ([[hardware-testing-prevails]]).
+   tune the OPP voltages. Boot-critical → HW-gated (hardware-testing-prevails).
 
 ## Upstream status
 ut-slayer's series is **posted to linux-sunxi for review/feedback, not submitted or

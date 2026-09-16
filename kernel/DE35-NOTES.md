@@ -61,7 +61,7 @@ register-control-queue if DE33 uses it). Goal of the next chunk: a **compiling D
 mixer cfg + complete DT** so the whole pipeline (DE→TCON→DSI→panel) forms one DRM
 device on v7.1; pixel bring-up is a HW task.
 
-Build host: `compiler-rock3b:/root/trimui-display/linux-rc` (v7.1, canonical);
+Build host: `build-host:/root/trimui-display/linux-rc` (v7.1, canonical);
 BSP DE source: `…/aw-bsp-drivers/drivers/video/sunxi/disp2/disp/de/lowlevel_v35x/`.
 
 ---

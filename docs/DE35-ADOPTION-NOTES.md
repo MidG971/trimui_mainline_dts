@@ -22,13 +22,13 @@ The DE3.5 mixer/CRTC ("lit pixel") was our biggest display blocker. The
 **ut-slayer / OrangePi-4A** effort has a **complete, HW-proven DE-v35x driver**
 (`sun55i_de.c`) — but for **HDMI-out** (TCON-TV + DW-HDMI). We reuse the **shared
 DE core** and wire it to **our internal MIPI-DSI panel** (TCON-LCD + our DSI host
-/ combo-PHY / panel). Source cloned on `compiler-rock3b:/root/opi4a`.
+/ combo-PHY / panel). Source cloned on `build-host:/root/opi4a`.
 
 **This is a deliberate integration, not a clean add** — their display series
 *overlaps and partially supersedes* ours. Bulk-applying it over our `0001–0008`
 would conflict on `sun8i_mixer.c`, `sun4i_tcon.c`, and the SoC dtsi. And it is
 **HW-gated** — a lit pixel can only be confirmed on silicon
-([[hardware-testing-prevails]]).
+(hardware-testing-prevails).
 
 > **This is a LOCAL screen-lighting path only — NOT the upstream route.** A. Przywara
 > (linux-sunxi, 2026-07-21) was explicit: display for A523 is **not urgent**, must wait
@@ -41,14 +41,14 @@ would conflict on `sun8i_mixer.c`, `sun4i_tcon.c`, and the SoC dtsi. And it is
 
 ## ⚑ CORRECTED APPROACH — TESTED ON THE BUILD HOST 2026-07-22 (supersedes the ut-slayer adoption below)
 
-**Do NOT forward-port the ut-slayer DE-v35x driver chain.** Ran it end-to-end tonight:
+**Do NOT forward-port the ut-slayer DE-v35x driver chain.** Ran it end-to-end:
 the full chain `0030–0078` *applies* (1 reject) but **does not compile** — v7.2 already
 ships its **own** DE33 support (`sun8i_mixer.c` `SUN8I_MIXER_DE33`), and ut-slayer's is a
 **divergent, RCQ-based DE33**. Merging the two = deep, multi-hour struct/signature surgery
 (`sun8i_mixer_cfg.uses_rcq`, `sun8i_ui_layer_init_one` signature, `struct sun8i_layer.mixer`, …).
 
 **The clean path (our original plan, now confirmed): use v7.2's MAINLINE DE33 driver + our
-own mixer cfg (patch 0008); skip the ut-slayer RCQ backend entirely.** VERIFIED tonight:
+own mixer cfg (patch 0008); skip the ut-slayer RCQ backend entirely.** Verified at build time:
 - `v7.2-rc3` + our keep-set (**including 0008**, our `sun55i_a523_mixer0_cfg`) + the clean
   foundation (IOMMU `0025/29/47/49/50`, CCU-display `0026/27/28`, glue `0024`) → **`drivers/gpu/
   drm/sun4i/` builds CLEAN, 0 rejects.** No fork to forward-port.
@@ -69,7 +69,7 @@ board DTB + `CHECK_DTBS=y`, then Phase B (boot microSD + modetest on `card0-DSI-
 
 ## Patch triage (ut-slayer numbering)
 
-> **CORRECTED 2026-07-20 after an empirical apply/build pass on `compiler-rock3b`.**
+> **CORRECTED 2026-07-20 after an empirical apply/build pass on `build-host`.**
 > The earlier "adopt ~15 clean DE patches" triage below was **wrong**: it treated
 > the DE-v35x core as a cherry-pickable subset. It is not. See "Reality check".
 
@@ -149,55 +149,3 @@ safe to land pre-device. Their THS series (`0086–0089`) is already adopted
 
 **Credits:** ut-slayer (Juan Manuel Lopez Carrillo), building on minimyth2 /
 Justin Suess (H728 display) and Jernej Škrabec (H616). GPL-2.0.
-
----
-
-## TONIGHT — device-in-hand execution runbook (2026-07-22)
-
-The "WITH the device" condition is now met: device in hand, adb + root, **full eMMC
-backup taken** (brick-safe), live DTB pulled, USB **gadget console** available
-(`usb-console.sh`, no UART solder), and the series corrected on silicon (axp1530, no
-GPADC-joystick). Only gate = the compile server (up this evening). `modetest` is on the
-device; the panel connector is **card0-DSI-1** (720×1280 native, confirmed).
-
-### Phase A — assemble + build the DE pipeline (on `compiler-rock3b:/root/opi4a-port/linux`)
-1. `git reset --hard v7.2-rc3` (or bump to rc4), `git clean -fdxq`; drop in our driver
-   sources; apply **our keep-set** (0001–0031) EXCEPT the display patches we reconcile.
-2. Apply the **clean foundation** (IOMMU `0025/29/47/49/50`, CCU `0026/27/28`, glue
-   `0024`) — already 0-reject + compile-verified.
-3. **Forward-port the WHOLE DE-v35x chain `0030–0078`** from `/root/opi4a/patches` as a
-   unit (NOT the old subset — 0032 is a hard prereq; the "4 rejects" last time were the
-   tip). Resolve the 6.18.38→v7.2 hunks; build `drivers/gpu/drm/sun4i/` objects.
-4. Keep **0001** (DSI host) / **0002** (combo-PHY) / **0004** (TCON-LCD) / **0007**
-   (panel). **DROP 0008** (their 0040 mixer cfg supersedes).
-5. **Reconcile the SoC-DE dtsi** (their `0036` + our `0003`): take their
-   `de@5000000` / `display_clocks` / `mixer@100000` / `de_sram` + `tcon-top@5500000`;
-   add our `tcon-lcd1@5502000` + `dsi1@5508000` + `phy@5509000` (drop 0003's skeleton
-   `de`/`display-top`). **Rewire the OF-graph: mixer0 → tcon-top → OUR tcon-lcd1 → dsi1
-   → panel** (add the tcon-top→LCD mux port; DROP their `tcon-tv0`/`hdmi`/`hdmi-phy` tail).
-6. Build: `make dtbs` + the board DTB + `CHECK_DTBS=y` dt-validate + the DE/mixer `.o`s.
-
-### Phase B — first lit pixel (on the device)
-1. Full kernel via `build-trimui-kernel.sh` → Image + dtbs + modules.
-2. Boot mainline **from microSD** (eMMC untouched; backup in hand anyway). Watch boot on
-   `sh usb-console.sh` (gadget console) — needs `console=ttyGS0,115200` in the cmdline.
-3. Confirm the pipeline binds: `dmesg | grep -iE 'sun55i_de|mixer|tcon|dsi|panel|drm'`;
-   `/sys/class/drm/*/status` → **card0-DSI-1 connected**.
-4. `modetest -M sun4i-drm` (list connectors/crtcs) → then
-   `modetest -M sun4i-drm -s <DSI-conn-id>@<crtc-id>:720x1280` → **solid test pattern =
-   panel lit.** Then bring up the backlight (pwm-backlight, pwm0 ch0 / PD23).
-
-### Likely tuning points (the HW-tuned bits, expect iteration)
-- ut-slayer's **RCQ / quiesce / AHB / AFBC** hacks (0052/0053/0054/0059/0070) were tuned
-  on his **OrangePi-4A over HDMI**; ours is **DSI + the er68576 panel** → the "wedge" /
-  quiesce timing and the RCQ-vs-AHB path may need adjusting. Start with AFBC off.
-- The **tcon-top mux port** for LCD-vs-TV (h6 tcon-top routing) — verify the LCD output port.
-- The **combo-PHY HS clock** (our driver programs ~372 Mbps for this panel) + the panel
-  init blob replay timing.
-- No pixel → check each stage probes and the CRTC→encoder(dsi)→connector(panel) chain is built.
-
-### Safety / fallbacks
-- microSD boot never touches the eMMC; the **eMMC image** (`bringup/…backup…img`) restores
-  stock via `dd`/FEL if ever needed.
-- If the DE-core forward-port is too conflict-heavy in one shot, land it in tiers
-  (foundation → DE core → DT) and build between.

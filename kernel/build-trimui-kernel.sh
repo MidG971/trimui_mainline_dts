@@ -4,7 +4,7 @@
 #
 # Assemble + build the mainline Trimui Smart Pro S kernel (Allwinner A523).
 # Applies our patch series + drops in the out-of-tree-style driver sources, then
-# builds Image + dtbs + modules. Run on the build host (compiler-rock3b).
+# builds Image + dtbs + modules. Run on the build host (build-host).
 #
 # Usage:
 #   ./build-trimui-kernel.sh <kernel-src-dir> [repo-dir]

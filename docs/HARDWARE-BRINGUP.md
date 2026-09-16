@@ -35,7 +35,7 @@ device arrives, with the exact tools for each step.
 | our U-Boot FEL image | `uboot-a523/u-boot-sunxi-with-spl-trimui.bin` | ✅ built |
 | `recon.sh` | read-only day-1 collector | ✅ in repo root |
 | `hw-verify.sh` | interactive guided verification + Markdown report generator; also guides the pre-rootfs phases below (`--bringup` = vendorboot/recon/backup/fel/sdboot) | ✅ in repo root |
-| build host `compiler-rock3b` | kernel build (`kernel/build-trimui-kernel.sh`) | ✅ |
+| build host `build-host` | kernel build (`kernel/build-trimui-kernel.sh`) | ✅ |
 
 ### On-device (stock OS, pushed via adb if missing)
 - `i2c-tools` (`i2cdetect`/`i2cget`) — to read the PMIC + regulator voltages. If the
@@ -181,7 +181,7 @@ This validates the U-Boot + the **DRAM retarget** without writing storage.
 
 ## Phase 4 — Boot the mainline kernel from microSD (not eMMC)
 
-1. **Build** (on `compiler-rock3b`):
+1. **Build** (on `build-host`):
    ```bash
    git clone --depth 1 -b v7.1 \
      https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-trimui

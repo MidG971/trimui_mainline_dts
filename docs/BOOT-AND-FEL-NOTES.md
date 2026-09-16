@@ -9,6 +9,10 @@ early conclusions were **wrong and are corrected below** — kept visible becaus
 corrections are the useful part. eMMC (stock) was never overwritten; all attempts
 are SD-card + FEL only, reversible by removing the card / power-cycle.
 
+> **Current status (2026-09):** the full boot chain now works end-to-end — mainline boots to a
+> shell from microSD (BROM → SPL → BL31 → U-Boot → distro-boot → Linux). The "U-Boot doesn't reach
+> the kernel" items further down are **resolved / historical**, kept for the debugging record.
+
 ## Boot model (CORRECTED — the device boots the SD)
 
 The A523 BROM **does boot from the microSD on a normal power-on**, no button combo —

@@ -90,7 +90,7 @@ Working FDT set to 49edc000
 Starting kernel ...
 
 [    0.000000] Booting Linux on physical CPU 0x0000000000 [0x412fd050]
-[    0.000000] Linux version 7.2.0-rc3-dirty (root@compiler-rock3b) (aarch64-linux-gnu-gcc (Debian 12.2.0-14) 12.2.0, GNU ld (GNU Binutils for Debian) 2.40) #5 SMP PREEMPT Thu Jul 23 09:54:57 UTC 2026
+[    0.000000] Linux version 7.2.0-rc3-dirty (root@build-host) (aarch64-linux-gnu-gcc (Debian 12.2.0-14) 12.2.0, GNU ld (GNU Binutils for Debian) 2.40) #5 SMP PREEMPT Thu Jul 23 09:54:57 UTC 2026
 [    0.000000] KASLR disabled due to lack of seed
 [    0.000000] Machine model: Trimui Smart Pro S
 [    0.000000] efi: UEFI not found.

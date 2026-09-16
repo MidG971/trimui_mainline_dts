@@ -8,6 +8,12 @@ build host against v7.1 with `checkpatch.pl` and `dt_binding_check`.
 The work itself builds and dt-validates; the gaps below are about **submission
 form** and **missing binding docs**, not driver correctness.
 
+> **Update (2026-09):** this snapshot assessed the **display/PWM** series against a v7.1 base. The
+> current first submissions are small standalone fixes (pinctrl / mmc-pwrseq / mfd-axp20x) on
+> v7.3-rc3; the **display is not yet submission-ready** — colour (a YUV↔RGB conversion) and
+> continuous-refresh robustness are still open. Read the scorecard below as the display/PWM
+> readiness at the time, not the current submission plan.
+
 ## Scorecard
 
 | Artifact | checkpatch | dt_binding_check | Notes |

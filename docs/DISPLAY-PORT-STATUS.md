@@ -92,7 +92,7 @@ The most important update since the boot milestone: **mainline caught up.** `drm
 (the DRM staging tree, v7.2-rc2 base) now carries the **entire A523 display pipeline**, so most
 of our out-of-tree display work is redundant and the plan simplifies dramatically.
 
-**Already upstream** (verified on the tree, `compiler-rock3b:/root/opi4a-de33`):
+**Already upstream** (verified on the tree, `build-host:/root/opi4a-de33`):
 - **DSI host** — `sun6i_mipi_dsi.c` has the `allwinner,sun55i-a523-mipi-dsi` variant.
 - **TCON-LCD** — `sun4i_tcon.c` has the `allwinner,sun55i-a523-tcon-lcd` quirks.
 - **DE33 mixer** — `sun8i_mixer.c` has `sun55i-a523-de33-mixer-0` (`sun55i_a523_mixer0_cfg`).
@@ -147,7 +147,7 @@ The BSP uses the **new `sunxi-drm`** framework (not legacy `disp2`). Key files
 | `sunxi_device/sunxi_tcon.c`, `sunxi_tcon_top.c` | TCON-LCD + TCON-TOP |
 | `panel/panel-dsi.c` | generic DSI panel (init-sequence driver) |
 
-(Checked out on the build host at `compiler-rock3b:/root/trimui-display/aw-bsp-drivers`.)
+(Checked out on the build host at `build-host:/root/trimui-display/aw-bsp-drivers`.)
 Trimui does not publish kernel GPL source (only a toolchain SDK + firmware images),
 and the community board trees — radxa/avaota/yuzukiHD — are mainline-style with no
 vendor display stack. So this Allwinner BSP is the register/sequence reference.
@@ -266,7 +266,7 @@ _Historical build notes (v7.1, driver-compile-only) below; the on-hardware tree 
 
 ## Build / test
 
-**Canonical tree: `compiler-rock3b:/root/trimui-display/linux-rc` = Linux v7.1.**
+**Canonical tree: `build-host:/root/trimui-display/linux-rc` = Linux v7.1.**
 All four patches (`0001`–`0004`) + `phy-sun55i-dsi-combo.c` apply cleanly and build
 clean (W=1) there with zero source changes — no 6.19→7.1 API churn.
 `CONFIG_DRM_SUN4I/SUN6I_DSI/PHY_SUN6I_MIPI_DPHY/PHY_SUN55I_DSI_COMBO=m`. Checks:

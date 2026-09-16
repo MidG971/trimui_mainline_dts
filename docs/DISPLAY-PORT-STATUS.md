@@ -7,7 +7,38 @@ Live status of the MIPI-DSI display bring-up for the Trimui Smart Pro S (A523 / 
 Background and the decoded panel spec are in [`DISPLAY-NOTES.md`](DISPLAY-NOTES.md);
 this file tracks the *driver port* itself.
 
-## ★★ 2026-08-10 — ON HARDWARE: PHY + TCON + DSI all working; DE33 mixer is the last blocker
+## ★★★ 2026-09 — CURRENT: the panel shows a full-screen image; colour (YUV) + refresh robustness are the open items
+
+Since the 2026-08-10 status below (which had the DE33 mixer as the last blocker), the mixer
+scanout was solved and the panel now displays a **full-screen image on hardware**. Three fixes lit
+it, on top of the PHY/TCON work recorded below:
+
+- **RCQ (Register Config Queue) arm timing.** The A523 DE-v35x latches its DE33 registers via RCQ,
+  and the commit must be *armed in the active region* (the driver was arming in blanking).
+  Direct-MMIO writes only ever hit a shadow that never latched — the real "mixer not feeding a
+  frame" root cause. With `use_rcq` + arm-at-target the RCQ ACCEPTs/FINISHes and the layer latches.
+- **TCON CPU-interface (8080) trigger.** The DSI is driven a frame at a time via the TCON's CPU-IF
+  trigger (stock 720×1280 timing), not a free-running RGB vblank.
+- **DSI1 clock gate (the killer).** The panel is on **DSI1**; the tcon-top clock gate needs
+  **bit 17** (dsi1), not just bit 16 (dsi0). With only bit 16 the DSI FIFO stayed empty → backlight
+  but no image. Opening bits 16|17 fills the FIFO → image.
+
+Follow-up: bypassing a stale device-output CSC cleared the *gross* channel corruption, and
+**thermals/uniformity** were fixed by coupling the TCON/DSI/DISPLL clocks to the stock **62 MHz**
+(an 11 %-fast 69 MHz was over-driving the panel).
+
+**OPEN items (the display is not finished):**
+1. **Colour — a YUV↔RGB conversion in the DE/DSI output path is still wrong.** The DCSC bypass fixed
+   the gross corruption but colour is not yet correct. Suspects: DE output pixel format / FMT_CTL vs
+   the DSI RGB888 packing (dt=0x3E) vs a lingering CSC selecting a YUV matrix.
+2. **Continuous-refresh robustness** — the CPU-interface DSI needs a robust **per-frame retrigger**;
+   the current path can starve (the retrigger leans on an IRQ that genirq can disable).
+3. **Clean upstreaming** — reshape the stack into upstream-acceptable patches, coordinating with the
+   in-flight mainline DE33 rework rather than duplicating it.
+
+The 2026-08 sections below are kept as the debugging record.
+
+## ★★ 2026-08-10 (HISTORICAL — superseded by the current status above) — PHY + TCON + DSI all working; DE33 mixer was then the last blocker
 
 We brought the display up **on real silicon** and cleared every layer except the DE33 mixer.
 **The panel backlight is on**, the combo-PHY DISPLL locks, the TCON pixel clock is exactly 93 MHz,

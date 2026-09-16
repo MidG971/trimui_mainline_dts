@@ -35,7 +35,7 @@ flasher reimages eMMC. A partial/hung update is recovered by the **Reset** butto
 
 ```
 BROM ──128KiB──▶ SPL (DRAM init) ──▶ FIT{ BL31 + U-Boot + DTB } ──▶ BL31(EL3) ──▶ U-Boot ──▶ kernel
-        ✅ boots        ✅ runs on HW          ✅ (with A523 BL31)      ✅ runs      ✅ runs    ❌ not reached
+        ✅ boots        ✅ runs on HW          ✅ (with A523 BL31)      ✅ runs      ✅ runs    ✅ boots to shell
 ```
 
 ### SPL / DRAM — works
@@ -60,7 +60,13 @@ there** — every 128 KiB attempt went black/FEL. Building a real **`sun55i_a523
 BL31 from **jernejsk/arm-trusted-firmware, branch `a523-v4`** and folding it into the
 FIT **got us past the hang — U-Boot now runs.** (This is the single most important fix.)
 
-### U-Boot proper — runs, but its **MMC driver fails on the A523** (current blocker)
+### U-Boot proper — the "MMC driver fails" theory (HISTORICAL — later disproven)
+
+> **RESOLVED:** this theory was wrong. The boot now works end-to-end — mainline boots to a Debian
+> shell from SD. The real fix was **SPL-stage** (DRAM params + FIT sector + FIT offset); the U-Boot
+> MMC driver was never the blocker — boot simply never reached U-Boot cleanly. The text below is
+> the (mistaken) debugging record, kept for context.
+
 With the A523 BL31, U-Boot runs but cannot boot the kernel. Diagnosed **without UART**
 via a "printf-through-SD" trick: a bootcmd that writes a marker byte to an unused SD
 sector at each step (reached-bootcmd / Image-loaded / DTB-loaded / pre-booti). The
@@ -129,8 +135,8 @@ it was only ever useful for the tiny `version`/`sid` probes.
 | SPL + DRAM init | ✅ runs on silicon |
 | 128 KiB SPL→U-Boot sector | ✅ fixed (deterministic + separate SPL/FIT) |
 | A523 BL31 (jernejsk `a523-v4`) | ✅ built — **cleared the BL31 hang** |
-| U-Boot proper | ✅ runs; ❌ **doesn't reach kernel** ← blocker (MMC clock verified OK; suspect init-time probe / BL31→U-Boot handoff — needs UART) |
-| First lit pixel | pending — next: boot via the vendor U-Boot |
+| U-Boot proper | ✅ runs **and boots the kernel** — mainline reaches a Debian shell from SD (real fix = SPL-stage: DRAM params + FIT sector + FIT offset; the U-Boot MMC driver was never the blocker) |
+| First lit pixel | ✅ achieved — the panel shows a full-screen image (colour/YUV + continuous-refresh still open; see [`DISPLAY-PORT-STATUS.md`](DISPLAY-PORT-STATUS.md)) |
 
 **U-Boot tree:** our working tree is rebased onto **current U-Boot mainline** (the merged
 2026.10 A523 base) and pushed to

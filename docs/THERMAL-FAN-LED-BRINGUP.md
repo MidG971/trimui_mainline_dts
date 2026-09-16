@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: (GPL-2.0-only OR MIT) -->
 <!-- Copyright (C) 2026 Midgy BALON -->
 
-# Session 2026-09-11 — THS/fan verified, LED indicator, display root-cause
+# Thermal (THS) + pwm-fan + LED indicator — HW bring-up (2026-09-11)
 
 ## P3/P4 — THS thermal sensors + pwm-fan cooling: HW-VERIFIED
 
@@ -36,7 +36,7 @@ nodes were injected **surgically** into the deployed DTB (decompile → append t
 `trimui-thermal.dtsi` nodes via dtc path-reference syntax → recompile), leaving
 everything else byte-identical. `trimui-thermal.dtsi` remains the source of
 record; it is ready to `#include` from the board DTS once the board DTS and the
-deployed display DTB are reconciled (see the display plan below).
+deployed display DTB are reconciled.
 
 ## LED ring — power-on indicator (`userspace/led-indicator.{sh,service}`)
 The 17-LED WS2812 ring (mainline `sun50i-a100-ledc`, `/sys/class/leds/rgb:indicator-{0..16}`)
@@ -54,7 +54,7 @@ state 0 (idle). The mapping direction (hot → more fan) has **not** been verifi
 on HW yet. Fan-on trip is currently 90 °C; a cooler-running config would start
 it earlier (~60-70 °C). Deferred to a dedicated fan-tuning pass.
 
-## Display — root cause found (only-backlight); resume plan
+## Display — root cause of the only-backlight state (context)
 
 Current state: panel powers up but shows **only backlight**. This is **not** a
 regression from the thermal work — the DTB edit added only THS nodes.
@@ -71,16 +71,5 @@ Root cause: on the build server, the commits **after** the solve commit deleted
 modules were built from that later, **inconsistent** state — `sun8i_tcon_top.ko`
 still exports `set_displl`, but the loaded `sun4i_tcon` no longer invokes the
 gate. The consistent, HW-proven set lives in the solved commit
-(`drm/sun4i: A523 TrimUI Smart Pro S — display bring-up fixes`).
-
-### Plan (resume)
-- **Phase A — restore full-white:** build the display module set from the solved
-  commit (not HEAD), vermagic `7.2.0-rc3-dirty`; deploy the *consistent* set
-  (`sun4i_tcon`, `sun8i_tcon_top`, `sun8i_mixer`) together; cold boot; verify
-  `set_displl` fires → `GATE_SRC=0x00030000`, DSI FIFO fills, panel composites.
-  Keep backlight low and **watch the THS temps** (now that P3/P4 is live) — the
-  thermal reason the display work was paused is now mitigated.
-- **Phase B — clean for mainline:** tidy the a523 tcon-top DSI-gate handling into
-  an upstreamable quirk (`dsi_gate_mask = BIT(16)|BIT(17)`), drop debug prints,
-  coordinate with the H616 DE33 v2 series. `a523_stock_trigger` + the RCQ backend
-  stay BSP-local. Upstream only the clean tcon-top a523 DSI-gate support.
+(`drm/sun4i: A523 TrimUI Smart Pro S — display bring-up fixes`). Current display
+status is tracked in [`DISPLAY-PORT-STATUS.md`](DISPLAY-PORT-STATUS.md).

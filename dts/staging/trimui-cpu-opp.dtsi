@@ -6,7 +6,7 @@
  * now resolved LOCALLY, so this fragment is fully wireable and builds. It stays in
  * staging because CPU DVFS is boot-critical and HW-UNVERIFIED — the CPU-CCU reprograms
  * the cluster PLLs and the OPP voltages are vendor-transcribed; enable + tune on the
- * device ([[hardware-testing-prevails]]). Include it from the board DTS to turn on
+ * device (hardware-testing-prevails). Include it from the board DTS to turn on
  * cpufreq. See docs/CPUPLL-NOTES.md, docs/ON-DEVICE-FINDINGS.md, dts/staging/README.md.
  *
  * UPSTREAM STATUS / why there is no separate "-upstream" rebase of this file

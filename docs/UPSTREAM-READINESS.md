@@ -61,26 +61,7 @@ Warnings still open (out of scope for the structural fix):
 ## Boot chain — TF-A
 
 Re-checked TF-A master: **still no A523/sun55i platform** (`plat/allwinner` has
-only a64, h6, h616, r329). We continue to use the **H616 BL31 stand-in** (fine
-for console/boot; revisit SMP/PSCI specifics on HW). No upstream change.
-
-## Out-of-tree: AIC8800 (WiFi/BT)
-
-Module build against v7.1 not yet exercised on the host (Radxa package V5.0 was
-noted to build on 6.19). TODO: clone + build vs v7.1, stage as DKMS. Tracked
-here so it isn't lost; not on the critical path.
-
-## Action checklist
-
-Mechanical (can be done without HW):
-- [x] Add the PWM binding (`allwinner,sun20i-d1-pwm.yaml`).
-- [x] Regenerate the series as `git format-patch` (fixes the 2 separator errors).
-- [x] Add `Signed-off-by: Midgy BALON` to every patch.
-- [ ] Split binding hunks out of 0001/0004/0008 into dedicated patches.
-- [ ] Fix commit-message wrapping / `#` lines / Kconfig help text.
-
-Author's call (workflow decisions):
-- [ ] Decide submission grouping/order and CC the sunxi + DRM maintainers.
-
-HW-gated (later):
-- [ ] AIC8800 module build/stage; TF-A A523 BL31 (when upstream gains a plat).
+only a64, h6, h616, r329). We use a real **`sun55i_a523` BL31 from Jernej Škrabec's
+`a523-v4` TF-A branch** — this cleared the earlier BL31 hang and is what boots on
+hardware; it is not yet in TF-A mainline. Upstream (or switch to a merged A523 plat)
+when one lands.

@@ -30,16 +30,12 @@ properties:
       - description: Bus/gating clock
       - description: DAC module clock
       - description: ADC module clock
-      - description: PLL-Audio0 4x (48 kHz sample-rate family)
-      - description: PLL-Audio1 div5 (44.1 kHz sample-rate family)
 
   clock-names:
     items:
-      - const: bus
+      - const: apb
       - const: dac
       - const: adc
-      - const: pll-audio0-4x
-      - const: pll-audio1-div5
 
   resets:
     maxItems: 1
@@ -91,7 +87,6 @@ additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/sun55i-a523-ccu.h>
     #include <dt-bindings/clock/sun55i-a523-mcu-ccu.h>
     #include <dt-bindings/reset/sun55i-a523-mcu-ccu.h>
     #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -102,10 +97,8 @@ examples:
         interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>;
         clocks = <&mcu_ccu CLK_BUS_MCU_AUDIO_CODEC>,
                  <&mcu_ccu CLK_MCU_AUDIO_CODEC_DAC>,
-                 <&mcu_ccu CLK_MCU_AUDIO_CODEC_ADC>,
-                 <&ccu CLK_PLL_AUDIO0_4X>,
-                 <&mcu_ccu CLK_MCU_PLL_AUDIO1_DIV5>;
-        clock-names = "bus", "dac", "adc", "pll-audio0-4x", "pll-audio1-div5";
+                 <&mcu_ccu CLK_MCU_AUDIO_CODEC_ADC>;
+        clock-names = "apb", "dac", "adc";
         resets = <&mcu_ccu RST_BUS_MCU_AUDIO_CODEC>;
         dmas = <&mcu_dma 7>, <&mcu_dma 7>;
         dma-names = "tx", "rx";

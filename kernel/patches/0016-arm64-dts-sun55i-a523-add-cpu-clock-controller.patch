@@ -12,6 +12,7 @@ relojes de entrada (hosc/losc/iosc + pll-periph0-600m del CCU principal).
 Todavía sin cablear en cpu@N (validación read-only del reloj primero).
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
 ---
  arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi | 9 +++++++++
  1 file changed, 9 insertions(+)

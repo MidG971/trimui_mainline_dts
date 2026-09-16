@@ -20,6 +20,7 @@ Up / Volume Down all report clean press (INTS=0x03, KEYDOWN) and release
 expected.
 
 Assisted-by: Claude (Opus 4.8)
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
 ---
 diff --git a/drivers/input/keyboard/sun4i-lradc-keys.c b/drivers/input/keyboard/sun4i-lradc-keys.c
 index 5730f08f8..f36045642 100644

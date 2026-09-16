@@ -15,6 +15,7 @@ necesidad. Con CLK_IGNORE_UNUSED se deja tal cual lo dejó el firmware.
 Hallazgo de la auditoría previa al paso en vivo de cpufreq.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
 ---
  drivers/clk/sunxi-ng/ccu-sun55i-a523-cpu.c | 1 +
  1 file changed, 1 insertion(+)

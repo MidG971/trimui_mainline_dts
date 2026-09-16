@@ -32,3 +32,14 @@ vendor-dmesg-*.log
 bringup/
 live.dts
 live.dtb
+
+# editor swap/backup files
+*.kate-swp
+*.swp
+*.swo
+*~
+
+# internal-kitchen: plans / strategy / submission staging (local only)
+docs/UPSTREAM-SUBMISSION-PLAN.md
+docs/COVER-LETTER-board-support.draft.txt
+outgoing-7.3-rc3/

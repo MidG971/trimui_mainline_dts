@@ -1,4 +1,6 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Midgy BALON <midgy971@gmail.com>
+Date: Sat, 12 Sep 2026 00:00:00 +0000
 Subject: [PATCH] mmc: pwrseq_simple: tolerate a missing reset controller
 
 A mmc-pwrseq-simple node with exactly one reset-gpios entry and no "resets"
@@ -10,7 +12,8 @@ power sequence never registers and the SDIO WiFi is never power-sequenced
 
 Treat -ENOENT as "no reset controller" and fall through to the GPIO reset path.
 
-Assisted-by: Claude (Opus 4.8)
+Assisted-by: Claude:claude-opus-4-8 [Claude Code]
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
 ---
 diff --git a/drivers/mmc/core/pwrseq_simple.c b/drivers/mmc/core/pwrseq_simple.c
 index 4b47e6c3b..26bf18fa2 100644

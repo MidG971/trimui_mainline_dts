@@ -17,6 +17,7 @@ Si el registro del NPU esta a 0, conservar la muestra del propio canal
 GPU (ya validada no-cero por el caller) hasta que el NPU tenga dato.
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
 ---
  drivers/thermal/sun8i_thermal.c | 18 ++++++++++++++++--
  1 file changed, 16 insertions(+), 2 deletions(-)

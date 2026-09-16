@@ -21,6 +21,7 @@ polling del marco térmico (polling-delay) en vez de fallar el probe.
 Fuente de verdad: bsp/drivers/thermal/sunxi_thermal.c (BSP Allwinner 5.15).
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
 ---
  drivers/thermal/sun8i_thermal.c | 134 ++++++++++++++++++++++++++++++--
  1 file changed, 127 insertions(+), 7 deletions(-)

@@ -24,6 +24,7 @@ Trimui Smart Pro S (A523): a 440 Hz tone plays out the headphone jack.
 (The built-in speaker is a separate external-amp / board-power matter.)
 
 Assisted-by: Claude (Opus 4.8)
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
 ---
 diff --git a/sound/soc/sunxi/sun4i-codec.c b/sound/soc/sunxi/sun4i-codec.c
 --- a/sound/soc/sunxi/sun4i-codec.c

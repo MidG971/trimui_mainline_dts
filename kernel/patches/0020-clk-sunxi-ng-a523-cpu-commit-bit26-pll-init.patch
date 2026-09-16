@@ -19,6 +19,7 @@ arranca ambos clusters de estos PLL), pero LOCK_EN tiene que estar
 puesto para que las esperas de lock de los cambios de rate funcionen.
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
 ---
  drivers/clk/sunxi-ng/ccu-sun55i-a523-cpu.c | 51 +++++++++++++++++++++-
  1 file changed, 49 insertions(+), 2 deletions(-)

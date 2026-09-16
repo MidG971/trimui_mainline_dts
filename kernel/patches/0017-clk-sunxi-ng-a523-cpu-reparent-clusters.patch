@@ -13,6 +13,7 @@ estable (pll-periph0 @ 600MHz, índice 4) y vuelve al PLL una vez re-bloqueado.
 Prerequisito para cambiar la frecuencia con cpufreq sin colgar los cores.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
 ---
  drivers/clk/sunxi-ng/ccu-sun55i-a523-cpu.c | 48 +++++++++++++++++++++-
  1 file changed, 47 insertions(+), 1 deletion(-)
@@ -72,13 +73,13 @@ index eae54c6fd..9091548dd 100644
 +		return ret;
 +
 +	/* Reparent each cluster while its CPU PLL changes rate, then re-lock. */
++	ccu_pll_notifier_register(&sun55i_a523_pll_cpul_nb);
 +	ccu_mux_notifier_register(pll_cpul_clk.common.hw.clk,
 +				  &sun55i_a523_cpul_nb);
-+	ccu_pll_notifier_register(&sun55i_a523_pll_cpul_nb);
 +
++	ccu_pll_notifier_register(&sun55i_a523_pll_cpub_nb);
 +	ccu_mux_notifier_register(pll_cpub_clk.common.hw.clk,
 +				  &sun55i_a523_cpub_nb);
-+	ccu_pll_notifier_register(&sun55i_a523_pll_cpub_nb);
 +
 +	return 0;
  }

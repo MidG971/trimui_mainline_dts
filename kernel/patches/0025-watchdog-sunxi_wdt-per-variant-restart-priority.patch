@@ -43,7 +43,7 @@ index b6c761acc..7188d01f7 100644
  };
  
  static const struct of_device_id sunxi_wdt_dt_ids[] = {
-@@ -282,7 +289,17 @@ static int sunxi_wdt_probe(struct platform_device *pdev)
+@@ -282,7 +289,16 @@ static int sunxi_wdt_probe(struct platform_device *pdev)
  
  	watchdog_init_timeout(&sunxi_wdt->wdt_dev, timeout, dev);
  	watchdog_set_nowayout(&sunxi_wdt->wdt_dev, nowayout);
@@ -56,9 +56,8 @@ index b6c761acc..7188d01f7 100644
 +	 * 5.15 tambien resetea via watchdog. Los demas SoCs (A64/H3/H6...)
 +	 * conservan el comportamiento vanilla (PSCI gana).
 +	 */
-+	if (sunxi_wdt->wdt_regs->restart_priority)
-+		watchdog_set_restart_priority(&sunxi_wdt->wdt_dev,
-+					      sunxi_wdt->wdt_regs->restart_priority);
++	watchdog_set_restart_priority(&sunxi_wdt->wdt_dev,
++				      sunxi_wdt->wdt_regs->restart_priority ?: 128);
  
  	watchdog_set_drvdata(&sunxi_wdt->wdt_dev, sunxi_wdt);
  

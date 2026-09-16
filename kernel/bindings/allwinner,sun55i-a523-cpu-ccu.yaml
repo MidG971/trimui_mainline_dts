@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/allwinner,sun55i-a523-cpu-ccu.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Allwinner A523 CPU Clock Control Unit
+
+maintainers:
+  - Midgy BALON <midgy971@gmail.com>
+
+description:
+  The Allwinner A523/A527/T527 (sun55iw3) SoCs have a dedicated clock
+  controller for the CPU clusters, separate from the main CCU. It provides
+  the per-cluster CPU PLLs and the multiplexers that switch the cores
+  between those PLLs and the shared oscillators / peripheral PLL.
+
+properties:
+  "#clock-cells":
+    const: 1
+
+  compatible:
+    const: allwinner,sun55i-a523-cpu-ccu
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: High Frequency Oscillator (usually at 24MHz)
+      - description: Low Frequency Oscillator (usually at 32kHz)
+      - description: Internal Oscillator
+      - description: Peripherals PLL 0 (600 MHz output)
+
+  clock-names:
+    items:
+      - const: hosc
+      - const: losc
+      - const: iosc
+      - const: pll-periph0-600m
+
+required:
+  - "#clock-cells"
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/sun55i-a523-ccu.h>
+
+    clock-controller@8817000 {
+        compatible = "allwinner,sun55i-a523-cpu-ccu";
+        reg = <0x08817000 0x4000>;
+        clocks = <&osc24M>, <&osc32k>, <&iosc>, <&ccu CLK_PLL_PERIPH0_600M>;
+        clock-names = "hosc", "losc", "iosc", "pll-periph0-600m";
+        #clock-cells = <1>;
+    };
+
+...

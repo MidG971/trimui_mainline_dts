@@ -19,6 +19,7 @@ y los notifiers glitch-free llegan con cpufreq.
 Portado del driver del BSP (ccu-sun55iw3-displl.c).
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
 ---
  drivers/clk/sunxi-ng/Kconfig                  |   5 +
  drivers/clk/sunxi-ng/Makefile                 |   2 +

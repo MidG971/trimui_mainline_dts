@@ -23,6 +23,7 @@ bajo el spinlock (poll atómico), antes de esperar el lock. Solo afecta
 a relojes que declaren la feature; el resto de SoCs no cambian.
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
 ---
  drivers/clk/sunxi-ng/ccu_common.c | 24 ++++++++++++++++++++++++
  drivers/clk/sunxi-ng/ccu_common.h |  3 +++

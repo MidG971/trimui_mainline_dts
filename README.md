@@ -18,8 +18,10 @@ Mainline Linux bring-up for the **Trimui Smart Pro S** retro-gaming handheld
 > ## ⚠️ Experimental — use at your own risk
 > This is an **active bring-up effort**, not production firmware. It now **boots mainline
 > Linux to a shell on real hardware** with **WiFi + Bluetooth, storage, PMIC/battery, USB2 host,
-> the GPU, and the input/audio/peripheral subsystems working**, but the **display** is **not yet
-> validated** (backlight on, scanout WIP) and the device tree may still be wrong. Flashing or FEL-booting
+> the GPU, and the input/audio/peripheral subsystems working**, and the **display pipeline now
+> lights the panel on hardware** (a full-screen image at the stock 62 MHz) — though it is **not yet
+> robust or upstream-clean**: colour still has a **YUV↔RGB** conversion to resolve, plus
+> continuous-refresh hardening + submission, and the device tree may still change. Flashing or FEL-booting
 > custom firmware **can permanently brick your
 > device**, corrupt data, or damage hardware. **No warranty, no liability — you use
 > this entirely at your own risk.** Back up your stock firmware first. Booting from
@@ -87,20 +89,27 @@ bugs were cracked to get there:
   Disabling `tcon_tv0` (no HDMI on this handheld) + pinning `tcon-ch0` to 372 MHz fixes it — dclk
   is now exactly 93 MHz. *(HW-verified; committed.)*
 
-**The pipeline now runs end-to-end.** An A523-specific **continuous-TCON vblank rework** — the DSI
-drives the TCON like an RGB panel with a *free-running* vblank, instead of the 8080 CPU-interface
-per-frame trigger that never completes on this SoC — got the CRTC vblank firing at 60 Hz and every
-atomic commit completing (no more `flip_done` timeouts). Two more DSI-path fixes went in alongside:
-the tcon-top `PORT_SEL` mixer→TCON routing (the DSI case never programmed it) and the tcon-top DSI
-datapath gate. The **one remaining blocker** is now the **DE33 mixer's continuous streaming**: the
-DSI transmits ~one line then starves for data (its `video_curr_line` counter freezes at 1), so the
-panel shows backlight but no image yet — the mixer→TCON data feed is the last thing standing. The
-root cause is now pinned: the **A523 DE-v35x needs an RCQ (Register Config Queue) commit**, while our
-`sun8i_mixer` writes the DE33 registers by direct MMIO — they land in a shadow that never latches. The
-fix is to harvest the HW-proven **RCQ backend** from the ut-slayer / OrangePi-4A effort (foundation
-committed under [`kernel/harvest-sun55i-de/`](kernel/harvest-sun55i-de)); the IOMMU is **not** involved
-(our DE runs on CMA). Details:
-[`docs/DISPLAY-PORT-STATUS.md`](docs/DISPLAY-PORT-STATUS.md).
+**The pipeline now runs end-to-end — the panel displays a full-screen image on silicon.** An
+A523-specific **continuous-TCON vblank rework** got the CRTC vblank firing and every atomic commit
+completing (no more `flip_done` timeouts), and three further fixes lit the panel:
+
+- the **RCQ (Register Config Queue) arm timing** — the A523 DE-v35x latches its DE33 registers via
+  RCQ, which must be kicked in the *active* region; direct-MMIO writes only ever hit a shadow that
+  never latched;
+- the **TCON CPU-interface (8080) trigger** that drives the DSI a frame at a time; and
+- the killer, the **DSI1 clock gate** in the TCON-top — this panel is on **DSI1** (gate bit 17), not
+  DSI0, so with only bit 16 set the DSI FIFO stayed empty.
+
+With those, the panel shows a full-screen image; follow-up work fixed the **thermals + uniformity**
+by coupling the TCON / DSI / DISPLL clocks down to the stock **62 MHz** (an 11 %-fast 69 MHz was
+over-driving the panel), and bypassing a stale device-output CSC cleared the gross channel corruption.
+But the **colour is still not right**: a residual **YUV↔RGB** conversion in the DE/DSI output path
+remains to be sorted out.
+
+**What's left on the display is colour, robustness, and upstreaming — not first pixels:** the
+**YUV↔RGB colour** conversion, hardening the CPU-interface DSI's **per-frame retrigger** for reliable
+continuous refresh, and reshaping the stack into clean, upstream-acceptable patches — coordinating
+with the in-flight mainline DE33 work rather than duplicating it.
 
 The full boot journey + the SPL fixes are in
 [`docs/BOOT-AND-FEL-NOTES.md`](docs/BOOT-AND-FEL-NOTES.md); the captured first boot to a shell

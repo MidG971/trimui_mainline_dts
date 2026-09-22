@@ -32,9 +32,22 @@ Follow-up: bypassing a stale device-output CSC cleared the *gross* channel corru
    the gross corruption but colour is not yet correct. Suspects: DE output pixel format / FMT_CTL vs
    the DSI RGB888 packing (dt=0x3E) vs a lingering CSC selecting a YUV matrix.
 2. **Continuous-refresh robustness** — the CPU-interface DSI needs a robust **per-frame retrigger**;
-   the current path can starve (the retrigger leans on an IRQ that genirq can disable).
+   the current path can starve (the retrigger leans on an IRQ that genirq can disable). Closely tied
+   to item 2b below.
+   - **2b. Keep the CRTC/mixer active.** On the bring-up rootfs the framebuffer console blanks
+     (`fb0 blank=4`) ~10 s after boot and the DE mixer power-gates (`mixerGLB=0`); with no getty /
+     no DRM client driving frames, nothing re-composits. It cannot be re-enabled at runtime here
+     (`modetest` segfaults, `FBIOBLANK` unblank → EBUSY, sysfs blank write ignored, `/dev/fb0` writes
+     land in the fbdev buffer but the gated mixer never scans them). Needs a driver fix to hold the
+     CRTC active (or a working DRM modeset client), not a runtime poke.
 3. **Clean upstreaming** — reshape the stack into upstream-acceptable patches, coordinating with the
    in-flight mainline DE33 rework rather than duplicating it.
+
+**2026-09-22 (replacement board):** the DSI1-gate fix was re-confirmed on fresh hardware — the
+deployed tcon_top was the pre-gate build (`GATE_SRC=0`, backlight only); swapping in the gate-in-probe
+build gave `GATE_SRC=0x00030000` (bits 16|17 open), tcon-top bound, DISPLL locked, across reboots.
+Remaining to a sustained visible image = item 2/2b above + deploying the 62 MHz set for colour (the
+board currently boots the 69 MHz config).
 
 The 2026-08 sections below are kept as the debugging record.
 

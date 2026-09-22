@@ -63,6 +63,13 @@ it fully alive. The device now runs **headless** — a Debian rootfs auto-connec
 **Tailscale** on boot (a `fake-hwclock` fixes the no-persistent-RTC clock that otherwise breaks TLS),
 so it's reachable over the network without the UART. *(Fix committed: `29f4eee`.)*
 
+**Warm reboot (fixed on hardware).** `reboot` used to freeze the SoC — the watchdog/PSCI resets
+return to the SPL, which then hangs re-training warm DRAM, so cold power-cycling was the only way
+back. The AXP717/AXP2202 PMIC can power-cycle the whole system (write `SOFT_PWROFF` reg `0x27`
+bit 1 → PMU off then on), which unpowers DRAM for a clean cold training. A `mfd: axp20x` restart
+handler (registered above the watchdog/PSCI) makes `reboot` use it; proven on hardware — the device
+reboots and returns on its own. *(patch `kernel/patches/0036`.)*
+
 **Inputs, audio & the side-board peripherals (latest).** A cluster of subsystems came up on hardware,
 most unblocked by one discovery: **PK15 is the side-board +5 V master enable** — a single load-switch gate
 feeding the two gamepad MCUs, the WS2812 RGB ring and the fan (never "board-blocked", just un-gated).

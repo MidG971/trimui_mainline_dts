@@ -1,0 +1,87 @@
+From 4f3f33bf542490e2ed33b5c8aeb0f166ee79b757 Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Thu, 17 Sep 2026 01:48:32 +0200
+Subject: [PATCH] mfd: axp20x: restart the AXP717 via SOFT_PWROFF[1]
+
+The AXP717/AXP2202 can power-cycle the whole system: writing SOFT_PWROFF
+(0x27) bit 1 makes the PMU power off and then power on again (VRTC stays
+up), per the AXP717/AXP717C datasheet. Register a restart handler that
+uses it, at SYS_OFF_PRIO_FIRMWARE so it is preferred over the watchdog and
+PSCI restart handlers.
+
+On the A523 a true PMIC power-cycle is the dependable reboot path: the
+watchdog and PSCI resets return the SoC to the SPL, which then hangs
+re-training warm DRAM; unpowering DRAM via the PMIC avoids that.
+
+Assisted-by: Claude:claude-opus-4-8 [Claude Code]
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ drivers/mfd/axp20x.c       | 31 +++++++++++++++++++++++++++++++
+ include/linux/mfd/axp20x.h |  1 +
+ 2 files changed, 32 insertions(+)
+
+diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
+index 69c195f2a..1c55b2a14 100644
+--- a/drivers/mfd/axp20x.c
++++ b/drivers/mfd/axp20x.c
+@@ -1273,6 +1273,26 @@ static int axp20x_power_off(struct sys_off_data *data)
+ 	return NOTIFY_DONE;
+ }
+ 
++static int axp717_restart(struct sys_off_data *data)
++{
++	struct axp20x_dev *axp20x = data->cb_data;
++
++	/*
++	 * The AXP717/AXP2202 can power-cycle the whole system: writing
++	 * SOFT_PWROFF (0x27) bit 1 makes the PMU power off and then power on
++	 * again (VRTC stays up), per the AXP717/AXP717C datasheet. A true PMIC
++	 * power-cycle is the reliable restart on the A523: the watchdog/PSCI
++	 * resets return the SoC to the SPL, which then hangs re-training warm
++	 * DRAM; unpowering DRAM via the PMIC avoids that.
++	 */
++	regmap_set_bits(axp20x->regmap, AXP717_SOFT_PWROFF,
++			AXP717_SOFT_PWROFF_RESTART);
++
++	mdelay(500);
++
++	return NOTIFY_DONE;
++}
++
+ int axp20x_match_device(struct axp20x_dev *axp20x)
+ {
+ 	struct device *dev = axp20x->dev;
+@@ -1473,6 +1493,17 @@ int axp20x_device_probe(struct axp20x_dev *axp20x)
+ 	if (axp20x->variant != AXP288_ID)
+ 		devm_register_power_off_handler(axp20x->dev, axp20x_power_off, axp20x);
+ 
++	/*
++	 * Prefer a PMIC power-cycle for restart on the AXP717 (see
++	 * axp717_restart): register at SYS_OFF_PRIO_FIRMWARE so it runs before
++	 * the watchdog and PSCI restart handlers, which hang the SPL on warm
++	 * DRAM on the A523.
++	 */
++	if (axp20x->variant == AXP717_ID)
++		devm_register_sys_off_handler(axp20x->dev, SYS_OFF_MODE_RESTART,
++					      SYS_OFF_PRIO_FIRMWARE,
++					      axp717_restart, axp20x);
++
+ 	dev_info(axp20x->dev, "AXP20X driver loaded\n");
+ 
+ 	return 0;
+diff --git a/include/linux/mfd/axp20x.h b/include/linux/mfd/axp20x.h
+index e8901b745..d9bb8f199 100644
+--- a/include/linux/mfd/axp20x.h
++++ b/include/linux/mfd/axp20x.h
+@@ -129,6 +129,7 @@ enum axp20x_variants {
+ #define AXP717_VSYS_V_POWEROFF		0x24
+ #define AXP717_SOFT_PWROFF		0x27
+ #define AXP717_SOFT_PWROFF_EN		BIT(0)
++#define AXP717_SOFT_PWROFF_RESTART	BIT(1)
+ #define AXP717_IRQ0_EN			0x40
+ #define AXP717_IRQ1_EN			0x41
+ #define AXP717_IRQ2_EN			0x42
+
+-- 
+2.39.5
+

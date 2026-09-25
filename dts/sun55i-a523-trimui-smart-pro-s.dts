@@ -48,6 +48,23 @@
 	};
 
 	/*
+	 * Fn switch — a 2-position slide switch on PL11 (the vendor's "dip-switch",
+	 * gpio363; trimui_inputd reads it). Drives both levels cleanly: reads 1 in
+	 * one position, 0 in the other (HW-verified 2026-09-25). Reported as KEY_FN,
+	 * asserted in the low position. (Home/Vol± are LRADC side-keys; power is the
+	 * AXP717 PEK — neither is here.)
+	 */
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		fn-switch {
+			label = "Fn Switch";
+			linux,code = <KEY_FN>;
+			gpios = <&r_pio 0 11 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	/*
 	 * LiPo pack, 5000 mAh. Values from the vendor DTB: battery-cap 0x1388 =
 	 * 5000 mAh, init-chgvol 0x1068 = 4.2 V CV, runtime-chgcur 0x3e8 = 1 A
 	 * (the vendor bumps to ~1.95 A in suspend/shutdown). The AXP717 has a

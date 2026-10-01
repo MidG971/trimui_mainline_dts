@@ -50,9 +50,9 @@
 	/*
 	 * Fn switch — a 2-position slide switch on PL11 (the vendor's "dip-switch",
 	 * gpio363; trimui_inputd reads it). Drives both levels cleanly: reads 1 in
-	 * one position, 0 in the other (HW-verified 2026-09-25). Reported as KEY_FN,
-	 * asserted in the low position. (Home/Vol± are LRADC side-keys; power is the
-	 * AXP717 PEK — neither is here.)
+	 * one position, 0 in the other (HW-verified 2026-09-25 via MMIO). Reported
+	 * as KEY_FN, asserted in the low position. (Home/Vol± are LRADC side-keys;
+	 * power is the AXP717 PEK — neither is here.)
 	 */
 	gpio-keys {
 		compatible = "gpio-keys";

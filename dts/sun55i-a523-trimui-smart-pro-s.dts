@@ -380,7 +380,12 @@
 			};
 
 			reg_cldo4: cldo4 {
-				/* VERIFY connection */
+				/* panel power0: vendor live dump = 3.3V (05-regulators.txt,
+				 * ON-DEVICE-FINDINGS). Was UNCONSTRAINED -> panel power0 at an
+				 * undefined voltage (thermal-suspect for the hot display IC). */
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-name = "panel-power0-3v3";
 			};
 
 			reg_cpusldo: cpusldo {

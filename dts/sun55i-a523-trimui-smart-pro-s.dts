@@ -548,8 +548,15 @@
 
 /* USB */
 &usb_otg {
-	dr_mode = "otg";	/* external "usb/dp" USB-C port */
-	usb-role-switch;	/* host/device role driven by the husb311 Type-C PD controller */
+	/*
+	 * The external "usb/dp" USB-C is the DATA/host port (charging + DP-altmode
+	 * video are on the SECOND USB-C). Force HOST: the port always enumerates
+	 * USB devices (keyboard/mouse/storage/hub) and never acts as a gadget.
+	 * (Was dr_mode="otg" + usb-role-switch, but the husb311 Type-C PD fails to
+	 * probe on HW so the role-switch never fired -> host was stuck/flaky.
+	 * Forcing host removes that dependency; husb311 is kept for future PD/DP.)
+	 */
+	dr_mode = "host";
 	status = "okay";
 
 	port {
@@ -560,7 +567,13 @@
 };
 
 &usbphy {
-	/* VERIFY id/vbus detect GPIOs + drivevbus from PMIC on hardware. */
+	/*
+	 * Source VBUS for host mode from the always-on AXP2202 5V boost (the board
+	 * routes it to the OTG VBUS; mainline has no AXP717 drivevbus regulator).
+	 * Without a real supply the phy logs "dummy supplies not allowed for
+	 * exclusive requests (id=vbus)" and host VBUS is marginal.
+	 */
+	usb0_vbus-supply = <&reg_boost>;
 	status = "okay";
 };
 

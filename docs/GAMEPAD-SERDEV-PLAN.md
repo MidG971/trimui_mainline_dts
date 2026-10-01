@@ -17,8 +17,8 @@ Add a serdev child to each so the driver binds:
 	pinctrl-0 = <&uart5_pk17_pin>;
 	status = "okay";
 
-	gamepad_uart5: gamepad {
-		compatible = "trimui,smart-pro-s-gamepad-uart5";
+	gamepad_left: gamepad {
+		compatible = "trimui,smart-pro-s-gamepad-left";
 		current-speed = <19200>;
 	};
 };
@@ -28,12 +28,15 @@ Add a serdev child to each so the driver binds:
 	pinctrl-0 = <&uart7_pk13_pin>;
 	status = "okay";
 
-	gamepad_uart7: gamepad {
-		compatible = "trimui,smart-pro-s-gamepad-uart7";
+	gamepad_right: gamepad {
+		compatible = "trimui,smart-pro-s-gamepad-right";
 		current-speed = <19200>;
 	};
 };
 ```
+(These nodes are now in the canonical board DTS. The compatibles were changed from
+`-uart5`/`-uart7` to `-left`/`-right` so they describe the MCU's function, not the
+wiring — the node already lives under the right UART controller.)
 Notes:
 - A serdev child has **no `reg`** (single device on the wire) and makes the port a serdev bus —
   **`/dev/ttyAS5` and `/dev/ttyAS7` disappear** once the driver binds. That's expected.
@@ -80,8 +83,20 @@ Everything marked `TODO(protocol-map)` in the driver comes from the capture anal
 4. **Build (needs compile server or laptop kit):** add the Kconfig/Makefile, build the module,
    deploy. Until filled, the driver frame-syncs and logs only (reports no events) — safe to load.
 
-## Single-pad merge (final driver, not the skeleton)
-The skeleton registers one input device per MCU. For the shipping driver, expose ONE pad: share a
-single `input_dev` between the two serdev instances (e.g. a phandle from one node to the other, or
-a small parent binding), so userspace sees a single controller like the vendor's Xbox360 uinput pad.
-Decide the exact mechanism once the per-UART control split is known from the capture.
+## Single-pad merge — DONE (2026-10-01)
+The driver is no longer a skeleton. The two serdev instances share ONE `input_dev`
+("TRIMUI Player1", BUS_USB 045e:028e) via a kref'd module-level singleton: the first
+to probe builds + registers the pad, the second reuses it, and it is torn down when
+the last instance unbinds. (A DT phandle linking the two nodes was the alternative,
+but serdev nodes must be children of their UART controllers so they cannot share a
+DT parent; the singleton keeps the binding trivial since there is exactly one pad.)
+
+Mapping matches the verified stock/daemon contract (docs/GAMEPAD-STOCK-GOAL.md):
+D-pad → `ABS_HAT0X/Y` (−1/0/+1); L2/R2 → `ABS_Z/RZ` (digital 0/255); sticks →
+`±32767` with per-axis calibration, a 10% deadzone (integer-scaled, no kernel FP),
+and Y inverted (Xbox up = negative). FF/rumble is NOT yet wired (follow-up — stock
+routes `FF_RUMBLE` to the pwm-vibrator; in-kernel this needs a cross-device forward).
+
+Build (out-of-tree against the 7.2-rc3 tree, vermagic `7.2.0-rc3-dirty`):
+`make -C <kernel> M=<dir> ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules`.
+Built `.ko` staged at `kernel/modules/gamepad-trimui-smart-pro-s.ko`.

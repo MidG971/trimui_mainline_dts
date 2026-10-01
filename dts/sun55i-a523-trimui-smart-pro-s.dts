@@ -154,22 +154,16 @@
 	};
 
 	/* Vendor drives PH12 ("rumble motor") low at boot, high while rumbling.
-	 * Model it as the pwm-vibrator vcc-supply so the driver powers the motor
-	 * only during playback (regulator_enable on start / disable on stop).
+	 * Model it as the motor's vcc-supply so the driver powers the motor only
+	 * during playback (regulator_enable on start / disable on stop). The
+	 * supply is consumed by the gamepad LEFT node (vcc-supply), which owns
+	 * the rumble motor and exposes it as FF_RUMBLE on the pad.
 	 * HW-verified: motor buzzes with PH12 as vcc + PWM0 ch7 (PK23). */
 	reg_vibra_pwr: regulator-vibra-pwr {
 		compatible = "regulator-fixed";
 		regulator-name = "vibra-pwr";
 		gpio = <&pio 7 12 GPIO_ACTIVE_HIGH>;	/* PH12 */
 		enable-active-high;
-	};
-
-	/* Haptic motor on PWM0 channel 7 (vendor: 50 us period, normal). */
-	vibrator {
-		compatible = "pwm-vibrator";
-		pwms = <&pwm0 7 50000 0>;
-		pwm-names = "enable";
-		vcc-supply = <&reg_vibra_pwr>;
 	};
 
 	/*
@@ -208,22 +202,45 @@
 };
 
 /*
- * Gamepad MCU serial links (RX-only, single wire each): uart5 = PK17,
- * uart7 = PK13. Two MCUs stream the whole pad (D-pad/ABXY/L-R/L2-R2/sticks/
- * L3-R3/rumble), read by trimui_inputd (interim) or a serdev input driver.
- * NB: on HW the MCUs currently stream nothing (board-level power/enable still
- * unresolved); the UART side is wired correctly so this stays ready.
+ * Gamepad MCU serial links (RX-only, single wire each): uart5 = PK17 (LEFT half),
+ * uart7 = PK13 (RIGHT half). Two 19200-baud MCUs stream the whole pad
+ * (D-pad/ABXY/L-R/L2-R2/sticks/L3-R3/rumble); each fills its own half of the
+ * frame. The gamepad-trimui-smart-pro-s serdev driver binds both child nodes and
+ * merges them into one virtual Xbox 360 pad (045e:028e "TRIMUI Player1"), as the
+ * vendor trimui_inputd daemon did. Once the driver binds, /dev/ttyASx for these
+ * ports disappear (they become serdev buses) — that is expected.
+ * Verified on HW 2026-08-18: MCUs stream after the PK15 side-board +5V enable.
  */
 &uart5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart5_pk17_pin>;
 	status = "okay";
+
+	gamepad_left: gamepad {
+		compatible = "trimui,smart-pro-s-gamepad-left";
+		current-speed = <19200>;
+
+		/*
+		 * The rumble motor belongs to the pad: the gamepad driver
+		 * exposes FF_RUMBLE on the merged input device and drives this
+		 * PWM (+ GPIO-gated supply) directly. Modelled on the vendor
+		 * pwm-vibrator (PWM0 ch7, 50 us period; PH12 gates the motor
+		 * supply). The LEFT node owns it; there is one motor.
+		 */
+		pwms = <&pwm0 7 50000 0>;
+		vcc-supply = <&reg_vibra_pwr>;
+	};
 };
 
 &uart7 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart7_pk13_pin>;
 	status = "okay";
+
+	gamepad_right: gamepad {
+		compatible = "trimui,smart-pro-s-gamepad-right";
+		current-speed = <19200>;
+	};
 };
 
 /*

@@ -167,6 +167,23 @@
 	};
 
 	/*
+	 * VBUS switch for the "USB host" USB-C port (the plain host port, not the
+	 * OTG/DP one). Drives the port's 5V; gated by the USB PHY for host port 1
+	 * (ehci1/ohci1 = phys=<&usbphy 1>). HW-verified: a USB2 hub + keyboard
+	 * enumerate on ehci1. The vendor keeps this rail always-on; here the phy
+	 * enables it when the host port powers up.
+	 */
+	reg_usb1_vbus: regulator-usb1-vbus {
+		compatible = "regulator-fixed";
+		regulator-name = "usb1-vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-enable-ramp-delay = <1000>;
+		gpio = <&pio 4 6 GPIO_ACTIVE_HIGH>;	/* PE6 */
+		enable-active-high;
+	};
+
+	/*
 	 * AIC8800 WiFi power/reset sequencing for the mmc1 SDIO bus. The vendor
 	 * sunxi-rfkill node drives THREE enables to bring the chip out of reset;
 	 * driving only wlan_regon leaves it silent to CMD5 (HW-verified). All on
@@ -579,6 +596,8 @@
 	 * exclusive requests (id=vbus)" and host VBUS is marginal.
 	 */
 	usb0_vbus-supply = <&reg_boost>;
+	/* Host port 1 ("USB host" USB-C) VBUS switch on PE6 (HW-verified). */
+	usb1_vbus-supply = <&reg_usb1_vbus>;
 	status = "okay";
 };
 

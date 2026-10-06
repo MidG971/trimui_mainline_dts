@@ -45,22 +45,41 @@ Notes:
   the current tty DT, then add these nodes to switch to the driver. Keep the two states separate
   (e.g. a `-capture`/`-serdev` overlay) while iterating.
 
-## Kconfig / Makefile
-`drivers/input/joystick/Kconfig` (or wherever it lands upstream):
+## Kconfig / Makefile — FINAL (in-tree build-validated 2026-10-06)
+Upstream home: **`drivers/input/joystick/gamepad-trimui-smart-pro-s.c`**.
+
+`drivers/input/joystick/Kconfig` (inside the `if INPUT_JOYSTICK` block, before `endif`):
 ```
 config JOYSTICK_TRIMUI_SMART_PRO_S
-	tristate "Trimui Smart Pro S gamepad (serdev)"
+	tristate "Trimui Smart Pro S gamepad"
 	depends on SERIAL_DEV_BUS
-	select INPUT
+	select INPUT_FF_MEMLESS
 	help
-	  Serdev input driver for the two 19200-baud gamepad MCUs on the
-	  Trimui Smart Pro S (uart5/uart7).
+	  Say Y here to enable support for the gamepad on the Trimui Smart Pro S
+	  handheld (Allwinner A523). Two RX-only serial microcontrollers (one per
+	  half of the pad) are merged into a single virtual gamepad, with rumble
+	  force-feedback on an integrated PWM motor.
+
+	  To compile this driver as a module, choose M here; the module will be
+	  called gamepad-trimui-smart-pro-s.
 ```
-Makefile:
+`drivers/input/joystick/Makefile`:
 ```
-obj-$(CONFIG_JOYSTICK_TRIMUI_SMART_PRO_S) += gamepad-trimui-smart-pro-s.o
+obj-$(CONFIG_JOYSTICK_TRIMUI_SMART_PRO_S)	+= gamepad-trimui-smart-pro-s.o
 ```
-Also ensure `CONFIG_SERIAL_DEV_BUS=y` and `CONFIG_SERIAL_DEV_CTRL_TTYPORT=y` in the kernel config.
+- `select INPUT_FF_MEMLESS` is required for the FF_RUMBLE path (`input_ff_create_memless`).
+- PWM + regulator are used for rumble but handled gracefully if absent (no hard Kconfig dep).
+- Also ensure `CONFIG_SERIAL_DEV_BUS=y` + `CONFIG_SERIAL_DEV_CTRL_TTYPORT=y`.
+- **Validated:** `make olddefconfig` makes the symbol reachable (auto-selects INPUT_FF_MEMLESS)
+  and the module builds in-tree (vermagic 7.2.0-rc3-dirty) on the laptop local-build tree.
+
+## DT binding
+`kernel/bindings/trimui,smart-pro-s-gamepad.yaml` (upstream:
+`Documentation/devicetree/bindings/input/trimui,smart-pro-s-gamepad.yaml`). Two compatibles
+(`-left`/`-right`), `current-speed` const 19200, and `pwms` + `vcc-supply` gated to the LEFT
+(rumble-motor) node via an `allOf`/`if`. YAML parses clean; **`dt_binding_check` still TODO**
+(needs the `dtschema` python package — not installable on the laptop today; run on the build
+server or a dtschema-equipped host).
 
 ## Fill-in workflow (what makes the skeleton real)
 Everything marked `TODO(protocol-map)` in the driver comes from the capture analysis:

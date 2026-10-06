@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/input/trimui,smart-pro-s-gamepad.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Trimui Smart Pro S gamepad
+
+maintainers:
+  - Midgy BALON <midgy971@gmail.com>
+
+description: >
+  The gamepad on the Trimui Smart Pro S handheld (Allwinner A523) is driven by
+  two RX-only microcontrollers, one per half of the pad, each streaming a fixed
+  19200-baud 8N1 frame over its own UART. The LEFT MCU carries the D-pad,
+  L1/L2/L3, the Menu/Guide button and the left stick; the RIGHT MCU carries
+  A/B/X/Y, Select/Start, R1/R2/R3 and the right stick. The driver binds both
+  serial devices and merges them into a single virtual gamepad input device.
+
+  Each node is a serial device (a child of its UART controller, with no "reg").
+  The LEFT node additionally owns the pad's rumble motor, exposed as FF_RUMBLE
+  and driven by a PWM whose supply is gated by a regulator.
+
+properties:
+  compatible:
+    enum:
+      - trimui,smart-pro-s-gamepad-left
+      - trimui,smart-pro-s-gamepad-right
+
+  current-speed:
+    const: 19200
+
+  pwms:
+    maxItems: 1
+    description: PWM driving the rumble motor. LEFT node only.
+
+  vcc-supply:
+    description:
+      Regulator supplying the rumble motor, enabled only during playback.
+      LEFT node only.
+
+required:
+  - compatible
+  - current-speed
+
+allOf:
+  # Only the LEFT MCU node carries the rumble motor.
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: trimui,smart-pro-s-gamepad-right
+    then:
+      properties:
+        pwms: false
+        vcc-supply: false
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/pwm/pwm.h>
+
+    serial {
+        gamepad {
+            compatible = "trimui,smart-pro-s-gamepad-left";
+            current-speed = <19200>;
+            pwms = <&pwm0 7 50000 0>;
+            vcc-supply = <&reg_vibra_pwr>;
+        };
+    };
+
+  - |
+    serial {
+        gamepad {
+            compatible = "trimui,smart-pro-s-gamepad-right";
+            current-speed = <19200>;
+        };
+    };

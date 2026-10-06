@@ -1,0 +1,11 @@
+[Unit]
+Description=TrimUI power button daemon (tap=sleep, hold=poweroff)
+After=local-fs.target
+
+[Service]
+ExecStart=/usr/local/bin/power-btn-daemon.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

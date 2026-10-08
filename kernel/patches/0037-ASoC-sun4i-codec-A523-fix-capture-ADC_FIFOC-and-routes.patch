@@ -1,0 +1,166 @@
+From: Midgy BALON <midgy971@gmail.com>
+Subject: [PATCH] ASoC: sun4i-codec: A523 fix capture (ADC_FIFOC layout + routes)
+
+Chen-Yu's A523 capture WIP added the DAPM widgets and dropped
+playback_only, but kept the generic sun4i ADC_FIFOC register layout and
+left the ADC digital-enable and mic-bias paths unrouted, so arecord
+returned -EIO immediately (0 frames): the RX DRQ was never enabled and
+the ADCs / MBIAS never powered on.
+
+Three fixes, all gated to the A523 via a new sun4i_codec_is_a523()
+helper so other SoCs are untouched:
+
+1. A523 AC_ADC_FIFOC (0x30) bit layout. The sun55i ADC_FIFO_CTL differs
+   from the sun4i/sun6i ADC_FIFOC: ADC_DRQ_EN is bit 3 (not 4 - the
+   sun4i bit 4 lands inside the A523 RX trigger-level field, so DRQ was
+   never set = the EIO), RX trigger level is at bit 4, RX sample bits at
+   bit 16, the digital enable (EN_AD equivalent) at bit 28, and there is
+   no MONO_EN. Add SUN55I_CODEC_ADC_FIFOC_* macros and select the A523
+   bit positions in start/stop_capture (DRQ), prepare_capture (trigger)
+   and hw_params_capture (sample bits, skip MONO_EN). Point the "ADC
+   Enable" supply widget at SUN55I_CODEC_ADC_FIFOC / ADC_DIG_EN (it was
+   still on the SUN6I FIFOC register = 0x10, the DAC FIFOC on A523).
+
+2. Route each ADC to its digital enable. The table chained
+   "ADCn Enable" -> "ADC Enable" and "ADCn" -> "MicN PGA" but nothing
+   linked "ADCn" -> "ADCn Enable", so capturing powered only the analog
+   ADC and never the per-channel digital enables (ADC_DIG_CTRL 0x50).
+   Add the three routes.
+
+3. Route the mic PGAs to MBIAS. The MBIAS supply (MICBIAS_AN_CTL 0x318
+   bit 7) existed but was unrouted, so the main mic bias was never
+   powered. Add "MicN PGA" -> "MBIAS".
+
+With all three, arecord captures real audio on the A523; acoustic
+capture confirmed on a Trimui Smart Pro S (internal mic on MIC1/ADC1).
+
+Assisted-by: Claude (Opus 4.8)
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ sound/soc/sunxi/sun4i-codec.c | 50 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+), 15 deletions(-)
+
+diff --git a/sound/soc/sunxi/sun4i-codec.c b/sound/soc/sunxi/sun4i-codec.c
+--- a/sound/soc/sunxi/sun4i-codec.c
++++ b/sound/soc/sunxi/sun4i-codec.c
+@@ -334,6 +334,13 @@
+ #define SUN55I_CODEC_ADC_DIG_CTRL_ADC1_EN	(0)
+ #define SUN55I_CODEC_ADC_DIG_CTRL_ADC2_EN	(1)
+ #define SUN55I_CODEC_ADC_DIG_CTRL_ADC3_EN	(2)
++#define SUN55I_CODEC_ADC_FIFOC_ADC_FS		(29)
++#define SUN55I_CODEC_ADC_FIFOC_ADC_DIG_EN	(28)
++#define SUN55I_CODEC_ADC_FIFOC_RX_FIFO_MODE	(24)
++#define SUN55I_CODEC_ADC_FIFOC_RX_SAMPLE_BITS	(16)
++#define SUN55I_CODEC_ADC_FIFOC_RX_TRIG_LEVEL	(4)
++#define SUN55I_CODEC_ADC_FIFOC_ADC_DRQ_EN	(3)
++#define SUN55I_CODEC_ADC_FIFOC_FIFO_FLUSH	(0)
+ 
+ #define SUN55I_CODEC_ADC1		(0x300)
+ #define SUN55I_CODEC_ADC1_ADC1EN		(31)
+@@ -399,18 +406,24 @@
+ 				BIT(SUN4I_CODEC_DAC_FIFOC_DAC_DRQ_EN));
+ }
+ 
++static bool sun4i_codec_is_a523(struct sun4i_codec *scodec)
++{
++	return of_device_is_compatible(scodec->dev->of_node,
++				       "allwinner,sun55i-a523-codec");
++}
++
+ static void sun4i_codec_start_capture(struct sun4i_codec *scodec)
+ {
+ 	/* Enable ADC DRQ */
+ 	regmap_field_set_bits(scodec->reg_adc_fifoc,
+-			      BIT(SUN4I_CODEC_ADC_FIFOC_ADC_DRQ_EN));
++			      BIT(sun4i_codec_is_a523(scodec) ? SUN55I_CODEC_ADC_FIFOC_ADC_DRQ_EN : SUN4I_CODEC_ADC_FIFOC_ADC_DRQ_EN));
+ }
+ 
+ static void sun4i_codec_stop_capture(struct sun4i_codec *scodec)
+ {
+ 	/* Disable ADC DRQ */
+ 	regmap_field_clear_bits(scodec->reg_adc_fifoc,
+-				 BIT(SUN4I_CODEC_ADC_FIFOC_ADC_DRQ_EN));
++				 BIT(sun4i_codec_is_a523(scodec) ? SUN55I_CODEC_ADC_FIFOC_ADC_DRQ_EN : SUN4I_CODEC_ADC_FIFOC_ADC_DRQ_EN));
+ }
+ 
+ static int sun4i_codec_trigger(struct snd_pcm_substream *substream, int cmd,
+@@ -459,8 +472,8 @@
+ 
+ 	/* Set RX FIFO trigger level */
+ 	regmap_field_update_bits(scodec->reg_adc_fifoc,
+-				 0xf << SUN4I_CODEC_ADC_FIFOC_RX_TRIG_LEVEL,
+-				 0x7 << SUN4I_CODEC_ADC_FIFOC_RX_TRIG_LEVEL);
++				 0xf << (sun4i_codec_is_a523(scodec) ? SUN55I_CODEC_ADC_FIFOC_RX_TRIG_LEVEL : SUN4I_CODEC_ADC_FIFOC_RX_TRIG_LEVEL),
++				 0x7 << (sun4i_codec_is_a523(scodec) ? SUN55I_CODEC_ADC_FIFOC_RX_TRIG_LEVEL : SUN4I_CODEC_ADC_FIFOC_RX_TRIG_LEVEL));
+ 
+ 	/*
+ 	 * FIXME: Undocumented in the datasheet, but
+@@ -610,18 +623,20 @@
+ 				 7 << SUN4I_CODEC_ADC_FIFOC_ADC_FS,
+ 				 hwrate << SUN4I_CODEC_ADC_FIFOC_ADC_FS);
+ 
+-	/* Set the number of channels we want to use */
+-	if (params_channels(params) == 1)
+-		regmap_field_set_bits(scodec->reg_adc_fifoc,
+-					 BIT(SUN4I_CODEC_ADC_FIFOC_MONO_EN));
+-	else
+-		regmap_field_clear_bits(scodec->reg_adc_fifoc,
+-					 BIT(SUN4I_CODEC_ADC_FIFOC_MONO_EN));
++	/* Set the number of channels (A523 has no MONO_EN in ADC_FIFO_CTL) */
++	if (!sun4i_codec_is_a523(scodec)) {
++		if (params_channels(params) == 1)
++			regmap_field_set_bits(scodec->reg_adc_fifoc,
++					      BIT(SUN4I_CODEC_ADC_FIFOC_MONO_EN));
++		else
++			regmap_field_clear_bits(scodec->reg_adc_fifoc,
++						BIT(SUN4I_CODEC_ADC_FIFOC_MONO_EN));
++	}
+ 
+ 	/* Set the number of sample bits to either 16 or 24 bits */
+ 	if (hw_param_interval(params, SNDRV_PCM_HW_PARAM_SAMPLE_BITS)->min == 32) {
+ 		regmap_field_set_bits(scodec->reg_adc_fifoc,
+-				   BIT(SUN4I_CODEC_ADC_FIFOC_RX_SAMPLE_BITS));
++				   BIT(sun4i_codec_is_a523(scodec) ? SUN55I_CODEC_ADC_FIFOC_RX_SAMPLE_BITS : SUN4I_CODEC_ADC_FIFOC_RX_SAMPLE_BITS));
+ 
+ 		regmap_field_clear_bits(scodec->reg_adc_fifoc,
+ 				   BIT(SUN4I_CODEC_ADC_FIFOC_RX_FIFO_MODE));
+@@ -629,7 +644,7 @@
+ 		scodec->capture_dma_data.addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+ 	} else {
+ 		regmap_field_clear_bits(scodec->reg_adc_fifoc,
+-				   BIT(SUN4I_CODEC_ADC_FIFOC_RX_SAMPLE_BITS));
++				   BIT(sun4i_codec_is_a523(scodec) ? SUN55I_CODEC_ADC_FIFOC_RX_SAMPLE_BITS : SUN4I_CODEC_ADC_FIFOC_RX_SAMPLE_BITS));
+ 
+ 		/* Fill most significant bits with valid data MSB */
+ 		regmap_field_set_bits(scodec->reg_adc_fifoc,
+@@ -2188,8 +2203,8 @@
+ 			 SUN55I_CODEC_ADC1_MIC1_PGA_EN, 0, NULL, 0),
+ 
+ 	/* Digital parts of the ADCs */
+-	SND_SOC_DAPM_SUPPLY("ADC Enable", SUN6I_CODEC_ADC_FIFOC,
+-			    SUN6I_CODEC_ADC_FIFOC_EN_AD, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("ADC Enable", SUN55I_CODEC_ADC_FIFOC,
++			    SUN55I_CODEC_ADC_FIFOC_ADC_DIG_EN, 0, NULL, 0),
+ 	SND_SOC_DAPM_SUPPLY("ADC1 Enable", SUN55I_CODEC_ADC_DIG_CTRL,
+ 			    SUN55I_CODEC_ADC_DIG_CTRL_ADC1_EN, 0, NULL, 0),
+ 	SND_SOC_DAPM_SUPPLY("ADC2 Enable", SUN55I_CODEC_ADC_DIG_CTRL,
+@@ -2246,6 +2261,9 @@
+ 	{ "Mic1 PGA", NULL, "MIC1"},
+ 	{ "Mic2 PGA", NULL, "MIC2"},
+ 	{ "Mic3 PGA", NULL, "MIC3"},
++	{ "Mic1 PGA", NULL, "MBIAS" },
++	{ "Mic2 PGA", NULL, "MBIAS" },
++	{ "Mic3 PGA", NULL, "MBIAS" },
+ 
+ 	/* ADC Routes */
+ 	{ "ADC1 Enable", NULL, "ADC Enable" },
+@@ -2254,6 +2272,9 @@
+ 	{ "ADC1", NULL, "Mic1 PGA" },
+ 	{ "ADC2", NULL, "Mic2 PGA" },
+ 	{ "ADC3", NULL, "Mic3 PGA" },
++	{ "ADC1", NULL, "ADC1 Enable" },
++	{ "ADC2", NULL, "ADC2 Enable" },
++	{ "ADC3", NULL, "ADC3 Enable" },
+ 
+ 	/* DAC Routes */
+ 	{ "Left DAC", NULL, "DAC Enable" },

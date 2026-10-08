@@ -80,7 +80,21 @@ progress.
 
 **Display (the last big blocker).** Deferred to last — but a lot is
 already solved on hardware: the panel's **backlight is on** and the
-entire clock / PHY / TCON / DSI stack is solved and committed. Working on silicon: the from-scratch
+clock / PHY / TCON / DSI stack is solved on silicon.
+
+> **Upstream status (read this first).** The A523 display support here is **ours — it is not in
+> mainline.** It builds on mainline's generic `sun4i` DRM drivers (`sun4i_tcon.c`,
+> `sun6i_mipi_dsi.c`, `sun8i_mixer.c`) and the **H616 DE33** rework (Jernej Škrabec) — none of which
+> contain any `sun55i-a523` display node or compatible. Our patches **`0001`–`0008`** *add* the A523
+> variants (DSI host, combo-PHY + its binding, SoC display DTS nodes, TCON-LCD, DE33 mixer config,
+> PWM0, panel driver) together with the board DT — so patch `0008` appends `sun55i-a523-de33-mixer-0`
+> *alongside* the upstream H616 one. **There is therefore no upstream "A523 display patchset" to
+> link; these patches + the drop-in drivers (`kernel/drivers/`) are the source.** And the fixes that
+> *actually light the panel* — RCQ arm-at-target, the TCON CPU-interface (8080) trigger, the DSI1
+> clock-gate bit 17, and the 62 MHz clocking — currently live in the **build tree, not yet as clean
+> patches**. So "working" means **on this hardware, with these out-of-tree fixes — not upstream-clean.**
+
+Working on silicon: the from-scratch
 **combo-PHY DISPLL locks** (`pll_enable ret=0`), the **TCON pixel clock** runs at the correct
 **93 MHz**, and the **DSI** comes up in video mode with the **panel attached + initialised**. Two
 bugs were cracked to get there:

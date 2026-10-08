@@ -1,0 +1,51 @@
+From: Midgy BALON <midgy971@gmail.com>
+Subject: [PATCH] Input: joystick: wire up the Trimui Smart Pro S gamepad
+
+Add the Trimui Smart Pro S gamepad driver to the build. The handheld has
+two MCUs, one per half, each streaming the controller state (buttons,
+D-pad, analog sticks, triggers) over its own single-wire UART; the driver
+binds both as serdev devices and merges them into a single virtual
+Xbox 360-style input device, and drives the shared rumble motor via the
+force-feedback memless core.
+
+Driver source is kernel/drivers/gamepad-trimui-smart-pro-s.c in this repo;
+drop it into drivers/input/joystick/. The DT serdev child nodes
+(compatibles trimui,smart-pro-s-gamepad-left / -right under uart5 / uart7)
+and their binding are already in the board DTS and kernel/bindings/.
+
+Assisted-by: Claude (Opus 4.8)
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ drivers/input/joystick/Kconfig  | 13 +++++++++++++
+ drivers/input/joystick/Makefile |  1 +
+ 2 files changed, 14 insertions(+)
+
+diff --git a/drivers/input/joystick/Kconfig b/drivers/input/joystick/Kconfig
+--- a/drivers/input/joystick/Kconfig
++++ b/drivers/input/joystick/Kconfig
+@@ -422,4 +422,17 @@
+ 	  To compile this driver as a module, choose M here: the module will be
+ 	  called adafruit-seesaw.
+ 
++config JOYSTICK_TRIMUI_SMART_PRO_S
++	tristate "Trimui Smart Pro S gamepad"
++	depends on SERIAL_DEV_BUS && OF
++	select INPUT_FF_MEMLESS
++	help
++	  Say Y here to enable support for the gamepad of the Trimui Smart
++	  Pro S handheld. Two MCUs on separate single-wire UARTs stream the
++	  controller state; this driver merges them into one virtual pad
++	  (buttons, analog sticks and rumble).
++
++	  To compile this driver as a module, choose M here: the module will
++	  be called gamepad-trimui-smart-pro-s.
++
+ endif
+diff --git a/drivers/input/joystick/Makefile b/drivers/input/joystick/Makefile
+--- a/drivers/input/joystick/Makefile
++++ b/drivers/input/joystick/Makefile
+@@ -41,3 +41,4 @@
+ obj-$(CONFIG_JOYSTICK_WALKERA0701)	+= walkera0701.o
+ obj-$(CONFIG_JOYSTICK_XPAD)		+= xpad.o
+ obj-$(CONFIG_JOYSTICK_ZHENHUA)		+= zhenhua.o
++obj-$(CONFIG_JOYSTICK_TRIMUI_SMART_PRO_S)	+= gamepad-trimui-smart-pro-s.o

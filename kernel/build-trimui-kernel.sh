@@ -31,6 +31,7 @@ echo "== drop in driver sources =="
 cp -v "$D/phy-sun55i-dsi-combo.c"        "$KSRC/drivers/phy/allwinner/"
 cp -v "$D/pwm-sun20i.c"                  "$KSRC/drivers/pwm/"
 cp -v "$D/panel-trimui-smart-pro-s.c"    "$KSRC/drivers/gpu/drm/panel/"
+cp -v "$D/gamepad-trimui-smart-pro-s.c"  "$KSRC/drivers/input/joystick/"
 # NB: the audio codec is NOT a dropped-in driver anymore — it is Chen-Yu Tsai's
 # A523 variant patched into the existing sun4i-codec.c (patches 0026-0031).
 

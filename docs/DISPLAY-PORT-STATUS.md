@@ -105,7 +105,31 @@ mixer via drm-misc-next** may finally pay off — note (per the pivot below) tha
 > we instead fixed the PHY + TCON directly on our v7.2-rc3 tree, and the display needed real
 > per-layer debugging. That section is kept for context; **this section is the live status.**
 
-## ★ 2026-08-06 — PIVOT: the A523 display stack is now UPSTREAM (drm-misc-next)
+## ⛔ 2026-08-06 — RETRACTED: "the A523 display stack is now UPSTREAM (drm-misc-next)" — this was WRONG
+
+> **★ CORRECTION (2026-10-09) — read this first; the 2026-08-06 claim below is false.**
+> The A523 display pipeline is **NOT upstream** — not in mainline, not in `drm-misc-next`.
+> Verified against `torvalds/linux` master on 2026-10-09:
+> - `drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c` — only a31/a64/a100 variants, **no a523**;
+> - `drivers/gpu/drm/sun4i/sun8i_mixer.c` — **no sun55i-a523** mixer config;
+> - `arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi` — **no display pipeline at all**
+>   (no dsi / tcon / de / combo-phy nodes).
+>
+> What the note below actually inspected (`build-host:/root/opi4a-de33`) was **ut-slayer's
+> OrangePi-4A community port** (<https://github.com/ut-slayer/orangepi-4a-mainline>), **not**
+> `drm-misc-next`. That tree does carry A523 display bits, but it is an out-of-tree community
+> port — not mainline / drm-misc.
+>
+> **The truth:** the A523 display support is **ours**, living only in this repo —
+> patches [`0001`–`0008`](../kernel/patches/) plus the self-contained
+> [`drm-display-provisional.patch`](../kernel/harvest-sun55i-de/drm-display-provisional.patch)
+> (applies to a pristine **v7.2-rc3**). It builds *on* mainline's generic `drm/sun4i` framework
+> and the **in-flight H616 DE33** upstream effort
+> ([dri-devel](https://lists.freedesktop.org/archives/dri-devel/2025-May/507950.html)) — neither
+> of which carries the A523 pipeline itself. This retraction resolves
+> [issue #1](https://github.com/MidG971/trimui_mainline_dts/issues/1).
+>
+> The original (wrong) section is kept below, unedited, for provenance.
 
 The most important update since the boot milestone: **mainline caught up.** `drm-misc-next`
 (the DRM staging tree, v7.2-rc2 base) now carries the **entire A523 display pipeline**, so most

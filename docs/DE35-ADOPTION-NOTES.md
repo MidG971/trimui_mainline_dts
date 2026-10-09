@@ -3,20 +3,24 @@
 
 # DE3.5 (DE-v35x) display — adoption plan (ut-slayer → our DSI panel)
 
-> ## ⛔ SUPERSEDED (2026-08-06) — the A523 DE33 stack is now UPSTREAM
-> This entire document — the plan to forward-port ut-slayer's DE-v35x / RCQ chain onto our
-> tree — is **obsolete.** `drm-misc-next` now carries the full A523 display pipeline in mainline
-> form (DSI host + TCON-LCD + **DE33 mixer** + the SoC DT pipeline + Jernej Škrabec's DE33
-> fixes). We **inherit the upstream drivers** instead of forward-porting a BSP-derived RCQ branch.
+> ## ⛔ 2026-08-06 banner RETRACTED (2026-10-09) — the A523 DE33 stack is **NOT** upstream
+> The 2026-08-06 claim here ("`drm-misc-next` now carries the full A523 display pipeline") was
+> **wrong.** Verified against `torvalds/linux` master on 2026-10-09: `sun6i_mipi_dsi.c` has no a523
+> variant, `sun8i_mixer.c` has no sun55i-a523 mixer, and `sun55i-a523.dtsi` has **no display
+> pipeline at all**. The A523 display stack lives **only in this repo** — patches
+> [`0001`–`0008`](../kernel/patches/) + the self-contained
+> [`drm-display-provisional.patch`](../kernel/harvest-sun55i-de/drm-display-provisional.patch)
+> (applies to a pristine **v7.2-rc3**) — built on mainline's generic `drm/sun4i` and the in-flight
+> **H616** DE33 effort. The RCQ work this document evaluated is real, and lives in
+> **ut-slayer's OrangePi-4A port** (<https://github.com/ut-slayer/orangepi-4a-mainline>) — a
+> community tree, not drm-misc. See
+> [DISPLAY-PORT-STATUS.md](DISPLAY-PORT-STATUS.md) (current status) and
+> [issue #1](https://github.com/MidG971/trimui_mainline_dts/issues/1).
 >
 > **Update (2026-08-10):** the display was brought up **on hardware** — the combo-PHY DISPLL locks,
 > the TCON pixel clock is correct (93 MHz), the DSI + panel are up and the **panel backlight is on**.
-> All of that was fixed directly on our **v7.2-rc3 tree** (not by migrating). The **one remaining
-> blocker is the DE33 mixer scanout** — the mixer isn't pushing a frame through the TCON, so the CRTC
-> page-flip never completes. Adopting mainline's **DE33 mixer** (drm-misc-next) is now the likely
-> route for that last piece. See the **2026-08-10** section in
-> [`DISPLAY-PORT-STATUS.md`](DISPLAY-PORT-STATUS.md). The notes below are a record of the
-> forward-port paths we evaluated and ruled out.
+> All of that was fixed directly on our **v7.2-rc3 tree**. The notes below are a record of the
+> forward-port paths we evaluated.
 
 The DE3.5 mixer/CRTC ("lit pixel") was our biggest display blocker. The
 **ut-slayer / OrangePi-4A** effort has a **complete, HW-proven DE-v35x driver**

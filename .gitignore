@@ -2,7 +2,8 @@ build/
 *.dtb
 .DS_Store
 *.7z
-kernel-source/
+# local build-tree symlink (matches both the symlink file and a real dir)
+kernel-source
 *.swp
 test_format.dts
 include

@@ -1,5 +1,15 @@
 # A523 DE-v35x RCQ backend harvest (display scanout fix) — WIP, for next session
 
+> **★ Reproducing the panel right now:** the *complete applied result* — this RCQ backend
+> wired into the DRM drivers **plus** all the provisional panel-lighting fixes (CPU-IF trigger,
+> DSI1 gate, 62 MHz, vblank rework) — is captured as **[`drm-display-provisional.patch`](drm-display-provisional.patch)**
+> in this directory. Apply it to a pristine **v7.2-rc3** (`git apply drm-display-provisional.patch`)
+> for the full on-HW DRM display state; it's self-contained (creates `sun55i_de.*` + the panel
+> driver and modifies the sun4i drivers). It is **raw/with debug, NOT upstream-clean** — it's the
+> reproducibility artifact while the clean split-out patches are extracted. (It supersedes/overlaps
+> the clean pieces — patches 0001/0004/0007/0008, the files below, `dts/*.dtsi`, the drop-in panel
+> driver — so apply EITHER the clean pieces OR this raw patch for the DRM display, not both.)
+
 ## Why
 The A523 display engine (DE-v35x / "DE3.5") commits its pipeline via an **RCQ**
 (Register Config Queue — per-frame register-block DMA). Our current `sun8i_mixer`

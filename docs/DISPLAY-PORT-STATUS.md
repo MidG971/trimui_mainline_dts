@@ -13,6 +13,12 @@ Since the 2026-08-10 status below (which had the DE33 mixer as the last blocker)
 scanout was solved and the panel now displays a **full-screen image on hardware**. Three fixes lit
 it, on top of the PHY/TCON work recorded below:
 
+> **Reproducibility (2026-10-09):** these panel-lighting fixes are still in the build tree, not yet
+> split into clean upstream patches. The complete raw diff that reproduces the on-HW display is captured
+> at [`kernel/harvest-sun55i-de/drm-display-provisional.patch`](../kernel/harvest-sun55i-de/drm-display-provisional.patch)
+> (apply to a pristine v7.2-rc3; raw/with debug, not upstream-clean). Splitting it into clean,
+> upstream-shaped patches is the tracked follow-up.
+
 - **RCQ (Register Config Queue) arm timing.** The A523 DE-v35x latches its DE33 registers via RCQ,
   and the commit must be *armed in the active region* (the driver was arming in blanking).
   Direct-MMIO writes only ever hit a shadow that never latched — the real "mixer not feeding a

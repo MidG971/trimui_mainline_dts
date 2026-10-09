@@ -10,6 +10,12 @@
 > the clean pieces — patches 0001/0004/0007/0008, the files below, `dts/*.dtsi`, the drop-in panel
 > driver — so apply EITHER the clean pieces OR this raw patch for the DRM display, not both.)
 
+> **★ Upstream alignment (2026-10-09):** [`DE33-ALIGNMENT.md`](DE33-ALIGNMENT.md) maps this
+> BSP-derived backend onto mainline's DE33 **plus** Jernej Škrabec's in-flight DE33 rework — which
+> of our changes are real upstream contributions vs. throwaway, the new shared-`planes` DT model our
+> A523 work must follow (patch 0008 is obsoleted by it), and the one HW experiment (direct-AHB vs.
+> RCQ) that sizes the entire upstream job.
+
 ## Why
 The A523 display engine (DE-v35x / "DE3.5") commits its pipeline via an **RCQ**
 (Register Config Queue — per-frame register-block DMA). Our current `sun8i_mixer`

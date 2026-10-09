@@ -1,0 +1,77 @@
+From: Midgy BALON <midgy971@gmail.com>
+Subject: [DRAFT PATCH 1/3] drm/sun4i: planes: add sun55i-a523 DE33 planes
+
+DRAFT - staged on top of Jernej Skrabec's "[PATCH v2 0/8] drm/sun4i: update
+DE33 support" (patch 6 "Add planes driver"), which is NOT merged yet. Hunk
+offsets are UNVERIFIED until that series lands; regenerate + `git apply --check`
+then. See kernel/staged-de33-a523/README.md.
+
+The A523 (sun55iw3) DE3.5 uses the same shared-planes model as the H616 DE3.3:
+planes are a resource shared between mixers, assigned via the port->channel mux
+in the display-clock/DE-top register space. Add an A523 planes quirks entry and
+compatible.
+
+def_map: A523 BSP (de350) exposes 3 VI (ch 0..2) + 3 UI (ch 6..8); stock routes
+{0,1,6,7,8} to disp0. This draft starts with {0,6,7} (a UI primary at index 1,
+matching H616); the final channel set/order is a hardware-verify item. disp1 is
+unused - the A523 drives a single DSI panel.
+
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ .../display/allwinner,sun50i-h616-de33-planes.yaml |  1 +
+ drivers/gpu/drm/sun4i/sun50i_planes.c              | 22 ++++++++++++++++++++++
+ 2 files changed, 23 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/display/allwinner,sun50i-h616-de33-planes.yaml b/Documentation/devicetree/bindings/display/allwinner,sun50i-h616-de33-planes.yaml
+--- a/Documentation/devicetree/bindings/display/allwinner,sun50i-h616-de33-planes.yaml
++++ b/Documentation/devicetree/bindings/display/allwinner,sun50i-h616-de33-planes.yaml
+@@ -17,6 +17,7 @@ properties:
+   compatible:
+     enum:
+       - allwinner,sun50i-h616-de33-planes
++      - allwinner,sun55i-a523-de33-planes
+ 
+   reg:
+     maxItems: 1
+diff --git a/drivers/gpu/drm/sun4i/sun50i_planes.c b/drivers/gpu/drm/sun4i/sun50i_planes.c
+--- a/drivers/gpu/drm/sun4i/sun50i_planes.c
++++ b/drivers/gpu/drm/sun4i/sun50i_planes.c
+@@ -31,11 +31,36 @@ static const struct sun50i_planes_quirks sun50i_h616_planes_quirks = {
+ 	},
+ };
+ 
++/*
++ * A523 (sun55iw3) DE3.5 - DE33-class, single display (disp0). The A523 BSP
++ * (de350) exposes 3 VI (ch 0..2) + 3 UI (ch 6..8); stock routes {0,1,6,7,8}
++ * to disp0. This draft uses {0,6,7} (UI primary at index 1, like H616); the
++ * final channel set/order is a hardware-verify item. disp1 is unused.
++ */
++static const struct sun50i_planes_quirks sun55i_a523_planes_quirks = {
++	.def_map = {
++		{
++			.map = {0, 6, 7},
++			.num_ch = 3,
++		},
++	},
++	.cfg = {
++		.de_type	= SUN8I_MIXER_DE33,
++		/* TODO: enable scaling once the driver supports it (as H616) */
++		.scaler_mask	= 0,
++		.scanline_yuv	= 4096,
++	},
++};
++
+ static const struct of_device_id sun50i_planes_of_table[] = {
+ 	{
+ 		.compatible = "allwinner,sun50i-h616-de33-planes",
+ 		.data = &sun50i_h616_planes_quirks
+ 	},
++	{
++		.compatible = "allwinner,sun55i-a523-de33-planes",
++		.data = &sun55i_a523_planes_quirks
++	},
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, sun50i_planes_of_table);
+--
+2.39.5

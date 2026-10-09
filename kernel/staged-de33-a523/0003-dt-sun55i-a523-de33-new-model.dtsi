@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+// Copyright (C) 2026 Midgy BALON
+//
+// DRAFT - A523 (sun55iw3) DE3.5 display engine in the new DE33 "shared planes"
+// model (Jernej Skrabec's [PATCH v2 0/8] drm/sun4i: update DE33 support, NOT
+// merged yet). This REPLACES the disabled `de@5000000` skeleton added by
+// kernel/patches/0003; the tcon1 / dsi1 / dsi1_combo_phy nodes from that patch
+// are unchanged and are referenced here via the OF graph (tcon1_in_de).
+//
+// ########################################################################
+// # Every `reg` here, and the plane def_map, is a BEST-ESTIMATE from the   #
+// # BSP (lowlevel_v35x/de_top.c) + our on-HW captures. All lines marked    #
+// # VERIFY must be confirmed against the BSP address map and on hardware   #
+// # before this is anything more than a draft. See README.md + the         #
+// # analysis in ../harvest-sun55i-de/DE33-ALIGNMENT.md.                     #
+// ########################################################################
+//
+// Three nodes replace the single skeleton:
+//   de_syscon  - the DE-top glue holding the port->channel mux (0x24/0x28/0x2c)
+//                that the planes driver programs from def_map. (VERIFY whether
+//                A523 instead wants a dedicated de33-clk CCU node like H616.)
+//   de_planes  - the shared layer-fetch block; carries allwinner,plane-mapping.
+//   de_mixer0  - the per-display blender ("display") + global ("top"); carries
+//                the DE clocks/reset/power-domain, the allwinner,planes phandle,
+//                and the OF-graph output to TCON-LCD1.
+
+/ {
+	soc {
+		/*
+		 * Port->channel mux lives in the DE-top block. The planes driver
+		 * looks this up via `allwinner,plane-mapping` and writes
+		 * 0x24 (CHN2CORE) / 0x28 (PORT02CHN) / 0x2c (PORT12CHN) from the
+		 * def_map. Keep the range just large enough to cover those regs so
+		 * it does not overlap de_mixer0's "top" regmap (see VERIFY below).
+		 */
+		de_syscon: syscon@5008000 {
+			compatible = "allwinner,sun55i-a523-de-syscon", "syscon";
+			reg = <0x05008000 0x30>;	/* VERIFY base/size (mux at +0x24/28/2c) */
+		};
+
+		de_planes: planes@5100000 {
+			compatible = "allwinner,sun55i-a523-de33-planes";
+			reg = <0x05100000 0x180000>;	/* VERIFY: layer-fetch block size */
+			allwinner,plane-mapping = <&de_syscon>;
+			/*
+			 * NOTE: sun50i_planes_probe() does not request clocks; it
+			 * writes the mux at probe. On A523 the mux is in the DE-top,
+			 * which is gated by the DE clock the mixer enables - VERIFY
+			 * the de-top is reachable at planes-probe time (ordering).
+			 */
+		};
+
+		de_mixer0: mixer@5280000 {
+			compatible = "allwinner,sun55i-a523-de33-mixer-0";
+			/*
+			 * reg[0] "display" = the disp0 blender region (DE_DISP_OFFSET(0),
+			 *   BSP de_rtmx: BLD at +0x1000 => 0x5281000, FMT at +0x5000).
+			 * reg[1] "top" = RTMX global/enable (GLB_CTL at 0x5008100).
+			 * Both VERIFY - sizes and the "top" base especially (it sits in
+			 * the same DE-top block as de_syscon; keep the ranges disjoint).
+			 */
+			reg = <0x05280000 0x10000>,	/* VERIFY "display" (blend) base/size */
+			      <0x05008100 0x40>;	/* VERIFY "top" (RTMX global) base/size */
+			reg-names = "display", "top";
+			clocks = <&ccu CLK_BUS_DE>, <&ccu CLK_DE>;
+			clock-names = "bus", "mod";
+			resets = <&ccu RST_BUS_DE>;
+			power-domains = <&pck600 PD_DE>;
+			allwinner,planes = <&de_planes>;
+			status = "disabled";		/* board-enabled, like the pipeline it feeds */
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				de_out: port@0 {
+					reg = <0>;
+
+					de_out_tcon1: endpoint {
+						remote-endpoint = <&tcon1_in_de>;
+					};
+				};
+			};
+		};
+	};
+};
+
+/*
+ * Reminder (DE33-ALIGNMENT.md §5.1): this DT + patches 0001/0002 are the
+ * plane/mixer/mux half only. If the A523 needs RCQ (not direct-AHB) commit,
+ * an additional RTMX/RCQ driver is required and may add its own reg range /
+ * reserved-memory here. Resolve the AHB-vs-RCQ question on HW first.
+ */

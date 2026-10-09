@@ -1,0 +1,69 @@
+From: Midgy BALON <midgy971@gmail.com>
+Subject: [DRAFT PATCH 2/3] drm/sun4i: sun8i-mixer: add sun55i-a523 DE33 mixer
+
+DRAFT - staged on top of Jernej Skrabec's "[PATCH v2 0/8] drm/sun4i: update
+DE33 support" (patch 8 "switch DE33 to new bindings"), which is NOT merged yet.
+Hunk offsets are UNVERIFIED until that series lands; regenerate +
+`git apply --check` then. See kernel/staged-de33-a523/README.md.
+
+This supersedes our old kernel/patches/0008: in the new model the DE33 mixer
+cfg is minimal (map[]/ui_num/vi_num/lay_cfg moved to the planes driver), and
+the binding uses the split form (reg = display,top + an allwinner,planes
+phandle). Add the A523 (sun55iw3) DE3.5 mixer cfg and compatible.
+
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ .../display/allwinner,sun8i-a83t-de2-mixer.yaml     |  2 ++
+ drivers/gpu/drm/sun4i/sun8i_mixer.c                 | 10 ++++++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/display/allwinner,sun8i-a83t-de2-mixer.yaml b/Documentation/devicetree/bindings/display/allwinner,sun8i-a83t-de2-mixer.yaml
+--- a/Documentation/devicetree/bindings/display/allwinner,sun8i-a83t-de2-mixer.yaml
++++ b/Documentation/devicetree/bindings/display/allwinner,sun8i-a83t-de2-mixer.yaml
+@@ -25,5 +25,6 @@ properties:
+       - allwinner,sun50i-a64-de2-mixer-1
+       - allwinner,sun50i-h6-de3-mixer-0
+       - allwinner,sun50i-h616-de33-mixer-0
++      - allwinner,sun55i-a523-de33-mixer-0
+ 
+   reg: true
+
+@@ -78,6 +79,7 @@ allOf:
+           contains:
+             enum:
+               - allwinner,sun50i-h616-de33-mixer-0
++              - allwinner,sun55i-a523-de33-mixer-0
+     then:
+       properties:
+         reg:
+diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+@@ -886,7 +886,14 @@ static const struct sun8i_mixer_cfg sun50i_h616_mixer0_cfg = {
+ 	.de_type	= SUN8I_MIXER_DE33,
+ 	.mod_rate	= 600000000,
+ };
+ 
++/* A523 (sun55iw3) DE3.5 - DE33-class. Plane/channel config lives in the
++ * sun50i-planes driver (sun55i_a523_planes_quirks); the mixer cfg is minimal. */
++static const struct sun8i_mixer_cfg sun55i_a523_mixer0_cfg = {
++	.de_type	= SUN8I_MIXER_DE33,
++	.mod_rate	= 600000000,
++};
++
+ static const struct of_device_id sun8i_mixer_of_table[] = {
+ 	{
+ 		.compatible = "allwinner,sun8i-a83t-de2-mixer-0",
+@@ -946,6 +952,10 @@ static const struct of_device_id sun8i_mixer_of_table[] = {
+ 		.compatible = "allwinner,sun50i-h616-de33-mixer-0",
+ 		.data = &sun50i_h616_mixer0_cfg,
+ 	},
++	{
++		.compatible = "allwinner,sun55i-a523-de33-mixer-0",
++		.data = &sun55i_a523_mixer0_cfg,
++	},
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, sun8i_mixer_of_table);
+--
+2.39.5

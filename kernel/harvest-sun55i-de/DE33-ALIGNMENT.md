@@ -24,6 +24,12 @@ driver** + shared-planes **binding split**) is **NOT merged** — the drm/sun4i 
 `sun50i_planes.o`, and the contentious binding patch 7/8 was still under review through
 2026-09-15. The follow-up "H616 display pipeline" series is gated on this rework merging.
 
+> **★ HW UPDATE (2026-10-09) — the §5.1 gate is RESOLVED: direct-AHB works on A523.** Tested
+> `use_rcq=0` on hardware: the panel lit (white) and dmesg showed the AHB path writing the *active*
+> layer registers with no RCQ kick. ⇒ the BSP-derived RCQ engine **`sun55i_de.c` can be dropped**,
+> and this staged set is ~the whole A523 DE port. Details + caveats in §5. (Heat/fractal remains a
+> **separate** blocker, see §5.3.)
+
 ---
 
 ## 1. Three DE generations, three plane models
@@ -108,30 +114,34 @@ hardcoded in `ccu-sun8i-de2.c` at clock probe.
 - `mod_rate = 600 MHz`; scaler_mask / scanline_yuv (verify — Jernej sets `scaler_mask=0` for
   H616 with a "needs driver work" TODO).
 
-**NET-NEW, DE3.5-only, NOT covered by the H616 series** (the hard part):
-- **The RTMX/RCQ latch engine.** H616 DE3.3 commits via direct AHB; our A523 path uses RCQ
-  (`use_rcq=Y arm_at_target=Y`). If RCQ is *mandatory* on A523, this is a whole new subsystem
-  with no upstream equivalent, and the BSP-derived `sun55i_de.c` is **not upstreamable as-is**
-  → needs a clean reimplementation (coordinate with ut-slayer, who have the HW-proven A523 RCQ
-  for their HDMI path). **See the open question in §5 — this is the fork that sizes the whole job.**
+**NET-NEW, DE3.5-only, NOT covered by the H616 series:**
+- **~~The RTMX/RCQ latch engine~~ — RESOLVED (§5.1, HW 2026-10-09): NOT needed.** We expected RCQ
+  might be mandatory, but the `use_rcq=0` test lit the panel via **direct AHB** — the A523 DE latches
+  plain active-register writes like H616. ⇒ the BSP-derived `sun55i_de.c` is **dropped**, no net-new
+  RCQ subsystem. (Was: "the fork that sizes the whole job" — it came down on the easy side.)
 - **The DCSC (device-output CSC) handling** — our bypass fix. May overlap Jernej's patch 3
   ("Add support for DE33 CSC", per-channel CCSC); check whether his CSC path subsumes our
   device-output-CSC bypass or they're distinct units.
 - The detop RTMX-global regs (GLB_CTL/STS/OUT_SIZE/RCQ at `0x8100+`) — DE3.5-only.
 
-## 5. Open questions that gate the clean port (HW-resolvable)
+## 5. Status of the gating questions
 
-1. **★ Is RCQ mandatory on A523, or can it be driven by direct AHB like H616?** Our debugging
-   concluded "AHB writes the shadow but never latches → black" and the RCQ arm-at-target was the
-   fix — but that was mid-saga, with other bugs confounding it. **Re-test `use_rcq=N` now that the
-   rest of the pipeline is correct (gate/trigger/clocks/reset).**
-   - If **direct AHB works** → A523 ≈ H616 + planes; the clean series is *small* (planes quirks +
-     minimal mixer cfg + DT + bindings), and `sun55i_de.c` is dropped entirely.
-   - If **RCQ is required** → the net-new RCQ subsystem dominates the effort; plan a clean
-     reimplementation + coordinate with ut-slayer.
-   This single experiment sizes the entire upstream job — do it first.
-2. **Exact `def_map`** — 5 (stock-routed) vs 6 (HW-present) channels.
-3. **Colour** — does Jernej's patch-3 DE33 CSC subsume our DCSC bypass, or is the device-output
+1. **✅ RESOLVED (HW, 2026-10-09) — RCQ is NOT mandatory; direct-AHB works.** Booted `use_rcq=0`
+   (modprobe.d + warm-reboot): the panel lit **white** and dmesg showed the AHB path writing the
+   *active* layer registers directly — `DBG AHB OVL_LAY0 dirty=1 hw_attctl=ff000402`,
+   `RCQ-RB … kicked=0 use_rcq=0`, with `hw_attctl` reading back enabled. So the A523 DE latches
+   plain register writes like H616. ⇒ **drop `sun55i_de.c`**; the clean series is small (planes
+   quirks + minimal mixer cfg + DT + bindings).
+   **Caveat:** `use_rcq=0` showed *slight flicker* (our crude path writes active regs mid-frame,
+   no vsync double-buffer → tear; H616's proper AHB commit is flicker-free, so expected fixable).
+   The *definitive* confirmation is running Jernej's H616 mixer path on A523 — but the RCQ risk is
+   now low.
+2. **Exact `def_map`** — 5 (stock-routed) vs 6 (HW-present) channels. Still a verify item.
+3. **★ Heat (a separate blocker, NOT the commit path).** The IC overheated and showed the
+   **fractal** thermal-degradation artifact within ~2 min; backlight-off did *not* stop it (it's the
+   DSI HS-clock duty, the known display-heat problem), so we powered off. This gates *sustained*
+   display use regardless of RCQ/AHB and is the real remaining display problem.
+4. **Colour** — does Jernej's patch-3 DE33 CSC subsume our DCSC bypass, or is the device-output
    CSC a separate unit we still must program? (ties to the open YUV↔RGB colour item).
 
 ## 6. The A523 clean-port plan (shaped against the rework)
@@ -148,7 +158,7 @@ Gated on Jernej's rework merging, but **preppable now**:
    planes yaml.
 4. **A523 DT:** the DE-top syscon node, the `planes@…` node (reg = layer block,
    `allwinner,plane-mapping`), the `mixer@…` node (reg = display+top, `allwinner,planes`).
-5. **RCQ/RTMX:** per §5.1 — either dropped (AHB works) or a clean new driver (RCQ required).
+5. **RCQ/RTMX:** per §5.1 — **dropped** (AHB works on HW); no RCQ driver needed.
 6. **CSC/colour:** align with patch 3.
 
 ## 7. Coordinate, don't fork
@@ -166,5 +176,11 @@ Gated on Jernej's rework merging, but **preppable now**:
 
 Produce the **staged A523 patch set against the rework** (items 6.1–6.4) now, clearly marked
 "applies on top of Jernej's DE33 rework, not current mainline," so it's ready to post the moment
-the rework merges. The one thing it can't settle offline is §5.1 (AHB-vs-RCQ) — that HW
-experiment should run before we commit to the RCQ half.
+the rework merges. The one thing it couldn't settle offline was §5.1 (AHB-vs-RCQ) —
+**now settled on HW (2026-10-09): direct-AHB works, so there is no RCQ half to build.**
+
+**→ Done (2026-10-09):** the staged set is in [`../staged-de33-a523/`](../staged-de33-a523/)
+(planes + mixer draft patches + the new-model DT fragment + a README stating base/status/opens).
+Driver hunks are well-formed unified diffs; offsets regenerate against the merged rework. The DT
+reg split + def_map carry `VERIFY` flags. The §5.1 RCQ question is **resolved** (AHB works →
+`sun55i_de.c` dropped); the remaining HW gate is **heat** (§5.3), not the commit path.
